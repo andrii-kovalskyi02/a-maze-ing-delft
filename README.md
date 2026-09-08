@@ -9,11 +9,45 @@ at the exit door to escape.
 
 ## Running it
 
-Requires Python 3 and PyCharm (per the Project Guide).
+Requires Python 3.12 or newer.
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
+python -m amazing_delft
+```
+
+## Working on it
+
+**Read [CONTRIBUTING.md](CONTRIBUTING.md) before your first pull request.** It has the
+six-step recipe for adding a room, and the three commands to run before you push.
+
+Building a room means writing one file and changing one line. Start from
+`amazing_delft/rooms/_template.py`, and read `amazing_delft/rooms/classroom_2035.py`
+as a worked example.
+
+## How the code is laid out
 
 ```
-python3 main.py
+amazing_delft/
+  models.py      the data types a room is built from (Room, Item, Boss, ...)
+  world.py       the world graph: every room, and the locks between them
+  game.py        the one main loop, and everything true about a play-through
+  parser.py      turns what the player typed into a command
+  commands.py    what each command does
+  backpack.py    the item catalogue and the player's backpack
+  encounters.py  running a boss's questions
+  help_text.py   the single source of the `?` text
+  ui.py          all screen output and keyboard input
+  floor_map.py   the `map` command (issue #120, not built yet)
+  rooms/         one file per room - this is where the team works
+tests/
+  test_room_contract.py   runs against every registered room, automatically
 ```
+
+The engine owns the command loop so that no room has to. That is what lets several
+people build rooms at the same time without six different command loops to merge.
 
 ## Backlog
 
@@ -29,10 +63,12 @@ The product backlog lives in this repository's issues and on the
 | `question` | An open design question that needs a team or Product Owner decision |
 | `area:blue` / `area:red` / `area:yellow` / `area:core` | Which part of the building, or the shared engine |
 
-Milestones map to the sprints in the Project Guide: Sprint 1 (week 2-4, rooms only),
-Sprint 2 (week 4-6, US2-US5 and persistence), Sprint 3 (week 7-8, fixes and improvements).
+Milestones map to the sprints in the Project Guide: Sprint 1 (week 2-4, engine enablers
+and rooms), Sprint 2 (week 4-6, US2-US5 and persistence), Sprint 3 (week 7-8, fixes and
+improvements).
 
 ## Framework
 
 Started from [SimpleMaze](https://github.com/pb12/SimpleMaze), the framework provided with
-the project assignment.
+the project assignment. The seed is preserved in this repository's git history; the engine
+described above replaced it once the shared room contract was agreed (issue #96).

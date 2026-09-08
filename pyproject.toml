@@ -1,0 +1,41 @@
+[project]
+name = "amazing-delft"
+version = "0.1.0"
+description = "A text adventure on the 2nd floor of THUAS Delft."
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["amazing_delft*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# A deliberately small set: the rules a first-year benefits from, and no more.
+# E/W: style, F: real mistakes, I: import order, UP: modern Python,
+# B: common bugs, SIM: simpler ways to write the same thing, D: docstrings.
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "D"]
+ignore = [
+    "D203",  # conflicts with D211, which we keep
+    "D213",  # conflicts with D212, which we keep
+]
+
+[tool.ruff.lint.per-file-ignores]
+# A well-named test explains itself; test helpers do not need docstrings either.
+"tests/*" = ["D101", "D102", "D103", "D105", "D107"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
