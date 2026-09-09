@@ -1,0 +1,6 @@
+# The tools you need to work on the game. The game itself needs nothing but
+# Python 3.12 or newer.
+#
+#   pip install -r requirements-dev.txt
+pytest>=8.0
+ruff>=0.6
