@@ -23,25 +23,27 @@ def enterProjectRoom3(state):
             print("The door creaks open to reveal a bright and lively workspace.")
 
     # --- Room entry description ---
-    print("\n🏗️ You enter Project Room 3.")
-    print("Several tables are pushed together, covered in papers, laptops, and half-eaten snacks.")
-    print("A group of students is finishing a project while chatting and laughing.")
+    print("\nYou enter Project Room 3.")
+    print("The room feels strangely familiar, although you cannot immediately understand why.")
+    print("A clock on the wall shows 23:17.")
+    print("A whiteboard displays one word in large letters: REMEMBER.")
+    print("At a nearby desk, a laptop sits open. Something about the desk feels familiar.")
+    print("A strange figure stands quietly in the room. It is the Memory Keeper.")
 
     # --- Command handlers ---
 
+
     def handle_look():
-        """Describe the room and give clues."""
-        print("\nYou scan the room.")
-        print("The walls are covered in sticky notes, whiteboards are full of pseudocode and diagrams.")
-        if not state["visited"]["projectroom3"]:
-            print("Near the snack table, one student holds up a fruit and says:")
-            print("'You know what they say... which fruit keeps the doctor away?'")
-            print("Another grins and says, 'Classic. We always bring them during hackathons.'")
-            print("Seems like a riddle. Maybe it's part of the challenge?")
-        else:
-            print("The students have left. Only empty wrappers and a few notebooks remain.")
-        print("- Possible exits: corridor")
-        print("- Your current inventory:", state["inventory"])
+            """Describe the room and its important details."""
+            print("\nYou look around Project Room 3.")
+            print("The room feels strangely familiar.")
+            print("A clock on the wall shows 23:17.")
+            print('A whiteboard displays the word "REMEMBER".')
+            print("A laptop sits on a nearby desk. The desk looks familiar, "
+                  "as if you have seen it before.")
+            print("The Memory Keeper watches you silently.")
+            print("- Possible exits: corridor")
+            print("- Your current inventory:", state["inventory"])
 
     def handle_help():
         """List available commands."""
