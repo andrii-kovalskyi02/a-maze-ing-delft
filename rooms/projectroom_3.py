@@ -53,7 +53,7 @@ ROOM = Room(
         "A laptop sits on a nearby desk, and the desk feels familiar. "
         "The Memory Keeper watches you silently."
     ),
-    exits=(),  # left empty on purpose — depends on #52 (map connection)
+    exits=("corridor_red",),
     inspectables=(
         Inspectable(
             name="the clock",
