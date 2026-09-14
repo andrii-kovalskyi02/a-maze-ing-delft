@@ -98,8 +98,8 @@ def test_the_only_way_out_is_the_corridor(console) -> None:
     game = start()
     console.script(option(game, "Go through a door"), "1")
     game.turn()
-    assert game.current == "corridor_ew"
-    assert world.get("classroom_2035").exits == ("corridor_ew",)
+    assert game.current == "corridor_blue"
+    assert world.get("classroom_2035").exits == ("corridor_blue",)
 
 
 def test_backing_out_of_a_door_changes_nothing(console) -> None:
@@ -112,20 +112,20 @@ def test_backing_out_of_a_door_changes_nothing(console) -> None:
 def test_a_locked_door_turns_the_player_away(console) -> None:
     """The blue card comes from 2.031 (US1c), so this door cannot open yet."""
     game = start()
-    game.move_to("corridor_ew")
+    game.move_to("corridor_blue")
     doors = world.exits_of(game.room)
     staff_room = str(doors.index(world.get("teachers_room_4")) + 1)
 
     console.script(option(game, "Go through a door"), staff_room)
     game.turn()
     assert "key card" in console.output
-    assert game.current == "corridor_ew"
+    assert game.current == "corridor_blue"
 
 
 def test_taking_the_evacuation_plan_unlocks_the_map_choice(console) -> None:
     """US1b: the map is not offered until the player has the plan."""
     game = start()
-    game.move_to("corridor_ew")
+    game.move_to("corridor_blue")
     assert "Look at the evacuation plan" not in labels(game)
 
     console.script(option(game, "Look around"), "2", "0")
@@ -137,7 +137,7 @@ def test_taking_the_evacuation_plan_unlocks_the_map_choice(console) -> None:
 def test_revisiting_a_room_says_so(console) -> None:
     """US1 template: the player can see they have been somewhere before."""
     game = start()
-    game.move_to("corridor_ew")
+    game.move_to("corridor_blue")
     game.move_to("classroom_2035")
     assert "you have been here before" in console.output
 
@@ -163,6 +163,6 @@ def test_the_wake_up_scene_plays_once(console) -> None:
     assert "cheek is stuck to the desk" in console.output
 
     console.lines.clear()
-    game.move_to("corridor_ew")
+    game.move_to("corridor_blue")
     game.move_to("classroom_2035")
     assert "cheek is stuck to the desk" not in console.output

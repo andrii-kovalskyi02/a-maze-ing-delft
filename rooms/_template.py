@@ -43,7 +43,7 @@ ROOM = Room(
     ),
     # The keys of the rooms you can walk to from here. Both directions have to
     # be listed: if you can walk back, the other room needs your key too.
-    exits=("corridor_ew",),
+    exits=("corridor_blue",),
     # The key of an item needed to get in, or None for an unlocked room. The
     # engine checks the backpack itself - the player never types "use key".
     requires=None,

@@ -11,7 +11,7 @@ from models import Area, Inspectable, Room
 from world import register
 
 ROOM = Room(
-    key="corridor_ew",
+    key="corridor_blue",
     name="the east-west corridor",
     area=Area.BLUE,
     description="A long corridor with glass walls and far too many doors.",
@@ -19,7 +19,7 @@ ROOM = Room(
         "Doors line both sides, each with a room number screwed to it. An "
         "evacuation plan hangs on the wall halfway down."
     ),
-    exits=("classroom_2035", "teachers_room_4"),
+    exits=("classroom_2035", "teachers_room_4", "corridor_red"),
     inspectables=(
         Inspectable(
             name="the evacuation plan",
