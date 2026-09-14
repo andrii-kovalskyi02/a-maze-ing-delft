@@ -181,7 +181,10 @@ def _fight(room: Room) -> Callable[[Game], None]:
     """Return an action that starts ``room``'s boss encounter."""
 
     def action(game: Game) -> None:
-        if room.boss is not None and encounters.run(game, room.boss):
+        if room.boss is None:
+            return
+        won = encounters.run(game, room.boss)
+        if won or room.boss.single_attempt:
             game.defeated.add(room.key)
 
     return action

@@ -15,6 +15,7 @@ ROOM = Room(
         "door, while flickering overhead lights hum quietly along the hallway."
     ),
     exits=("corridor_blue", "front_desk_office"),
+    requires="fire_extinguisher"
 )
 
 register(ROOM)

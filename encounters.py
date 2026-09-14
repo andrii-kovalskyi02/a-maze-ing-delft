@@ -31,6 +31,15 @@ def run(game: Game, boss: Boss) -> bool:
         if not _ask_question(number, len(boss.questions), question):
             ui.say()
             ui.say(boss.lose_text)
+            if boss.lose_reward is not None:
+                item = game.carrying.add(boss.lose_reward)
+                ui.say(f"You are now carrying the {item.name}.")
+                if boss.lose_reward_text is not None:
+                    ui.say()
+                    ui.say(boss.lose_reward_text)
+                    if boss.lose_reward_2 is not None:
+                        second_item = game.carrying.add(boss.lose_reward_2)
+                        ui.say(f"You are now carrying the {second_item.name}.")
             return False
 
     ui.say()

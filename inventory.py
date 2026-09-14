@@ -35,10 +35,11 @@ ITEM_CATALOGUE: dict[str, Item] = {
                 "things, and complains about it constantly."
             ),
         ),
+
         Item(
             key="blue_card",
             name="blue key card",
-            description="A staff key card. The blue stripe means the blue wing.",
+            description="A staff key card giving you access to the Teachers room",
         ),
         Item(
             key="storage_key",
