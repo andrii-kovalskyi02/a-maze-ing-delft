@@ -27,12 +27,11 @@ ITEM_CATALOGUE: dict[str, Item] = {
                 "It shows the blue passage, and names the red and yellow ones."
             ),
         ),
-
         Item(
             key="brass_key",
             name="brass key",
             description="A small brass key. It looks old, but still fits a lock.",
-),
+        ),
         Item(
             key="backpack",
             name="the Evil Backpack",
@@ -41,12 +40,11 @@ ITEM_CATALOGUE: dict[str, Item] = {
                 "things, and complains about it constantly."
             ),
         ),
-
         Item(
             key="digit_4",
             name="digit 4",
             description="The fourth digit of the code.",
-),
+        ),
         Item(
             key="blue_card",
             name="blue key card",

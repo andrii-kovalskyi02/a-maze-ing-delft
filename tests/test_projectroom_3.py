@@ -19,8 +19,8 @@ def test_room_metadata() -> None:
 
 
 def test_room_has_no_exits_yet() -> None:
-    # Left empty on purpose until #52 wires up the map connection.
-    assert ROOM.exits == ()
+    # Project Room 3 is connected to the Red Corridor in #52.
+    assert ROOM.exits == ("corridor_red",)
 
 
 def test_boss_exists_and_has_five_questions() -> None:
@@ -64,3 +64,9 @@ def test_boss_reward_is_the_final_digit() -> None:
 def test_win_and_lose_text_present() -> None:
     assert ROOM.boss.win_text
     assert ROOM.boss.lose_text
+
+
+def test_boss_reward_is_digit_4() -> None:
+    boss = ROOM.boss
+    assert boss is not None
+    assert boss.reward == "digit_4"
