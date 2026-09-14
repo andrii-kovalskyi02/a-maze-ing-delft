@@ -97,7 +97,7 @@ ON_THE_PLAN: dict[str, tuple[str, str]] = {
     # the blue wing
     "classroom_2031": ("Classroom 2.031", "Classroom 2.031"),
     "classroom_2035": ("Classroom 2.035", "Classroom 2.035"),
-    "corridor_ew": ("b l u e    c o r r i d o r", "the blue corridor"),
+    "corridor_blue": ("b l u e    c o r r i d o r", "the blue corridor"),
     "teachers_room_4": ("Room 4", "Teachers Room 4"),
     "stair_exit": ("Stair", "the stair exit"),
     # the red wing

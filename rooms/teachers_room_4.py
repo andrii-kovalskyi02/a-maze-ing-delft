@@ -19,7 +19,7 @@ ROOM = Room(
         "Somebody's marking is still spread across the nearest desk. A fire "
         "extinguisher is clipped to the wall by the window."
     ),
-    exits=("corridor_ew",),
+    exits=("corridor_blue",),
     requires="blue_card",
     locked_text="The reader by the door blinks red. Staff only - you need a key card.",
     items=("fire_extinguisher",),

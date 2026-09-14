@@ -19,7 +19,7 @@ def test_a_locked_room_needs_its_item() -> None:
 
 
 def test_an_unlocked_room_needs_nothing() -> None:
-    assert world.can_enter(world.get("corridor_ew"), Inventory())
+    assert world.can_enter(world.get("corridor_blue"), Inventory())
 
 
 def test_registering_the_same_key_twice_is_refused() -> None:
