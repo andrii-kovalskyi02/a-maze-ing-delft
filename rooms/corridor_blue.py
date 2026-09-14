@@ -11,7 +11,7 @@ from models import Area, Inspectable, Room
 from world import register
 
 ROOM = Room(
-    key="corridor_ew",
+    key="corridor_blue",
     name="the east-west corridor",
     area=Area.BLUE,
     description="A long corridor with glass walls and far too many doors.",

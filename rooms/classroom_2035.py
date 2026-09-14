@@ -45,7 +45,7 @@ ROOM = Room(
         "is somehow still audible over the alarm. Your own desk is the only one "
         "that looks used: a laptop still lit, and something folded beside it."
     ),
-    exits=("corridor_ew",),
+    exits=("corridor_blue",),
     inspectables=(
         Inspectable(
             name="the clock",
