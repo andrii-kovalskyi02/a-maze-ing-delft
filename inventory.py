@@ -53,7 +53,7 @@ ITEM_CATALOGUE: dict[str, Item] = {
         ),
         Item(
             key="axe_key",
-            name="axe",
+            name="Axe",
             description="A sturdy axe made out of good material",
             single_use=False,
         ),

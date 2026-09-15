@@ -12,7 +12,7 @@ from world import register
 
 ROOM = Room(
     key="corridor_blue",
-    name="the east-west corridor",
+    name="The Blue corridor",
     area=Area.BLUE,
     description="A long corridor with glass walls and far too many doors.",
     look_around=(

@@ -19,7 +19,7 @@ ROOM = Room(
         "burning in the corner."
     ),
     exits=("corridor_red",),
-    requires="Axe_key",
+    requires="axe_key",
     locked_text="A washed-out locked door, it looks like its on its last legs."
     "If only there was a way to break it open ",
     inspectables=(
@@ -52,7 +52,7 @@ ROOM = Room(
     ),
     items=(),
     #   I still need to make it so that the boss fight starts after inspecting furniture-pile
-    #
+    #   Bosstrigger
     #
     boss=Boss(
         name="The drunk german",
