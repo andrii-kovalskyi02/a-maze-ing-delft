@@ -1,5 +1,4 @@
 from __future__ import annotations
-from time import
 
 from world import register
 
