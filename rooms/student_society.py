@@ -40,8 +40,8 @@ ROOM = Room(
         Inspectable(
             name="the ipad",
             text=(
-                "Propped against one of the goals, screen still on. It's open "
-                "to a note-taking app, one line typed and unfinished."
+                "Left on one of the chairs, screen still on. It's open to a "
+                "note-taking app, one line typed and unfinished."
             ),
         ),
         Inspectable(
