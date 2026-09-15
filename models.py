@@ -126,7 +126,6 @@ class Boss:
     lose_reward_2: str | None = None
     single_attempt: bool = False
 
-
 @dataclass(frozen=True, slots=True)
 class Room:
     """One room of the building.  This is the building block you fill in.

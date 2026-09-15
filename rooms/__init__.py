@@ -10,6 +10,8 @@ from rooms import (  # noqa: F401
     corridor_blue,
     corridor_red,
     front_desk_office,
+    classroom_2031,
+    projectroom_3,
     teachers_room_4,
     classroom_2031,
 )
