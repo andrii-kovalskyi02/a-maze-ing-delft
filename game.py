@@ -85,7 +85,7 @@ class Game:
 
         ui.say()
         ui.say(f"== {room.name} ==")
-        ui.say(room.description)
+        ui.narrate(room.description)
         if not first_time:
             ui.say("You have been here before.")
 

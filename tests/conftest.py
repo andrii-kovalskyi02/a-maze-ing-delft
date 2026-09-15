@@ -10,6 +10,7 @@ a player would press.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Iterator
 
 import pytest
@@ -24,6 +25,8 @@ class FakeConsole:
     def __init__(self) -> None:
         self.lines: list[str] = []
         self._answers: list[str] = []
+        #: Every pause the game asked for, in seconds, instead of really waiting.
+        self.pauses: list[float] = []
 
     def script(self, *answers: str) -> None:
         """Queue what the player types next."""
@@ -49,6 +52,6 @@ class FakeConsole:
 def console() -> Iterator[FakeConsole]:
     """Give the test a console it controls, and restore the real one after."""
     fake = FakeConsole()
-    ui.use_io(fake.write, fake.read)
+    ui.use_io(fake.write, fake.read, sleep=fake.pauses.append)
     yield fake
-    ui.use_io(print, input)
+    ui.use_io(print, input, time.sleep)
