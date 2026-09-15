@@ -11,5 +11,6 @@ from rooms import (  # noqa: F401
     corridor_blue,
     corridor_red,
     front_desk_office,
+    projectroom_3,
     teachers_room_4,
 )
