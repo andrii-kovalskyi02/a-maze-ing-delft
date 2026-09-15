@@ -12,7 +12,7 @@ source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
 ```
 
-Check it works:
+Check it works:ruff 
 
 ```bash
 python main.py

@@ -67,6 +67,18 @@ ITEM_CATALOGUE: dict[str, Item] = {
             description="Heavy, red, and good for exactly one fire.",
             single_use=True,
         ),
+        Item(
+            key="axe_key",
+            name="Axe",
+            description="A sturdy axe made out of good material",
+            single_use=False,
+        ),
+        Item(
+            key="digit_2",
+            name="digit 2",
+            description="A small piece of paper with a 6 or 9 on it, you can't tell",
+            single_use=False,
+        ),
     )
 }
 
