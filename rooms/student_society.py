@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 from world import register
 from models import Area, Boss, Inspectable, Question, Room
@@ -11,8 +10,8 @@ ROOM = Room(
 
     area=Area.RED,
 
-    description="A student society room that feels like somewhere you've seen "
-                "before but you dont know when",
+    description="A student society room that looks like someplace you've seen "
+                "before... but you dont remember when or where",
 
     look_around=(
         "A kicker table stands in the middle of the room, ball frozen on "
