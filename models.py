@@ -160,3 +160,5 @@ class Room:
     items: tuple[str, ...] = ()
     boss: Boss | None = None
     on_first_enter: Callable[[Game], None] | None = None
+    approach_reward: str | None = None
+    approach_reward_text: str | None = None

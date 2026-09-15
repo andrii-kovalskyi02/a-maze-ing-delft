@@ -48,6 +48,7 @@ class Game:
     visited: set[str] = field(default_factory=set)
     defeated: set[str] = field(default_factory=set)
     taken: set[tuple[str, str]] = field(default_factory=set)
+    approached: set[str] = field(default_factory=set)
     running: bool = True
 
     def __post_init__(self) -> None:
