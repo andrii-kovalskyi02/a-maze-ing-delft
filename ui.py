@@ -7,16 +7,31 @@ directly from a room.
 
 from __future__ import annotations
 
+import sys
 import textwrap
+import time
 from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # pragma: no cover - import only needed for type checking
+    from models import Text
 
 #: Room descriptions are wrapped to this width so they stay readable, and so
 #: nobody has to hand-wrap the text they write.
 WIDTH = 80
 
-#: Swapped out by the tests. Do not call these two directly; use say/ask.
+#: How long :func:`narrate` waits after each character, in seconds. This is
+#: what makes the text look like it is being typed rather than dumped.
+CHAR_DELAY = 0.02
+
+#: How long :func:`narrate` waits between two parts of a text, in seconds, when
+#: the room does not ask for a pause of its own.
+PART_DELAY = 0.5
+
+#: Swapped out by the tests. Do not call these directly; use say/narrate/ask.
 _write: Callable[[str], None] = print
 _read: Callable[[str], str] = input
+_sleep: Callable[[float], None] = time.sleep
 
 
 def say(text: str = "") -> None:
@@ -25,11 +40,58 @@ def say(text: str = "") -> None:
     Write your room text as one long string; the wrapping happens here.
     Blank lines and leading indentation are preserved.
     """
-    for line in text.split("\n"):
-        if not line.strip():
-            _write("")
+    for line in _wrap(text):
+        _write(line)
+
+
+def narrate(text: Text) -> None:
+    """Type ``text`` out to the player a character at a time.
+
+    Use this for the story - room descriptions, and what a boss says - so it
+    reads like somebody talking instead of a wall of text. Menus stay instant
+    with :func:`say`.
+
+    ``text`` is either one string, or a tuple of parts. Between two strings
+    the game pauses for :data:`PART_DELAY`; put a number in the tuple to pause
+    for that many seconds instead::
+
+        ("The ghost looks up at you.", 1.5, "'Let's begin.'")
+    """
+    parts = (text,) if isinstance(text, str) else text
+    previous_was_text = False
+    for part in parts:
+        if isinstance(part, int | float):
+            _sleep(part)
+            previous_was_text = False
             continue
-        _write(textwrap.fill(line, width=WIDTH, subsequent_indent=" " * _indent_of(line)))
+        if previous_was_text:
+            _sleep(PART_DELAY)
+        for line in _wrap(part):
+            _type_line(line)
+        previous_was_text = True
+
+
+def _wrap(text: str) -> list[str]:
+    """Split ``text`` into lines wrapped to :data:`WIDTH`, keeping blank lines."""
+    return [
+        textwrap.fill(line, width=WIDTH, subsequent_indent=" " * _indent_of(line))
+        if line.strip()
+        else ""
+        for line in text.split("\n")
+    ]
+
+
+def _type_line(line: str) -> None:
+    """Write one line, a character at a time when a real terminal is watching."""
+    if _write is not print or not sys.stdout.isatty():
+        # The tests, or output piped into a file: nobody is there to watch.
+        _write(line)
+        return
+    for character in line:
+        sys.stdout.write(character)
+        sys.stdout.flush()
+        _sleep(CHAR_DELAY)
+    sys.stdout.write("\n")
 
 
 def _indent_of(line: str) -> int:
@@ -74,7 +136,11 @@ def choose(prompt: str, options: Sequence[str], back: str | None = None) -> int 
         say("Type the number of the thing you want.")
 
 
-def use_io(write: Callable[[str], None], read: Callable[[str], str]) -> None:
-    """Replace the input and output functions. Used by the tests only."""
-    global _write, _read
-    _write, _read = write, read
+def use_io(
+    write: Callable[[str], None],
+    read: Callable[[str], str],
+    sleep: Callable[[float], None] = time.sleep,
+) -> None:
+    """Replace the input, output and waiting functions. Used by the tests only."""
+    global _write, _read, _sleep
+    _write, _read, _sleep = write, read, sleep

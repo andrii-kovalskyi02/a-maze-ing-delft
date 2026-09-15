@@ -43,9 +43,10 @@ class MenuItem:
 
 
 def do_look_around(game: Game) -> None:
-    """Describe the room, then offer whatever is in it."""
-    ui.say()
-    ui.say(game.room.look_around)
+    """Describe the room, if it has anything to describe, then offer what is in it."""
+    if game.room.look_around is not None:
+        ui.say()
+        ui.narrate(game.room.look_around)
     _offer_interactions(game)
 
 
@@ -65,7 +66,7 @@ def do_go(game: Game) -> None:
         ui.say(f"You are now carrying the {item.name}.")
         if destination.approach_reward_text is not None:
             ui.say()
-            ui.say(destination.approach_reward_text)
+            ui.narrate(destination.approach_reward_text)
 
     if not world.can_enter(destination, game.carrying):
         ui.say()
@@ -122,7 +123,11 @@ def build_menu(game: Game) -> tuple[MenuItem, ...]:
     Only what the player has earned is offered, so they are never shown a
     choice that would just tell them they cannot do it yet.
     """
-    items = [MenuItem("Look around", do_look_around)]
+    items: list[MenuItem] = []
+    # A room with no look_around text (a staircase you only pass through) only
+    # offers "Look around" while there is still something in it to interact with.
+    if game.room.look_around is not None or _interactions(game):
+        items.append(MenuItem("Look around", do_look_around))
 
     if game.room.exits:
         items.append(MenuItem("Go through a door", do_go))
@@ -170,7 +175,7 @@ def _inspect(name: str) -> Callable[[Game], None]:
         for thing in game.room.inspectables:
             if thing.name == name:
                 ui.say()
-                ui.say(thing.text)
+                ui.narrate(thing.text)
                 return
 
     return action

@@ -33,10 +33,15 @@ ROOM = Room(
     name="Template Room",
     # Area.BLUE, Area.RED or Area.YELLOW - check the evacuation plan.
     area=Area.BLUE,
-    # One or two lines, printed every time the player walks in.
+    # One or two lines, typed out every time the player walks in. Instead of
+    # one string you can give a tuple of parts, typed one after another, and
+    # put a number between them to pause that many seconds:
+    #     description=("The lights flicker.", 1.5, "Then they go out."),
+    # The same works for look_around, inspectable text and a boss's lines.
     description="A room that does not exist. You should not be able to get here.",
     # The longer text for 'look around'. Take your time with this one: it is
-    # the part of the game the player reads most.
+    # the part of the game the player reads most. Leave it out only for a place
+    # with nothing to describe, like a staircase you just pass through.
     look_around=(
         "Describe what the player sees, hears and smells. Mention anything "
         "they can interact with, so they are never left guessing."
