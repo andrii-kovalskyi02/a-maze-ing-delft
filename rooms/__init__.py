@@ -1,16 +1,11 @@
-"""Every room in the game.
+"""Every room in the game."""
 
-THIS IS THE ONE LINE YOU ADD.  When your room module is finished, import it
-below and you are done - the room registers itself and the test kit picks it
-up automatically.  Keep the list alphabetical.
-"""
-
-from rooms import (  # noqa: F401
-    classroom_2035,
+from rooms import (
+    classroom_2035,  # noqa: F401
     classroom_2015,
-    corridor_blue,
-    corridor_red,
-    front_desk_office,
-    projectroom_3,
-    teachers_room_4,
+    corridor_blue,  # noqa: F401
+    corridor_red,  # noqa: F401
+    front_desk_office,  # noqa: F401
+    projectroom_3,  # noqa: F401
+    teachers_room_4,  # noqa: F401
 )
