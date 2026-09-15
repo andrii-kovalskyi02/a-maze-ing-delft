@@ -14,7 +14,7 @@ ROOM = Room(
         "You can see numerous badges and nameplates with room names next to each "
         "door, while flickering overhead lights hum quietly along the hallway."
     ),
-    exits=("corridor_blue", "front_desk_office"),
+    exits=("corridor_blue", "front_desk_office", "projectroom_3"),
     requires="fire_extinguisher"
 )
 

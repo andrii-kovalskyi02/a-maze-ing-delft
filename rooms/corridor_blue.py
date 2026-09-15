@@ -19,7 +19,7 @@ ROOM = Room(
         "Doors line both sides, each with a room number screwed to it. An "
         "evacuation plan hangs on the wall halfway down."
     ),
-    exits=("classroom_2035", "teachers_room_4", "corridor_red", "classroom_2031"),
+    exits=("classroom_2035", "teachers_room_4", "corridor_red", "classroom_2031", "stair_exit"),
     inspectables=(
         Inspectable(
             name="the evacuation plan",
