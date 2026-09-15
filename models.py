@@ -94,6 +94,25 @@ class Boss:
         win_text: What is printed when the player answers everything correctly.
         lose_text: What is printed when the player gets one wrong.
         reward: The key of the item handed over on a win, if any.
+        lose_reward: The key of the item handed over on a loss, if any. Use
+            this for a boss that cannot actually be beaten - the "reward" is
+            part of losing, e.g. being stuck carrying the thing you fought.
+        lose_reward_text: Printed right after the player receives
+            ``lose_reward`` (so after the "You are now carrying..." line).
+            Use it for whatever the item says or does now that it is
+            attached to the player. Ignored if ``lose_reward`` is None.
+        lose_reward_2: The key of a second item handed over after
+            ``lose_reward_text`` has been printed, if any. Use this when the
+            first item's dialogue leads straight into handing over something
+            else, e.g. the backpack talks, then immediately produces an item
+            of its own. Ignored if ``lose_reward_text`` is None.
+        single_attempt: If True, this encounter only ever happens once - the
+            room counts as resolved after either a win OR a loss, so the
+            "Get closer to X" choice disappears either way. Use this for a
+            boss that cannot actually be won, where losing IS the story's
+            resolution. Defaults to False, which keeps the normal behaviour:
+            only a win resolves the room, so the player can keep retrying
+            after a loss.
     """
 
     name: str
@@ -102,7 +121,10 @@ class Boss:
     win_text: str
     lose_text: str
     reward: str | None = None
-
+    lose_reward: str | None = None
+    lose_reward_text: str | None = None
+    lose_reward_2: str | None = None
+    single_attempt: bool = False
 
 @dataclass(frozen=True, slots=True)
 class Room:
