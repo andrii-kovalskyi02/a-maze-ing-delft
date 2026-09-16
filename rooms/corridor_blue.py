@@ -23,6 +23,7 @@ ROOM = Room(
         "An evacuation plan hangs on the wall halfway down.",
     ),
     exits=("classroom_2035", "teachers_room_4", "corridor_red", "classroom_2031", "stair_exit"),
+    is_hallway=True,
     inspectables=(
         Inspectable(
             name="the evacuation plan",

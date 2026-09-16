@@ -218,7 +218,11 @@ def _fight(room: Room) -> Callable[[Game], None]:
 
 
 def _door_label(game: Game, door: Room) -> str:
-    """Name a door, saying whether the player has been through it before."""
-    if door.key in game.visited:
+    """Name a door, saying whether the player has been through it before.
+
+    Hallways are excluded: the player passes through a corridor or lobby
+    every trip, so tagging it as "visited" would just be noise.
+    """
+    if door.key in game.visited and not door.is_hallway:
         return f"{door.name} (you have been there)"
     return door.name
