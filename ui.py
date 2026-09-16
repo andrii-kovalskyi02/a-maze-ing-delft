@@ -104,6 +104,11 @@ def ask(prompt: str = "> ") -> str:
     return _read(prompt).strip()
 
 
+def pause(seconds: float) -> None:
+    """Wait ``seconds`` before continuing. Uses the same clock as narrate."""
+    _sleep(seconds)
+
+
 def choose(prompt: str, options: Sequence[str], back: str | None = None) -> int | None:
     """Show a numbered list and let the player pick one.
 

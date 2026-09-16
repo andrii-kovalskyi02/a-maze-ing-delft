@@ -36,10 +36,15 @@ class MenuItem:
     Args:
         label: What the player reads next to the number.
         action: What happens when they pick it.
+        ends_interaction: If True, choosing this backs straight out to the
+            main "Look around / Go through a door" menu afterwards, instead
+            of asking "What do you do?" again. Use this for an action that
+            naturally finishes the "look around" moment, like taking an item.
     """
 
     label: str
     action: Callable[[Game], None]
+    ends_interaction: bool = False
 
 
 def do_look_around(game: Game) -> None:
@@ -147,12 +152,16 @@ def _offer_interactions(game: Game) -> None:
         if not actions:
             return
 
+        ui.pause(0.4)
         chosen = ui.choose(
             "What do you do?", [action.label for action in actions], back="Nothing, for now"
         )
         if chosen is None:
             return
-        actions[chosen].action(game)
+        picked = actions[chosen]
+        picked.action(game)
+        if picked.ends_interaction:
+            return
 
 
 def _interactions(game: Game) -> tuple[MenuItem, ...]:
@@ -160,7 +169,10 @@ def _interactions(game: Game) -> tuple[MenuItem, ...]:
     actions = [
         MenuItem(f"Look at {thing.name}", _inspect(thing.name)) for thing in game.room.inspectables
     ]
-    actions += [MenuItem(f"Take the {item.name}", _take(item.key)) for item in game.items_here()]
+    actions += [
+        MenuItem(f"Take the {item.name}", _take(item.key), ends_interaction=True)
+        for item in game.items_here()
+    ]
 
     boss = game.room.boss
     if boss is not None and game.room.key not in game.defeated:

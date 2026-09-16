@@ -1,6 +1,4 @@
-"""US1b - the east-west corridor (issue #7).
-
-SKELETON. The smallest room that keeps the game playable while the foundation
+"""The smallest room that keeps the game playable while the foundation
 lands. Whoever picks up US1b writes the real text, makes the evacuation plan a
 forced pickup on the first look around, and adds the fire gating.
 """
@@ -14,10 +12,15 @@ ROOM = Room(
     key="corridor_blue",
     name="The Blue corridor",
     area=Area.BLUE,
-    description="A long corridor with glass walls and far too many doors.",
+    description=(
+        "A long corridor with glass walls",
+        0.5,
+        "and far too many doors.",
+    ),
     look_around=(
-        "Doors line both sides, each with a room number screwed to it. An "
-        "evacuation plan hangs on the wall halfway down."
+        "Doors line both sides, each with a room number screwed to it.",
+        0.6,
+        "An evacuation plan hangs on the wall halfway down.",
     ),
     exits=("classroom_2035", "teachers_room_4", "corridor_red", "classroom_2031", "stair_exit"),
     inspectables=(
