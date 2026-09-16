@@ -10,10 +10,15 @@ ROOM = Room(
     key="corridor_red",
     name="The Red corridor",
     area=Area.RED,
-    description="A long, straight corridor with a bunch of rooms on both sides.",
+    description=(
+        "A long, straight corridor",
+        0.5,
+        "with a bunch of rooms on both sides.",
+    ),
     look_around=(
-        "You can see numerous badges and nameplates with room names next to each "
-        "door, while flickering overhead lights hum quietly along the hallway."
+        "You can see numerous badges and nameplates with room names next to each door,",
+        0.6,
+        "while flickering overhead lights hum quietly along the hallway.",
     ),
     exits=("corridor_blue", "front_desk_office","classroom_2015","projectroom_3", "lobby"),
     requires="fire_extinguisher"

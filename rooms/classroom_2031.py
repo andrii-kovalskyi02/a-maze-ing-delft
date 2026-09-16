@@ -8,11 +8,17 @@ ROOM = Room(
     key="classroom_2031",
     name="Classroom 2031",
     area=Area.BLUE,
-    description="You enter Classroom 2.031... A shiver runs down your spine"
-                "You decide to enter regardless",
+    description=(
+        "You enter Classroom 2.031... A shiver runs down your spine.",
+        0.6,
+        "You decide to enter regardless.",
+    ),
     look_around=(
-        "You see an unusually empty classroom as you look around. "
-        "Unlike Classroom 2.035 theres nothing on the desks... Something feels off"
+        "You see an unusually empty classroom as you look around. ",
+        0.6,
+        "Unlike Classroom 2.035 there's nothing on the desks... Something feels off",
+        0.6,
+        "Theres a backpack on one of desk, your curiosity is eating at you"
     ),
     exits=("corridor_blue",),
     requires=None,
@@ -20,15 +26,25 @@ ROOM = Room(
     items=(),
     boss=Boss(
         name="backpack",
-        intro="Hello dear student, it is ME the Backpack"
-              "..."
-              "You don't seem too excited. Nonetheless i am here to propose an idea!"
-              "If you win. I will disapear into thin air and never bother you again."
-              "But if you lose..."
-              "YOU will have to carry me throughout your dr- "
-              "I mean adventure!!"
-              "Agreed?..."
-              "GREAT LETS GET GOING THEN SHALL WE!",
+        intro=(
+            "Hello dear student, it is ME the Backpack",
+            0.6,
+            "...",
+            0.8,
+            "You don't seem too excited. Nonetheless i am here to propose an idea!",
+            0.5,
+            "If you win. I will disapear into thin air and never bother you again.",
+            0.7,
+            "But if you lose...",
+            0.4,
+            "YOU will have to carry me throughout your dr- ",
+            0.6,
+            "I mean adventure!!",
+            0.5,
+            "Agreed?...",
+            0.8,
+            "GREAT LETS GET GOING THEN SHALL WE!",
+        ),
         questions=(
             Question(
                 prompt="Lets start of easy. "
