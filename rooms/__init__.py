@@ -13,6 +13,8 @@ from rooms import (  # noqa: F401
     corridor_red,
     front_desk_office,
     lab_2001,
+    lab_2003,
+    lobby,
     projectroom_3,
     student_society,
     teachers_room_4,

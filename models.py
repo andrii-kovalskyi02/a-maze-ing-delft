@@ -19,6 +19,20 @@ if TYPE_CHECKING:  # pragma: no cover - import only needed for type checking
     from game import Game
 
 
+#: Story text: one string, or a tuple of parts typed out one after another.
+#: A number in the tuple is a pause, in seconds - see ``ui.narrate``.
+type Text = str | tuple[str | float, ...]
+
+
+def plain(text: Text | None) -> str:
+    """Return ``text`` as one plain string, pauses dropped. Handy in tests."""
+    if text is None:
+        return ""
+    if isinstance(text, str):
+        return text
+    return " ".join(part for part in text if isinstance(part, str))
+
+
 class Area(StrEnum):
     """The three colour-coded parts of the 2nd floor.
 
@@ -58,7 +72,7 @@ class Inspectable:
     """
 
     name: str
-    text: str
+    text: Text
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,15 +130,16 @@ class Boss:
     """
 
     name: str
-    intro: str
+    intro: Text
     questions: tuple[Question, ...]
-    win_text: str
-    lose_text: str
+    win_text: Text
+    lose_text: Text
     reward: str | None = None
     lose_reward: str | None = None
-    lose_reward_text: str | None = None
+    lose_reward_text: Text | None = None
     lose_reward_2: str | None = None
     single_attempt: bool = False
+
 
 @dataclass(frozen=True, slots=True)
 class Room:
@@ -136,7 +151,10 @@ class Room:
         name: How the room is shown on screen, e.g. ``"Classroom 2.035"``.
         area: Which colour-coded part of the floor the room is in.
         description: The short line printed when the player walks in.
-        look_around: The longer text printed for ``look around``.
+        look_around: The longer text printed for ``look around``, or None for a
+            place with nothing to describe, like a staircase you only pass
+            through. The "Look around" choice is then only offered if there
+            is still something here to interact with.
         exits: The keys of the rooms reachable from here.
         requires: The key of an item needed to enter.  The engine checks the
             backpack automatically; the player never types "use key".
@@ -146,13 +164,16 @@ class Room:
         boss: The challenge guarding this room, if any.
         on_first_enter: An optional function run once, the first time the
             player enters.  Use it only when plain data is not enough.
+        approach_reward: The key of an item handed over the first time the
+            player walks up to this room's door, whether or not it opens.
+        approach_reward_text: Printed after ``approach_reward`` is handed over.
     """
 
     key: str
     name: str
     area: Area
-    description: str
-    look_around: str
+    description: Text
+    look_around: Text | None = None
     exits: tuple[str, ...] = ()
     requires: str | None = None
     locked_text: str = "The door does not budge. You need something to get in here."
@@ -161,4 +182,4 @@ class Room:
     boss: Boss | None = None
     on_first_enter: Callable[[Game], None] | None = None
     approach_reward: str | None = None
-    approach_reward_text: str | None = None
+    approach_reward_text: Text | None = None

@@ -26,24 +26,24 @@ def run(game: Game, boss: Boss) -> bool:
         True if the player answered every question correctly.
     """
     ui.say()
-    ui.say(boss.intro)
+    ui.narrate(boss.intro)
     for number, question in enumerate(boss.questions, start=1):
         if not _ask_question(number, len(boss.questions), question):
             ui.say()
-            ui.say(boss.lose_text)
+            ui.narrate(boss.lose_text)
             if boss.lose_reward is not None:
                 item = game.carrying.add(boss.lose_reward)
                 ui.say(f"You are now carrying the {item.name}.")
                 if boss.lose_reward_text is not None:
                     ui.say()
-                    ui.say(boss.lose_reward_text)
+                    ui.narrate(boss.lose_reward_text)
                     if boss.lose_reward_2 is not None:
                         second_item = game.carrying.add(boss.lose_reward_2)
                         ui.say(f"You are now carrying the {second_item.name}.")
             return False
 
     ui.say()
-    ui.say(boss.win_text)
+    ui.narrate(boss.win_text)
     if boss.reward is not None:
         item = game.carrying.add(boss.reward)
         ui.say(f"You are now carrying the {item.name}.")
