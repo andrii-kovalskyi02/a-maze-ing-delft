@@ -144,7 +144,10 @@ def test_revisiting_a_room_says_so(console) -> None:
 
 def test_quitting_from_the_options_menu(console) -> None:
     game = start()
-    console.script(option(game, "Options"), "3")
+    # "4" is "Quit the game"'s position in the Options submenu right now
+    # (Status, Scoreboard, Save and continue later, Quit the game) - update
+    # this number if that list's order ever changes.
+    console.script(option(game, "Options"), "4")
     game.turn()
     assert game.running is False
 
