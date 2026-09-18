@@ -24,5 +24,4 @@ ROOM = Room(
            "student_society"),
     requires="fire_extinguisher"
 )
-
 register(ROOM)
