@@ -24,5 +24,4 @@ ROOM = Room(
     requires="fire_extinguisher",
     is_hallway=True,
 )
-
 register(ROOM)

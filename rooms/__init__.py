@@ -16,6 +16,7 @@ from rooms import (  # noqa: F401
     lab_2003,
     lobby,
     projectroom_3,
+    student_society,
     teachers_room_4,
     stair_exit,
 )
