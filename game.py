@@ -8,6 +8,7 @@ time.
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 
 import commands
@@ -43,6 +44,7 @@ class Game:
     """Everything that is true about one play-through."""
 
     current: str = STARTING_ROOM
+    name: str = "Player"
     carrying: Inventory = field(default_factory=Inventory)
     hearts: int = STARTING_HEARTS
     visited: set[str] = field(default_factory=set)
@@ -50,6 +52,10 @@ class Game:
     taken: set[tuple[str, str]] = field(default_factory=set)
     approached: set[str] = field(default_factory=set)
     running: bool = True
+    #: When this play-through began, for the status command's "time played".
+    #: A monotonic clock, so a system clock change mid-game cannot make it
+    #: run backwards.
+    started_at: float = field(default_factory=time.monotonic)
 
     def __post_init__(self) -> None:
         """Hand the player their starting items, if the story gives them any."""
@@ -100,6 +106,15 @@ class Game:
 
     def run(self) -> None:
         """Play until the player quits, or until there is no more input."""
+        try:
+            typed = ui.ask("What should we call you?: ")
+            if typed:
+                self.name = typed
+        except EOFError:
+            # Nobody at the keyboard even for the name - keep the default and
+            # let the main loop below hit the same EOFError and end cleanly.
+            pass
+
         ui.say(HOW_TO_PLAY)
         self.enter()
         while self.running:

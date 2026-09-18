@@ -15,12 +15,14 @@ puts it: `look around -> interact <item, boss>`.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import encounters
 import floor_map
+import inventory
 import ui
 import world
 
@@ -102,17 +104,80 @@ def do_options(game: Game) -> None:
     """Offer the things that are not part of the story."""
     chosen = ui.choose(
         "Options:",
-        ["Scoreboard", "Save and continue later", "Quit the game"],
+        ["Status", "Scoreboard", "Save and continue later", "Quit the game"],
         back="Back to the game",
     )
     if chosen == 0:
-        ui.say()
-        ui.say("The scoreboard is not built yet (issue #121).")
+        do_status(game)
     elif chosen == 1:
         ui.say()
-        ui.say("Saving is not built yet (issue #121).")
+        ui.say("The scoreboard is not built yet (issue #121).")
     elif chosen == 2:
+        ui.say()
+        ui.say("Saving is not built yet (issue #121).")
+    elif chosen == 3:
         do_quit(game)
+
+
+def do_status(game: Game) -> None:
+    """Show what the player has earned so far (Project Guide 3.1).
+
+    Read-only: it looks at ``game`` but never changes it, so it costs nothing
+    to check - no turn, no heart, no matter how the hearts enabler (#108)
+    ends up spending those elsewhere.
+    """
+    percent = _percent_explored(game)
+    played = _format_duration(time.monotonic() - game.started_at)
+    digits_had, digits_total = _digits_collected(game)
+
+    ui.say()
+    ui.say(f"{game.name} - {played} played - {percent}% of the floor explored.")
+    ui.say(f"Hearts: {game.hearts}   Digits: {digits_had}/{digits_total}")
+
+
+def _percent_explored(game: Game) -> int:
+    """Return how much of the whole world graph is *done*, as a percent.
+
+    Counts every registered room, finished or still a skeleton - the guide
+    treats that as the game's completion metric, not just what is playable
+    today. Walking in is enough for a plain room, but a room with a boss only
+    counts once that boss is resolved (``game.defeated``) - stepping up to
+    the Evil Backpack and walking away does not count as having finished
+    classroom 2.031, only actually facing it does.
+    """
+    total = len(world.all_rooms())
+    if total == 0:
+        return 0
+    return round(_rooms_completed(game) / total * 100)
+
+
+def _rooms_completed(game: Game) -> int:
+    """Return how many rooms in the world graph count as done.
+    """
+    completed = 0
+    for room in world.all_rooms():
+        done = room.key in game.defeated if room.boss is not None else room.key in game.visited
+        if done:
+            completed += 1
+    return completed
+
+
+def _digits_collected(game: Game) -> tuple[int, int]:
+    """Return (how many digit items are carried, how many digit items exist).
+
+    The total is counted from the catalogue rather than hard-coded, so it
+    stays correct as more digit rooms are added.
+    """
+    digit_keys = [key for key in inventory.ITEM_CATALOGUE if key.startswith("digit_")]
+    had = sum(1 for key in digit_keys if key in game.carrying)
+    return had, len(digit_keys)
+
+
+def _format_duration(seconds: float) -> str:
+    """Return ``seconds`` as ``MM:SS``, for the status line."""
+    total_seconds = max(0, int(seconds))
+    minutes, secs = divmod(total_seconds, 60)
+    return f"{minutes:02d}:{secs:02d}"
 
 
 def do_quit(game: Game) -> None:
