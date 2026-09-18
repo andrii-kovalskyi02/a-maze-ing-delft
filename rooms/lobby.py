@@ -16,6 +16,7 @@ ROOM = Room(
     area=Area.YELLOW,
     description="A wide lobby at the top of the main stairs, thick with smoke.",
     exits=("corridor_red", "lab_2003"),
+    is_hallway=True,
 )
 
 register(ROOM)
