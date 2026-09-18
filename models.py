@@ -167,6 +167,12 @@ class Room:
         approach_reward: The key of an item handed over the first time the
             player walks up to this room's door, whether or not it opens.
         approach_reward_text: Printed after ``approach_reward`` is handed over.
+        is_hallway: If True, this room is a corridor/lobby the player is
+            expected to pass through repeatedly, so its door label never
+            grows the "(you have been there)" tag - that tag is only useful
+            for rooms with a story to remember, not a hallway you walk
+            through every trip. Defaults to False, which keeps the normal
+            behaviour of tagging any previously visited room.
     """
 
     key: str
@@ -183,3 +189,4 @@ class Room:
     on_first_enter: Callable[[Game], None] | None = None
     approach_reward: str | None = None
     approach_reward_text: Text | None = None
+    is_hallway: bool = False

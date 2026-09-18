@@ -20,8 +20,8 @@ ROOM = Room(
         0.6,
         "while flickering overhead lights hum quietly along the hallway.",
     ),
-    exits=("corridor_blue", "front_desk_office","classroom_2015","projectroom_3", "lobby",
-           "student_society"),
-    requires="fire_extinguisher"
+    exits=("corridor_blue", "front_desk_office","classroom_2015","projectroom_3", "lobby"),
+    requires="fire_extinguisher",
+    is_hallway=True,
 )
 register(ROOM)
