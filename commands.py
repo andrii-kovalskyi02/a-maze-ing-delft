@@ -152,8 +152,7 @@ def _percent_explored(game: Game) -> int:
 
 
 def _rooms_completed(game: Game) -> int:
-    """Return how many rooms in the world graph count as done.
-    """
+    """Return how many rooms in the world graph count as done."""
     completed = 0
     for room in world.all_rooms():
         done = room.key in game.defeated if room.boss is not None else room.key in game.visited
@@ -290,4 +289,5 @@ def _door_label(game: Game, door: Room) -> str:
     """
     if door.key in game.visited and not door.is_hallway:
         return f"{door.name} (you have been there)"
+
     return door.name
