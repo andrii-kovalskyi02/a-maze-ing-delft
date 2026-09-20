@@ -26,6 +26,7 @@ ROOM = Room(
         "projectroom_3",
         "lobby",
         "student_society",
+        "teacher_rooms",
     ),
     requires="fire_extinguisher",
     is_hallway=True,
