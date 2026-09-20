@@ -15,15 +15,27 @@ import commands
 import narrator
 import ui
 import world
+from health import Health
 from inventory import Inventory, get_item
 from models import Item, Room
 
 #: Where a new game starts (US1a).
 STARTING_ROOM = "classroom_2035"
 
-#: US1a establishes that the player starts on three hearts. Losing them is the
-#: hearts enabler's job (#108); this is only where the number lives.
+#: US1a establishes that the player starts on three hearts. How they are spent
+#: is in ``health.py`` (#108); this is the number the story gives them.
 STARTING_HEARTS = 3
+
+#: What the player reads when the last heart goes (#108, E5.3). The team's
+#: decision: running out ends the run. Hearts are worth something only if
+#: losing them costs the play-through.
+OUT_OF_HEARTS = """\
+Your last heart goes out.
+
+The corridor tilts, the alarm thins to nothing, and the floor of the 2nd floor
+of THUAS Delft comes up to meet you. Whatever this building is, it is finished
+with you for tonight.\
+"""
 
 #: What the player is carrying at the start: nothing. They have no backpack
 #: until the Evil Backpack becomes one in classroom 2.031 (US1c).
@@ -36,7 +48,8 @@ offer 0 to go back, and a key you press that is not on the list simply shows
 the list again.
 
 The only time you type words is when somebody asks you a question you have to
-answer yourself.
+answer yourself. Some of those questions are timed, and you have three hearts
+to lose before the building is finished with you.
 
 The story is typed out a letter at a time. Press Enter while it is typing and
 the rest of it appears at once - handy the second time round. Options can turn
@@ -51,7 +64,7 @@ class Game:
     current: str = STARTING_ROOM
     name: str = "Player"
     carrying: Inventory = field(default_factory=Inventory)
-    hearts: int = STARTING_HEARTS
+    hearts: Health = field(default_factory=Health)
     visited: set[str] = field(default_factory=set)
     defeated: set[str] = field(default_factory=set)
     taken: set[tuple[str, str]] = field(default_factory=set)
@@ -118,6 +131,20 @@ class Game:
         menu = commands.build_menu(self)
         chosen = ui.choose("What do you do?", [item.label for item in menu])
         menu[chosen].action(self)
+        self._collapse_if_out_of_hearts()
+
+    def _collapse_if_out_of_hearts(self) -> None:
+        """End the run if the last heart has gone (#108, E5.3).
+
+        Checked here, after whatever the player just did, rather than inside
+        the encounter engine: one place notices, so anything that costs a
+        heart later - a trap, a timer, a fall - ends the game the same way
+        without having to remember to.
+        """
+        if self.hearts.is_empty and self.running:
+            ui.say()
+            ui.narrate(OUT_OF_HEARTS)
+            self.running = False
 
     def run(self) -> None:
         """Play until the player quits, or until there is no more input."""

@@ -39,7 +39,7 @@ def test_the_player_starts_in_2035_with_nothing(console) -> None:
     game = start()
     assert game.current == "classroom_2035"
     assert len(game.carrying) == 0
-    assert game.hearts == STARTING_HEARTS
+    assert game.hearts.hearts == STARTING_HEARTS
 
 
 def test_the_opening_menu_offers_only_what_the_story_gives(console) -> None:
