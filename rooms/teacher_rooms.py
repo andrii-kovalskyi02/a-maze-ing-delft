@@ -32,8 +32,7 @@ ROOM = Room(
     inspectables=(
         Inspectable(
             name="the torn walls",
-            text=(
-                "Brick and plaster, broken rather than removed. Whatever did this did it fast."),
+            text="Brick and plaster, broken rather than removed. Whatever did this did it fast.",
         ),
         Inspectable(
             name="the nameplates",
