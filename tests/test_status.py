@@ -127,7 +127,9 @@ def test_status_is_reachable_from_options_on_any_turn(console) -> None:
 
 def option_from(game: Game, label: str) -> str:
     """Return the number for ``label`` inside the Options submenu."""
-    for number, name in enumerate(["Status", "Scoreboard", "Save and continue later", "Quit the game"], start=1):
+    for number, name in enumerate(
+        ["Status", "Scoreboard", "Save and continue later", "Quit the game"], start=1
+    ):
         if label.casefold() in name.casefold():
             return str(number)
     raise AssertionError(f"Options has no choice matching {label!r}")
