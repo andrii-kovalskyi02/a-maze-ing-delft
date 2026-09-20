@@ -1,4 +1,5 @@
 """US1d - Room: Teachers room 4 (fire extinguisher) Issue #19."""
+
 from __future__ import annotations
 
 from models import Area, Room
