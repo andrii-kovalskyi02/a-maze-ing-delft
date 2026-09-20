@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from models import Area, Room
+from rooms import classroom_2015, projectroom_3
 from world import register
 
 ROOM = Room(
