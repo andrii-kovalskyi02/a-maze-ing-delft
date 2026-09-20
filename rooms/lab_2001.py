@@ -9,7 +9,7 @@ ROOM = Room(
     name="Forest room",
     area=Area.BLUE,
     description="It's a classroom filled with grass and vines."
-    " There is no one inside it except a tree sits in the center of it.",
+    "There is no one inside it except a tree sits in the center of it.",
     look_around=(
         "there are many small animals around the room, "
         "rabbits,foxes,birds and other small creatures. "
@@ -44,7 +44,7 @@ ROOM = Room(
             ),
             Question(
                 prompt="Which animal species can live in extremes"
-                       "of both heat and cold, from −28 °C to 49 °C?",
+                "of both heat and cold, from −28 °C to 49 °C?",
                 answers=("the 3nd",),
                 choices=("Polar bear", "iguana", "Camel"),
             ),
