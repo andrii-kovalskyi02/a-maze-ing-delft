@@ -25,6 +25,7 @@ ROOM = Room(
         "classroom_2015",
         "projectroom_3",
         "lobby",
+        "storage",
         "student_society",
         "teacher_rooms",
     ),
