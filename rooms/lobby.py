@@ -1,9 +1,4 @@
-"""US1m - the Lobby, hub of the yellow area (issue #56).
-
-SKELETON. Just enough to connect LAB2.003 to the rest of the floor. Whoever
-picks up US1m writes the real text, the blocked-exit inspectable, and the
-doors to the other yellow rooms.
-"""
+"""US1m - Room: Lobby, hub of the yellow area (issue #56)."""
 
 from __future__ import annotations
 
@@ -14,8 +9,23 @@ ROOM = Room(
     key="lobby",
     name="The Lobby",
     area=Area.YELLOW,
-    description="A wide lobby at the top of the main stairs, thick with smoke.",
+    description=(
+        "A spacious open lobby at the heart of the yellow wing,",
+        0.5,
+        "thick with drifting smoke.",
+    ),
+    look_around=(
+        "Yellow-accented signs and glass partitions define this central hub.",
+        0.6,
+        "Doors lead to the computer labs, but the main central staircase down "
+        "to the ground floor is blocked by heavy smoke and fallen debris.",
+    ),
     exits=("corridor_red", "lab_2003"),
+    requires="fire_extinguisher",
+    locked_text=(
+        "A wall of raging fire and thick smoke blocks the way into the lobby. "
+        "You need a fire extinguisher to get through."
+    ),
     is_hallway=True,
 )
 
