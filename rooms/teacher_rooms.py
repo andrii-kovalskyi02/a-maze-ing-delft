@@ -12,7 +12,7 @@ from models import Area, Inspectable, Room
 from world import register
 
 ROOM = Room(
-    key="teachers_rooms",
+    key="teacher_rooms",
     name="Teachers room",
     area=Area.RED,
     description=(
@@ -21,11 +21,11 @@ ROOM = Room(
         "scattered across the floor like something blew straight through them."
     ),
     look_around=(
-    "The gaps where the walls used to be are ragged, not sawn - brick "
-    "and torn drywall at odd angles, dust over everything. Three desks, "
-    "coat racks, and nameplates still stand in a neat row, untouched by "
-    "the wreckage around them. Less renovation, more explosion that "
-    "stopped just short of the furniture."
+        "The gaps where the walls used to be are ragged, not sawn - brick "
+        "and torn drywall at odd angles, dust over everything. Three desks, "
+        "coat racks, and nameplates still stand in a neat row, untouched by "
+        "the wreckage around them. Less renovation, more explosion that "
+        "stopped just short of the furniture."
     ),
     exits=("corridor_red",),
     requires=None,
