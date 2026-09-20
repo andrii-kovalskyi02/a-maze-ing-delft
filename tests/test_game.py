@@ -6,6 +6,7 @@ story says the player starts with nothing, the test says so too.
 
 from __future__ import annotations
 
+import commands
 import memories
 import rooms  # noqa: F401  (importing rooms registers them)
 import world
@@ -38,7 +39,7 @@ def test_the_player_starts_in_2035_with_nothing(console) -> None:
     game = start()
     assert game.current == "classroom_2035"
     assert len(game.carrying) == 0
-    assert game.hearts == STARTING_HEARTS
+    assert game.hearts.hearts == STARTING_HEARTS
 
 
 def test_the_opening_menu_offers_only_what_the_story_gives(console) -> None:
@@ -142,12 +143,21 @@ def test_revisiting_a_room_says_so(console) -> None:
     assert "you have been here before" in console.output
 
 
+def option_in_options(game: Game, label: str) -> str:
+    """Return the number the player would press for ``label`` under Options.
+
+    Asked of the menu itself rather than counted by hand, so adding a choice
+    to Options does not quietly break this test.
+    """
+    for number, item in enumerate(commands.options_menu(game), start=1):
+        if label.casefold() in item.label.casefold():
+            return str(number)
+    raise AssertionError(f"Options has no choice matching {label!r}")
+
+
 def test_quitting_from_the_options_menu(console) -> None:
     game = start()
-    # "4" is "Quit the game"'s position in the Options submenu right now
-    # (Status, Scoreboard, Save and continue later, Quit the game) - update
-    # this number if that list's order ever changes.
-    console.script(option(game, "Options"), "4")
+    console.script(option(game, "Options"), option_in_options(game, "Quit"))
     game.turn()
     assert game.running is False
 

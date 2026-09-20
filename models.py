@@ -86,15 +86,40 @@ class Question:
             answers, e.g. ``("42", "forty two")``.
         choices: For a multiple-choice question, the options to show.  Leave it
             empty for an open question.
+        seconds: How long the player has to answer, or None for a question
+            with no clock on it.  The Evil Backpack's questions are untimed on
+            purpose (US1c); the forest boss's typing attack is not (US1p).
+
+    A question with **no** accepted answers is allowed, and means exactly what
+    it looks like: there is no right answer and the player cannot win it.  The
+    Evil Backpack's last question is one (US1c).
+
+    A **typing attack** - "type this word before the timer runs out" - is just
+    an open question with a clock on it; :func:`typing_attack` builds one.
     """
 
     prompt: str
     answers: tuple[str, ...]
     choices: tuple[str, ...] = ()
+    seconds: float | None = None
 
     def is_correct(self, given: str) -> bool:
         """Return True if ``given`` matches one of the accepted answers."""
         return given.strip().casefold() in {a.strip().casefold() for a in self.answers}
+
+
+def typing_attack(word: str, seconds: float) -> Question:
+    """Return a question that asks the player to type ``word`` in time (US1p).
+
+    Args:
+        word: What the player has to type back.
+        seconds: How long they get.
+    """
+    return Question(
+        prompt=f'Type "{word}" before the timer runs out.',
+        answers=(word,),
+        seconds=seconds,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,13 +145,17 @@ class Boss:
             first item's dialogue leads straight into handing over something
             else, e.g. the backpack talks, then immediately produces an item
             of its own. Ignored if ``lose_reward_text`` is None.
+        side_quest: If True this is a side quest rather than a boss, so it
+            costs and heals half a heart instead of a whole one - see
+            ``health.py`` (#108).
         single_attempt: If True, this encounter only ever happens once - the
             room counts as resolved after either a win OR a loss, so the
             "Get closer to X" choice disappears either way. Use this for a
             boss that cannot actually be won, where losing IS the story's
             resolution. Defaults to False, which keeps the normal behaviour:
             only a win resolves the room, so the player can keep retrying
-            after a loss.
+            after a loss. A scripted loss like this costs no hearts: losing
+            is the story, not a mistake the player made.
     """
 
     name: str
@@ -135,6 +164,7 @@ class Boss:
     win_text: Text
     lose_text: Text
     reward: str | None = None
+    side_quest: bool = False
     lose_reward: str | None = None
     lose_reward_text: Text | None = None
     lose_reward_2: str | None = None
