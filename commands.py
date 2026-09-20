@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING
 import encounters
 import floor_map
 import inventory
+import narrator
 import ui
 import world
 
@@ -65,6 +66,8 @@ def do_go(game: Game) -> None:
         return
 
     destination = doors[chosen]
+    if game.items_here():
+        narrator.remark(game, "left_behind")
 
     if destination.approach_reward is not None and destination.key not in game.approached:
         game.approached.add(destination.key)
@@ -78,6 +81,12 @@ def do_go(game: Game) -> None:
     if not world.can_enter(destination, game.carrying):
         ui.say()
         ui.say(destination.locked_text)
+        # The backpack only notices the player rattling the same handle, not
+        # an honest first attempt at a door they have never tried (#103).
+        tries = game.refused.get(destination.key, 0) + 1
+        game.refused[destination.key] = tries
+        if tries > 1:
+            narrator.remark(game, "locked_again")
         return
 
     game.move_to(destination.key)

@@ -15,8 +15,22 @@ from collections.abc import Iterator
 
 import pytest
 
+import narrator
 import rooms  # noqa: F401  (importing rooms registers them)
 import ui
+
+
+@pytest.fixture(autouse=True)
+def quiet_backpack() -> Iterator[None]:
+    """Keep the Evil Backpack quiet for every test but its own.
+
+    It is a character, and characters get rewritten. No test should fail
+    because somebody improved one of its lines - the ones that are about the
+    backpack turn it back on themselves (#103).
+    """
+    narrator.silence()
+    yield
+    narrator.speak_up()
 
 
 class FakeConsole:

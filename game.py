@@ -12,6 +12,7 @@ import time
 from dataclasses import dataclass, field
 
 import commands
+import narrator
 import ui
 import world
 from inventory import Inventory, get_item
@@ -51,6 +52,12 @@ class Game:
     defeated: set[str] = field(default_factory=set)
     taken: set[tuple[str, str]] = field(default_factory=set)
     approached: set[str] = field(default_factory=set)
+    #: How many times the backpack has had something to say about each kind
+    #: of event, so it can keep quiet most of the time - see narrator.py.
+    heard: dict[str, int] = field(default_factory=dict)
+    #: How many times each door has refused the player, so the backpack can
+    #: notice them rattling the same handle (#103).
+    refused: dict[str, int] = field(default_factory=dict)
     running: bool = True
     #: When this play-through began, for the status command's "time played".
     #: A monotonic clock, so a system clock change mid-game cannot make it
@@ -76,7 +83,9 @@ class Game:
     def take(self, key: str) -> Item:
         """Move the item ``key`` from this room into what the player carries."""
         self.taken.add((self.current, key))
-        return self.carrying.add(key)
+        item = self.carrying.add(key)
+        narrator.remark(self, "took", what=item.name)
+        return item
 
     def move_to(self, key: str) -> None:
         """Walk into the room ``key`` and let it introduce itself."""
@@ -94,6 +103,8 @@ class Game:
         ui.narrate(room.description)
         if not first_time:
             ui.say("You have been here before.")
+            if not room.is_hallway:
+                narrator.remark(self, "backtrack")
 
         if first_time and room.on_first_enter is not None:
             room.on_first_enter(self)
