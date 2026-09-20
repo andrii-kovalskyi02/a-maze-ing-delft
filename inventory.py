@@ -40,7 +40,6 @@ ITEM_CATALOGUE: dict[str, Item] = {
                 "things, and complains about it constantly."
             ),
         ),
-
         Item(
             key="digit_4",
             name="digit 4",

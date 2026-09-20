@@ -1,8 +1,9 @@
+"""US1c - Room: Classroom 2.031 - the Evil Backpack Issue #13."""
+
 from __future__ import annotations
 
+from models import Area, Boss, Question, Room
 from world import register
-
-from models import Area, Boss, Inspectable, Question, Room
 
 ROOM = Room(
     key="classroom_2031",
@@ -18,7 +19,7 @@ ROOM = Room(
         0.6,
         "Unlike Classroom 2.035 there's nothing on the desks... Something feels off",
         0.6,
-        "Theres a backpack on one of desk, your curiosity is eating at you"
+        "Theres a backpack on one of desk, your curiosity is eating at you",
     ),
     exits=("corridor_blue",),
     requires=None,
@@ -47,19 +48,25 @@ ROOM = Room(
         ),
         questions=(
             Question(
-                prompt="Lets start of easy. "
-                       "What is 1+1 equal to?",
+                prompt="Lets start of easy. What is 1+1 equal to?",
                 answers=("2", "two", "2."),
             ),
             Question(
                 prompt="Hmm.. too easy? What are the first 3 digits of Pi",
-                answers=("3.14", "314",),
-                choices=("3.14", "4.13", "I have no clue",),
+                answers=(
+                    "3.14",
+                    "314",
+                ),
+                choices=(
+                    "3.14",
+                    "4.13",
+                    "I have no clue",
+                ),
             ),
             Question(
                 prompt="How about this?"
-                       "I have but one last easy question for you."
-                       "What is the deep state of ↸∷ᒷᔑᒲ╎リ⊣ ||𝙹⚍re ꖎi⍊g ⎓d⍑ᓭ⋮a",
+                "I have but one last easy question for you."
+                "What is the deep state of ↸∷ᒷᔑᒲ╎リ⊣ ||𝙹⚍re ꖎi⍊g ⎓d⍑ᓭ⋮a",
                 answers=(),
             ),
         ),

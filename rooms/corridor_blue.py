@@ -1,5 +1,6 @@
-"""The smallest room that keeps the game playable while the foundation
-lands. Whoever picks up US1b writes the real text, makes the evacuation plan a
+"""The smallest room that keeps the game playable while the foundation lands.
+
+Whoever picks up US1b writes the real text, makes the evacuation plan a
 forced pickup on the first look around, and adds the fire gating.
 """
 
