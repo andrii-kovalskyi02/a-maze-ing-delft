@@ -36,7 +36,11 @@ offer 0 to go back, and a key you press that is not on the list simply shows
 the list again.
 
 The only time you type words is when somebody asks you a question you have to
-answer yourself.\
+answer yourself.
+
+The story is typed out a letter at a time. Press Enter while it is typing and
+the rest of it appears at once - handy the second time round. Options can turn
+the typing off altogether.\
 """
 
 

@@ -109,23 +109,57 @@ def do_map(game: Game) -> None:
     ui.say(floor_map.render(game))
 
 
+def options_menu(game: Game) -> tuple[MenuItem, ...]:
+    """Return the Options menu: everything that is not part of the story.
+
+    Built as data, like every other menu here, so a test can find "Quit" by
+    name instead of counting lines, and adding a choice breaks nothing.
+    """
+    return (
+        MenuItem("Status", do_status),
+        MenuItem("Scoreboard", _not_built_yet("The scoreboard", 121)),
+        MenuItem(_text_speed_label(), do_text_speed),
+        MenuItem("Save and continue later", _not_built_yet("Saving", 121)),
+        MenuItem("Quit the game", do_quit),
+    )
+
+
 def do_options(game: Game) -> None:
     """Offer the things that are not part of the story."""
-    chosen = ui.choose(
-        "Options:",
-        ["Status", "Scoreboard", "Save and continue later", "Quit the game"],
-        back="Back to the game",
+    menu = options_menu(game)
+    chosen = ui.choose("Options:", [item.label for item in menu], back="Back to the game")
+    if chosen is not None:
+        menu[chosen].action(game)
+
+
+def _not_built_yet(what: str, issue: int) -> Callable[[Game], None]:
+    """Return an action that says ``what`` is still somebody's open issue."""
+
+    def action(game: Game) -> None:
+        ui.say()
+        ui.say(f"{what} is not built yet (issue #{issue}).")
+
+    return action
+
+
+def _text_speed_label() -> str:
+    """Name the text-speed choice after what picking it would do."""
+    return "Type the story out again" if ui.is_instant() else "Show the story instantly"
+
+
+def do_text_speed(game: Game) -> None:
+    """Turn the typing animation off, or back on (issue #151).
+
+    A player on their second or third run has read all of this already. One
+    choice here spares them pressing Enter through every room.
+    """
+    ui.set_instant(not ui.is_instant())
+    ui.say()
+    ui.say(
+        "The story will appear instantly from now on."
+        if ui.is_instant()
+        else "The story will be typed out again."
     )
-    if chosen == 0:
-        do_status(game)
-    elif chosen == 1:
-        ui.say()
-        ui.say("The scoreboard is not built yet (issue #121).")
-    elif chosen == 2:
-        ui.say()
-        ui.say("Saving is not built yet (issue #121).")
-    elif chosen == 3:
-        do_quit(game)
 
 
 def do_status(game: Game) -> None:

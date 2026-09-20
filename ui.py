@@ -7,6 +7,7 @@ directly from a room.
 
 from __future__ import annotations
 
+import contextlib
 import sys
 import textwrap
 import time
@@ -28,10 +29,16 @@ CHAR_DELAY = 0.02
 #: the room does not ask for a pause of its own.
 PART_DELAY = 0.5
 
+#: True once the player has said they would rather not watch the story being
+#: typed. Set by the Options menu, and by pressing a key during a narration -
+#: see :func:`narrate` (issue #151).
+_instant = False
+
 #: Swapped out by the tests. Do not call these directly; use say/narrate/ask.
 _write: Callable[[str], None] = print
 _read: Callable[[str], str] = input
 _sleep: Callable[[float], None] = time.sleep
+_clock: Callable[[], float] = time.monotonic
 
 
 def say(text: str = "") -> None:
@@ -56,19 +63,31 @@ def narrate(text: Text) -> None:
     for that many seconds instead::
 
         ("The ghost looks up at you.", 1.5, "'Let's begin.'")
+
+    A player who has read this before can press Enter (or any key) while it is
+    being typed: the rest of the text appears at once, pauses included. The
+    Options menu turns the typing off for good - see :func:`set_instant`.
     """
     parts = (text,) if isinstance(text, str) else text
+    skipped = False
     previous_was_text = False
-    for part in parts:
-        if isinstance(part, int | float):
-            _sleep(part)
-            previous_was_text = False
-            continue
-        if previous_was_text:
-            _sleep(PART_DELAY)
-        for line in _wrap(part):
-            _type_line(line)
-        previous_was_text = True
+    with _keys_not_echoed():
+        for part in parts:
+            if isinstance(part, int | float):
+                if not (skipped or _instant):
+                    _sleep(part)
+                previous_was_text = False
+                continue
+            if previous_was_text and not (skipped or _instant):
+                _sleep(PART_DELAY)
+            for line in _wrap(part):
+                if skipped or _instant:
+                    _write(line)
+                elif _type_line(line):
+                    # The player pressed a key: they have read this before.
+                    # The rest of this text lands at once, pauses and all.
+                    skipped = True
+            previous_was_text = True
 
 
 def _wrap(text: str) -> list[str]:
@@ -81,17 +100,26 @@ def _wrap(text: str) -> list[str]:
     ]
 
 
-def _type_line(line: str) -> None:
-    """Write one line, a character at a time when a real terminal is watching."""
-    if _write is not print or not sys.stdout.isatty():
+def _type_line(line: str) -> bool:
+    """Write one line, a character at a time when a real terminal is watching.
+
+    Returns:
+        True if the player pressed a key to skip the rest of the story.
+    """
+    if not _at_a_real_terminal():
         # The tests, or output piped into a file: nobody is there to watch.
         _write(line)
-        return
-    for character in line:
+        return False
+    for index, character in enumerate(line):
+        if _pressed_a_key():
+            sys.stdout.write(line[index:] + "\n")
+            sys.stdout.flush()
+            return True
         sys.stdout.write(character)
         sys.stdout.flush()
         _sleep(CHAR_DELAY)
     sys.stdout.write("\n")
+    return False
 
 
 def _indent_of(line: str) -> int:
@@ -99,9 +127,121 @@ def _indent_of(line: str) -> int:
     return len(line) - len(line.lstrip())
 
 
+@contextlib.contextmanager
+def _keys_not_echoed():
+    """Stop the terminal printing the keys the player presses, while it lasts.
+
+    A terminal normally echoes what you type, and it does it the moment you
+    press the key - not when the program gets round to reading it. So a player
+    pressing Enter to skip the typing would see their own newline land in the
+    middle of a word, splitting it in half.
+
+    Turning the echo off for as long as the story is being typed is the fix.
+    The same switch also turns off line-buffering, which is what lets *any*
+    key skip the text rather than only Enter.
+
+    Does nothing at all unless a real terminal is on the other end - under the
+    tests, or with the output piped into a file, there is nothing to echo. The
+    old settings go back on the way out, including if the player presses
+    Ctrl-C, so the terminal is never left in a strange state.
+    """
+    if not _at_a_real_terminal() or sys.platform == "win32":
+        # Windows needs none of this: it is read with ``msvcrt.getwch``, which
+        # does not echo in the first place.
+        yield
+        return
+
+    try:
+        import termios
+
+        keyboard = sys.stdin.fileno()
+        before = termios.tcgetattr(keyboard)
+        quiet = termios.tcgetattr(keyboard)
+        quiet[3] &= ~(termios.ECHO | termios.ICANON)  # the "local" flags
+        quiet[6][termios.VMIN] = 0  # never wait for a key that is not there
+        quiet[6][termios.VTIME] = 0
+    except (ImportError, OSError, ValueError):  # pragma: no cover
+        # No termios, or a stdin that is not really a keyboard - an IDE's
+        # console, say. Nothing to quieten, so type it out as it comes.
+        yield
+        return
+
+    try:
+        termios.tcsetattr(keyboard, termios.TCSADRAIN, quiet)
+        yield
+    finally:
+        termios.tcsetattr(keyboard, termios.TCSADRAIN, before)
+
+
+def _at_a_real_terminal() -> bool:
+    """Return True if a person is watching this, rather than a test or a pipe."""
+    try:
+        return _write is print and sys.stdout.isatty() and sys.stdin.isatty()
+    except (AttributeError, ValueError):  # pragma: no cover - a closed stream
+        return False
+
+
+def _pressed_a_key() -> bool:
+    """Return True if the player has hit a key, and swallow what they typed.
+
+    This is how "press Enter to skip" works: while a line is being typed out
+    we peek at the keyboard between characters without waiting for it. Whatever
+    they pressed is read and thrown away, so it does not turn up later as an
+    answer to a menu.
+
+    Both halves are guarded, because the team is on macOS, Linux and Windows,
+    and neither way of peeking exists on all three. If neither works, nothing
+    is skipped and the story is simply typed out as before.
+    """
+    try:
+        if sys.platform == "win32":  # pragma: no cover - only reachable on Windows
+            import msvcrt
+
+            if not msvcrt.kbhit():
+                return False
+            while msvcrt.kbhit():
+                msvcrt.getwch()
+            return True
+
+        import select
+        import termios
+
+        if not select.select([sys.stdin], [], [], 0)[0]:
+            return False
+        termios.tcflush(sys.stdin, termios.TCIFLUSH)
+        return True
+    except Exception:  # pragma: no cover - no keyboard to peek at (a pipe, an IDE)
+        return False
+
+
+def is_instant() -> bool:
+    """Return True if the story is being shown all at once instead of typed."""
+    return _instant
+
+
+def set_instant(instant: bool) -> None:
+    """Show the story instantly from now on, or go back to typing it out.
+
+    Offered in the Options menu for the player on their second or third run,
+    who has read every word already (issue #151).
+    """
+    global _instant
+    _instant = instant
+
+
 def ask(prompt: str = "> ") -> str:
     """Ask the player for a line of input and return it stripped."""
     return _read(prompt).strip()
+
+
+def now() -> float:
+    """Return the time, in seconds, for anything that has to be timed.
+
+    Everything that watches a clock goes through here for the same reason
+    everything that prints goes through :func:`say`: a test can hand the game
+    a clock it controls, and time a question without waiting for one.
+    """
+    return _clock()
 
 
 def pause(seconds: float) -> None:
@@ -145,7 +285,9 @@ def use_io(
     write: Callable[[str], None],
     read: Callable[[str], str],
     sleep: Callable[[float], None] = time.sleep,
+    clock: Callable[[], float] = time.monotonic,
 ) -> None:
-    """Replace the input, output and waiting functions. Used by the tests only."""
-    global _write, _read, _sleep
-    _write, _read, _sleep = write, read, sleep
+    """Replace the input, output, waiting and timing functions. Tests only."""
+    global _write, _read, _sleep, _clock, _instant
+    _write, _read, _sleep, _clock = write, read, sleep, clock
+    _instant = False
