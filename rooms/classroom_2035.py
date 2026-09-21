@@ -30,9 +30,9 @@ def wake_up(game: Game) -> None:
     is where the player is told how the game is played.
     """
     ui.say()
-    ui.say("Your cheek is stuck to the desk. The fire alarm is screaming.")
-    ui.say("Everyone else is gone. Their chairs are pushed back at odd angles.")
-    ui.say("Somewhere below you, something is burning.")
+    ui.narrate("Your cheek is stuck to the desk. The fire alarm is screaming.")
+    ui.narrate("Everyone else is gone. Their chairs are pushed back at odd angles.")
+    ui.narrate("Somewhere below you, something is burning.")
 
 
 ROOM = Room(

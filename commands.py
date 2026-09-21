@@ -332,5 +332,4 @@ def _door_label(game: Game, door: Room) -> str:
     """
     if door.key in game.visited and not door.is_hallway:
         return f"{door.name} (you have been there)"
-    
     return door.name
