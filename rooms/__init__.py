@@ -21,4 +21,5 @@ from rooms import (  # noqa: F401
     student_society,
     teacher_rooms,
     teachers_room_4,
+    classroom_2021,
 )
