@@ -123,6 +123,7 @@ def options_menu(game: Game) -> tuple[MenuItem, ...]:
         MenuItem("Quit the game", do_quit),
     )
 
+
 def _save_and_continue(game: Game) -> None:
     """Save the current game and leave it for later."""
     game.pause()
@@ -166,7 +167,6 @@ def do_text_speed(game: Game) -> None:
         if ui.is_instant()
         else "The story will be typed out again."
     )
-
 
 
 def do_status(game: Game) -> None:

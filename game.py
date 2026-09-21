@@ -71,7 +71,6 @@ class Game:
     taken: set[tuple[str, str]] = field(default_factory=set)
     approached: set[str] = field(default_factory=set)
 
-
     heard: dict[str, int] = field(default_factory=dict)
     refused: dict[str, int] = field(default_factory=dict)
     running: bool = True
@@ -83,8 +82,6 @@ class Game:
         compare=False,
     )
     percent_explored: float = 0
-
-
 
     def __post_init__(self) -> None:
         """Hand the player their starting items, if the story gives them any."""

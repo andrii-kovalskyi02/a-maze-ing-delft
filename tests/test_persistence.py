@@ -32,34 +32,33 @@ def test_save_and_load_preserves_game_state(tmp_path, monkeypatch) -> None:
     assert loaded.player_name == game.player_name
     assert loaded.current == game.current
     assert loaded.hearts == game.hearts
-    assert set(item.key for item in loaded.carrying) == set(
-        item.key for item in game.carrying
-    )
+    assert set(item.key for item in loaded.carrying) == set(item.key for item in game.carrying)
     assert loaded.visited == game.visited
     assert loaded.defeated == game.defeated
     assert loaded.taken == game.taken
     assert loaded.approached == game.approached
     assert loaded.elapsed_time == game.elapsed_time
 
+
 def test_pause_saves_the_game_and_stops_running(tmp_path, monkeypatch) -> None:
-        """Pausing must save the current state and stop the game."""
-        database = tmp_path / "test.db"
-        monkeypatch.setattr(persistence, "DATABASE_NAME", str(database))
+    """Pausing must save the current state and stop the game."""
+    database = tmp_path / "test.db"
+    monkeypatch.setattr(persistence, "DATABASE_NAME", str(database))
 
-        persistence.create_tables()
+    persistence.create_tables()
 
-        game = Game(player_name="Michaela")
-        game.current = "corridor_blue"
-        game.hearts = 2
-        game.elapsed_time = 10.0
+    game = Game(player_name="Michaela")
+    game.current = "corridor_blue"
+    game.hearts = 2
+    game.elapsed_time = 10.0
 
-        game.pause()
+    game.pause()
 
-        assert game.running is False
+    assert game.running is False
 
-        loaded = persistence.load_game("Michaela")
+    loaded = persistence.load_game("Michaela")
 
-        assert loaded is not None
-        assert loaded.current == "corridor_blue"
-        assert loaded.hearts == 2
-        assert loaded.elapsed_time >= 10.0
+    assert loaded is not None
+    assert loaded.current == "corridor_blue"
+    assert loaded.hearts == 2
+    assert loaded.elapsed_time >= 10.0
