@@ -7,6 +7,7 @@ up automatically.  Keep the list alphabetical.
 
 from rooms import (  # noqa: F401
     classroom_2015,
+    classroom_2021,
     classroom_2031,
     classroom_2035,
     corridor_blue,
@@ -21,5 +22,4 @@ from rooms import (  # noqa: F401
     student_society,
     teacher_rooms,
     teachers_room_4,
-    classroom_2021,
 )
