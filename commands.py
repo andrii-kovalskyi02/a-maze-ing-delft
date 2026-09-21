@@ -119,9 +119,15 @@ def options_menu(game: Game) -> tuple[MenuItem, ...]:
         MenuItem("Status", do_status),
         MenuItem("Scoreboard", _not_built_yet("The scoreboard", 121)),
         MenuItem(_text_speed_label(), do_text_speed),
-        MenuItem("Save and continue later", _not_built_yet("Saving", 121)),
+        MenuItem("Save and continue later", _save_and_continue),
         MenuItem("Quit the game", do_quit),
     )
+
+def _save_and_continue(game: Game) -> None:
+    """Save the current game and leave it for later."""
+    game.pause()
+    ui.say()
+    ui.say("Game saved. See you next time!")
 
 
 def do_options(game: Game) -> None:
@@ -160,6 +166,7 @@ def do_text_speed(game: Game) -> None:
         if ui.is_instant()
         else "The story will be typed out again."
     )
+
 
 
 def do_status(game: Game) -> None:

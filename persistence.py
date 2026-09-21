@@ -49,10 +49,7 @@ def save_game(game: Game) -> None:
 
     digits = [key for key in inventory if key.startswith("digit_")]
 
-    taken_items = [
-        [room, item]
-        for room, item in game.taken
-    ]
+    taken_items = [[room, item] for room, item in game.taken]
 
     connection = get_connection()
 
@@ -110,6 +107,7 @@ def load_game(player_name: str) -> Game | None:
             current_room,
             inventory,
             hearts,
+            digits,
             visited_rooms,
             defeated_challenges,
             taken_items,
@@ -132,6 +130,7 @@ def load_game(player_name: str) -> Game | None:
         current_room,
         inventory_json,
         hearts,
+        digits_json,
         visited_json,
         defeated_json,
         taken_json,
@@ -145,10 +144,7 @@ def load_game(player_name: str) -> Game | None:
         hearts=hearts,
         visited=set(json.loads(visited_json)),
         defeated=set(json.loads(defeated_json)),
-        taken={
-            (room, item)
-            for room, item in json.loads(taken_json)
-        },
+        taken={(room, item) for room, item in json.loads(taken_json)},
         approached=set(json.loads(approached_json)),
         elapsed_time=elapsed_time,
     )
