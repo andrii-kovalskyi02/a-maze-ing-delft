@@ -46,6 +46,11 @@ ITEM_CATALOGUE: dict[str, Item] = {
             description="The fourth digit of the code.",
         ),
         Item(
+            key="digit_3",
+            name="digit 3",
+            description="The third digit of the code, carved into a piece of bark.",
+        ),
+        Item(
             key="digit_1",
             name="digit 1",
             description="The first digit used to unlock exit door",
