@@ -80,6 +80,7 @@ class Game:
     #: A monotonic clock, so a system clock change mid-game cannot make it
     #: run backwards.
     started_at: float = field(default_factory=time.monotonic)
+    percent_explored: float = 0
 
     def __post_init__(self) -> None:
         """Hand the player their starting items, if the story gives them any."""
