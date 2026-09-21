@@ -72,6 +72,19 @@ class Game:
     approached: set[str] = field(default_factory=set)
 
 
+    heard: dict[str, int] = field(default_factory=dict)
+    refused: dict[str, int] = field(default_factory=dict)
+    running: bool = True
+    elapsed_time: float = 0.0
+    started_at: float = field(default_factory=time.monotonic)
+    _session_started: float = field(
+        default_factory=time.monotonic,
+        repr=False,
+        compare=False,
+    )
+    percent_explored: float = 0
+
+
 
     def __post_init__(self) -> None:
         """Hand the player their starting items, if the story gives them any."""
@@ -153,7 +166,6 @@ class Game:
             self.running = False
 
     def run(self) -> None:
-
         """Play until the player quits, pauses, or until there is no more input."""
         ui.set_pause_handler(self.pause)
 
