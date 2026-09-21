@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from models import Area, Room
-from rooms import classroom_2015, projectroom_3
 from world import register
 
 ROOM = Room(
@@ -20,7 +19,16 @@ ROOM = Room(
         0.6,
         "while flickering overhead lights hum quietly along the hallway.",
     ),
-    exits=("corridor_blue", "front_desk_office","classroom_2015","projectroom_3", "lobby"),
+    exits=(
+        "corridor_blue",
+        "front_desk_office",
+        "classroom_2015",
+        "projectroom_3",
+        "lobby",
+        "storage",
+        "student_society",
+        "teacher_rooms",
+    ),
     requires="fire_extinguisher",
     is_hallway=True,
 )

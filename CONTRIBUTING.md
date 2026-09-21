@@ -67,6 +67,32 @@ If your room needs something the engine cannot do, say so in the issue before
 you build a workaround. Nine times out of ten it belongs in the engine so that
 everyone's room gets it.
 
+### Your boss, and its quirk
+
+Every boss in the design document behaves differently, and all of it is
+declared in your `Boss(...)` - there is no engine change to make, whichever
+quirk you were given:
+
+| What your boss does | What you write |
+|---|---|
+| multiple choice | `Question(prompt=..., answers=..., choices=(...))` |
+| an open question | the same, with no `choices` |
+| a question with no right answer | `answers=()` |
+| a time limit | `Question(seconds=10)` |
+| no time limit | leave `seconds` out |
+| "type this word, quickly" | `models.typing_attack("word", seconds=10)` |
+| a fight the player cannot win | `single_attempt=True` |
+| a side quest rather than a boss | `side_quest=True` |
+
+Hearts are the engine's job too: a wrong answer or a missed timer costs a
+whole heart against a boss and half of one on a side quest, and beating it
+gives the same back. A `single_attempt` loss costs nothing, because losing it
+is the story. Three hearts gone ends the run.
+
+The Evil Backpack comments on what the player does from US1c onwards. It hooks
+into the engine, so **do not call it from your room** - and do not write lines
+for it anywhere but `narrator.py`.
+
 Two escape hatches exist for the rare case:
 
 - `on_first_enter=<function>` - runs once when the player first walks in.
@@ -85,9 +111,11 @@ what lets the tests play your room without a human at the keyboard.
 | `game.py` | the one main loop and all player state | #92 |
 | `commands.py` | the menu, and what each choice does | #92 |
 | `inventory.py` | the item catalogue and what the player carries | #100 |
-| `encounters.py` | running a boss's questions | #104 |
-| `ui.py` | all screen output, keyboard input, and the numbered menu | - |
-| `floor_map.py` | the map - **not built yet** | #120 |
+| `encounters.py` | running a boss's questions, and what a fight costs | #104 |
+| `health.py` | hearts, in halves | #108 |
+| `narrator.py` | what the Evil Backpack says, and when | #103 |
+| `ui.py` | all screen output, keyboard input, and the numbered menu | #151 |
+| `floor_map.py` | the map | #120 |
 
 ## Before you push
 

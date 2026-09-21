@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from world import register
-
 from models import Area, Boss, Inspectable, Question, Room
+from world import register
 
 ROOM = Room(
     # room ID

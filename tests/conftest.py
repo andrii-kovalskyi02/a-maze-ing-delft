@@ -15,8 +15,22 @@ from collections.abc import Iterator
 
 import pytest
 
+import narrator
 import rooms  # noqa: F401  (importing rooms registers them)
 import ui
+
+
+@pytest.fixture(autouse=True)
+def quiet_backpack() -> Iterator[None]:
+    """Keep the Evil Backpack quiet for every test but its own.
+
+    It is a character, and characters get rewritten. No test should fail
+    because somebody improved one of its lines - the ones that are about the
+    backpack turn it back on themselves (#103).
+    """
+    narrator.silence()
+    yield
+    narrator.speak_up()
 
 
 class FakeConsole:
@@ -27,6 +41,20 @@ class FakeConsole:
         self._answers: list[str] = []
         #: Every pause the game asked for, in seconds, instead of really waiting.
         self.pauses: list[float] = []
+        #: The clock the game reads, in seconds. A test times a question by
+        #: moving this forward itself - see ``take_seconds``.
+        self.time = 0.0
+        #: How long the player "takes" over each answer, in order. Anything
+        #: not listed is answered instantly.
+        self._delays: list[float] = []
+
+    def take_seconds(self, *delays: float) -> None:
+        """Make the player take this long over the next answers, in order."""
+        self._delays.extend(delays)
+
+    def clock(self) -> float:
+        """The time, as the game sees it."""
+        return self.time
 
     def script(self, *answers: str) -> None:
         """Queue what the player types next."""
@@ -36,6 +64,9 @@ class FakeConsole:
         self.lines.append(text)
 
     def read(self, prompt: str = "") -> str:
+        if self._delays:
+            # Answering takes the player however long the test says it does.
+            self.time += self._delays.pop(0)
         if not self._answers:
             # Same as a real terminal with nothing left on stdin. The game
             # treats this as the player walking away.
@@ -52,6 +83,6 @@ class FakeConsole:
 def console() -> Iterator[FakeConsole]:
     """Give the test a console it controls, and restore the real one after."""
     fake = FakeConsole()
-    ui.use_io(fake.write, fake.read, sleep=fake.pauses.append)
+    ui.use_io(fake.write, fake.read, sleep=fake.pauses.append, clock=fake.clock)
     yield fake
-    ui.use_io(print, input, time.sleep)
+    ui.use_io(print, input, time.sleep, time.monotonic)

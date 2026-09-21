@@ -1,15 +1,16 @@
-""""room/us1k-student-society Issue #147."""
+"""room/us1k-student-society Issue #147."""
 
 from __future__ import annotations
-from world import register
+
 from models import Area, Boss, Inspectable, Question, Room
+from world import register
 
 ROOM = Room(
     key="student_society",
     name="Student society",
     area=Area.RED,
     description="A student society room that looks like someplace you've seen "
-                "before... but you dont remember when or where",
+    "before... but you dont remember when or where",
     look_around=(
         "A kicker table stands in the middle of the room, ball frozen on "
         "the halfway line, an iPad sits on one of the chairs barely visible "
@@ -21,7 +22,7 @@ ROOM = Room(
     requires=None,
     locked_text="the door is unlocked? ",
     inspectables=(
-            Inspectable(
+        Inspectable(
             name="the kicker table",
             text=(
                 "A battered foosball table, ball frozen mid-shot. A single "
@@ -53,46 +54,45 @@ ROOM = Room(
             text="An agenda: 'Item 1: snacks budget. Item 2: snacks budget (cont.)'",
         ),
     ),
-
     items=(),
-                # Automated kicker table for now, more complex mini-game later on?
+    # Automated kicker table for now, more complex mini-game later on?
     boss=Boss(
-    name="Automated Kicker Machine",
-         intro=(
-             "The red light above the goal blinks once, twice, and the "
-             "  table shudders to life with no cord, no coin, nothing "
-             "               A tiny speaker crackles:               "
-             "       PENALTY. SHOOTOUT. BEST. OF. THREE. The "
-             "mechanical arm lines up a ball that was not there a moment "
-             "ago."
-         ),
-         questions=(
-             Question(
-                 prompt="Round 1: Where do you aim?",
-                 choices=("Left", "Center", "Right"),
-                 answers=("Left",),
-             ),
-             Question(
-                 prompt="Round 2: Where do you aim?",
-                 choices=("Left", "Center", "Right"),
-                 answers=("Right",),
-             ),
-             Question(
-                 prompt="Round 3: Where do you aim?",
-                 choices=("Left", "Center", "Right"),
-                 answers=("Center",),
-             ),
-         ),
-         win_text=(
-             "The red light flashes green. MATCH. LOST. the speaker "
-             "grumbles, and the table stills again, the ball freezing "
-             "mid-air exactly where it started."
-         ),
-         lose_text=(
-             "The red light stays red. MATCH. WON. the machine "
-             "announces, smug for something that isn't really there."
-         ),
-         reward=None,
+        name="Automated Kicker Machine",
+        intro=(
+            "The red light above the goal blinks once, twice, and the "
+            "  table shudders to life with no cord, no coin, nothing "
+            "               A tiny speaker crackles:               "
+            "       PENALTY. SHOOTOUT. BEST. OF. THREE. The "
+            "mechanical arm lines up a ball that was not there a moment "
+            "ago."
+        ),
+        questions=(
+            Question(
+                prompt="Round 1: Where do you aim?",
+                choices=("Left", "Center", "Right"),
+                answers=("Left",),
+            ),
+            Question(
+                prompt="Round 2: Where do you aim?",
+                choices=("Left", "Center", "Right"),
+                answers=("Right",),
+            ),
+            Question(
+                prompt="Round 3: Where do you aim?",
+                choices=("Left", "Center", "Right"),
+                answers=("Center",),
+            ),
+        ),
+        win_text=(
+            "The red light flashes green. MATCH. LOST. the speaker "
+            "grumbles, and the table stills again, the ball freezing "
+            "mid-air exactly where it started."
+        ),
+        lose_text=(
+            "The red light stays red. MATCH. WON. the machine "
+            "announces, smug for something that isn't really there."
+        ),
+        reward=None,
     ),
 )
 register(ROOM)
