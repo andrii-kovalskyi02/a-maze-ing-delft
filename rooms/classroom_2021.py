@@ -1,3 +1,5 @@
+"""room/US1j Classroom 2.021- #162 Issue #162."""
+
 from __future__ import annotations
 
 from models import Area, Inspectable, Room
@@ -10,7 +12,7 @@ ROOM = Room(
     description=(
         "You push the door to Classroom 2.021 open.",
         0.6,
-        "The alarm sounds different in here... muffled, like the room itself is holding its breath.",
+        "The alarm sounds different in here... muffled,like the room itself is holding its breath.",
         0.7,
         "Every chair is still tucked neatly under its desk.",
         0.5,
