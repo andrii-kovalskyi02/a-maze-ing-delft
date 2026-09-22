@@ -55,7 +55,7 @@ PLAN = """\
  +----X----+----X----+=========+------------------------------+
  |         |         |         |                              |
  |Teachers | Stair   |         X Storage                      |
- |Room     | exit    |         |                              |
+ |Room 4   | exit    |         |                              |
  +---------+---------+         +------------------------------+
  | Classroom 2.021   X   red   X Project room 3               |
  |                   |         |                              |
@@ -106,9 +106,9 @@ ON_THE_PLAN: dict[str, tuple[str, str]] = {
     "classroom_2015": ("Classroom 2.015", "Classroom 2.015"),
     "front_desk_office": ("Front Desk Office", "the Front Desk Office"),
     "storage": ("Storage", "the storage room"),
-    "project_room_3": ("Project room 3", "Project room 3"),
-    "equinox_student_society": ("Equinox student society", "the Equinox student society"),
-    "main_teachers_room": ("Main Teachers Room", "the Main Teachers Room"),
+    "projectroom_3": ("Project room 3", "Project room 3"),
+    "student_society": ("Equinox student society", "the Equinox student society"),
+    "teacher_rooms": ("Main Teachers Room", "the Main Teachers Room"),
     # the east end
     "lobby": ("L o b b y", "the lobby"),
     "project_room_2": ("Project room 2", "Project room 2"),
