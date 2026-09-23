@@ -30,7 +30,8 @@ Quick map of the file:
     TerminalWindow._draw_map_overlay -> draws the map in its own corner panel
     TerminalWindow._render_map_line  -> renders one map line with the same shadow as the main text
     TerminalWindow._load_room_image  -> loads/scales a room's background image, if it has one
-    TerminalWindow._load_static_image -> the shared loader behind that, and the intro screen's background
+    TerminalWindow._load_static_image -> the shared loader behind that, and
+                                          the intro screen's background
     TerminalWindow.run               -> the main loop tying it all together
 """
 
@@ -157,8 +158,9 @@ def _debug_log(message: str) -> None:
 
 
 class _StreamToQueue:
-    """Fake sys.stdout - catches what the game prints and queues it for the
-    window. This is also the ONE place that knows, in real time, whether
+    """Fake sys.stdout - catches what the game prints and queues it for the window.
+
+    This is also the ONE place that knows, in real time, whether
     what it's catching is being typed out character by character
     (narrate()'s _type_line()) or handed over as a whole line at once
     (say()) - and that's exactly the difference between a line the player
@@ -247,9 +249,11 @@ class _QueueToStream:
 
 
 def _make_dialogue_sleep(window: TerminalWindow):
-    """Swaps in for time.sleep() - a keypress fast-forwards through the
-    typing delay between characters, finishing the current line instantly
-    instead of waiting out the rest of its real-time typing.
+    """Swaps in for time.sleep() - a keypress fast-forwards through typing.
+
+    A keypress fast-forwards through the typing delay between characters,
+    finishing the current line instantly instead of waiting out the rest
+    of its real-time typing.
 
     The "stop and wait for a press before the next line can start" behaviour
     does NOT live here - narrate()'s per-character writes give no sleep()
@@ -389,13 +393,16 @@ class TerminalWindow:
         self.waiting_for_input = False
 
     def wait_for_line_advance(self) -> None:
-        """Called from the GAME THREAD (see _StreamToQueue.write) the instant
+        """Block the game thread right where a typed line just finished.
+
+        Called from the GAME THREAD (see _StreamToQueue.write) the instant
         a typed line finishes - blocks it right there until the player
         presses something. This is what stops the game thread from racing
         ahead typing the next line (or several) in the background while the
         player is still reading the one before - only pausing the DISPLAY
         wouldn't be enough, since the text would already be fully typed and
-        waiting by the time they caught up."""
+        waiting by the time they caught up.
+        """
         self.advance_event.clear()
         self.waiting_to_advance = True
         self.advance_event.wait()
@@ -487,12 +494,14 @@ class TerminalWindow:
     _MAX_MAP_CAPTURE_LINES = 200
 
     def _pump_output(self) -> None:
-        """Read whatever the game has printed since last frame, turn it into
-        screen lines. Note this never has to decide which lines need a
+        """Read what the game has printed since last frame, turn it into screen lines.
+
+        Note this never has to decide which lines need a
         press - _StreamToQueue.write() already settled that on the game
         thread itself, before this ever sees the character (see its
         docstring); by the time text reaches here the pacing has already
-        happened, this is purely "turn characters into (text, color) rows"."""
+        happened, this is purely "turn characters into (text, color) rows".
+        """
         try:
             while True:
                 chunk = self.out_queue.get_nowait()
@@ -533,7 +542,8 @@ class TerminalWindow:
                             if self.current_line == "":
                                 self._last_blank_index = len(self.lines) - 1
                         self.current_line = ""
-                        self.skip_event.clear()  # each new line starts fresh - needs its own press to skip
+                        # each new line starts fresh - needs its own press to skip
+                        self.skip_event.clear()
                     else:
                         self.current_line += character
         except queue.Empty:
@@ -700,10 +710,9 @@ class TerminalWindow:
         shadow = self._render_runs(runs, _TEXT_SHADOW_COLOR)
         shadow.set_alpha(_TEXT_SHADOW_ALPHA)
 
-        combined = pygame.Surface(
-            (foreground.get_width() + _TEXT_SHADOW_OFFSET, foreground.get_height() + _TEXT_SHADOW_OFFSET),
-            pygame.SRCALPHA,
-        )
+        combined_width = foreground.get_width() + _TEXT_SHADOW_OFFSET
+        combined_height = foreground.get_height() + _TEXT_SHADOW_OFFSET
+        combined = pygame.Surface((combined_width, combined_height), pygame.SRCALPHA)
         combined.blit(shadow, (_TEXT_SHADOW_OFFSET, _TEXT_SHADOW_OFFSET))
         combined.blit(foreground, (0, 0))
         return combined
@@ -734,10 +743,9 @@ class TerminalWindow:
         shadow = self.map_font.render(text, True, _TEXT_SHADOW_COLOR)
         shadow.set_alpha(_TEXT_SHADOW_ALPHA)
 
-        combined = pygame.Surface(
-            (foreground.get_width() + _TEXT_SHADOW_OFFSET, foreground.get_height() + _TEXT_SHADOW_OFFSET),
-            pygame.SRCALPHA,
-        )
+        combined_width = foreground.get_width() + _TEXT_SHADOW_OFFSET
+        combined_height = foreground.get_height() + _TEXT_SHADOW_OFFSET
+        combined = pygame.Surface((combined_width, combined_height), pygame.SRCALPHA)
         combined.blit(shadow, (_TEXT_SHADOW_OFFSET, _TEXT_SHADOW_OFFSET))
         combined.blit(foreground, (0, 0))
         return combined
@@ -772,12 +780,13 @@ class TerminalWindow:
         self.screen.blit(panel, (x, self.margin))
 
     def _box_lines(self) -> list[tuple[str, str, bool]]:
-        """What the dialogue box should show right now - only the current
-        "page" (see box_start), never the whole scrollback. Every row in
-        the box renders at the same bigger size (see _render_text's `big`
-        argument) - narration and the current question's prompt/choices
-        alike - only the pinned room header and the pre-room intro screen
-        stay at the normal size (see _draw).
+        """What the dialogue box should show right now.
+
+        Only the current "page" (see box_start), never the whole
+        scrollback. Every row in the box renders at the same bigger size
+        (see _render_text's `big` argument) - narration and the current
+        question's prompt/choices alike - only the pinned room header and
+        the pre-room intro screen stay at the normal size (see _draw).
 
         Blank lines are dropped entirely rather than shown as an empty row.
         The game calls ``ui.say()`` with no argument all over commands.py
@@ -792,7 +801,8 @@ class TerminalWindow:
         big empty gap between the box's top border and the text, for no
         reason a player could ever guess. The box already has its own
         margin and a fresh border every page, so it doesn't need the
-        terminal's own spacing convention reproduced inside it."""
+        terminal's own spacing convention reproduced inside it.
+        """
         shown = [
             (text, color, True) for text, color in self.lines[self.box_start :] if text != ""
         ]
@@ -815,14 +825,15 @@ class TerminalWindow:
         return shown
 
     def _wrap_to_width(self, text: str, big: bool, max_width: int) -> list[str]:
-        """Breaks text into as many lines as it takes for each one, rendered
-        at the box's font, to fit within max_width. ui.py's own _wrap()
-        (what actually splits narration into lines in the first place) only
-        knows about a fixed column count tuned for a full terminal - it has
-        no idea this box exists, let alone how wide it is in pixels, or
-        that "big" lines use a bigger font than "normal" ones. Without this,
-        a line that DOES fit ui.py's column count can still be wider than
-        the box and simply run past its edge."""
+        """Break text into lines that fit max_width at the box's font.
+
+        ui.py's own _wrap() (what actually splits narration into lines in
+        the first place) only knows about a fixed column count tuned for a
+        full terminal - it has no idea this box exists, let alone how wide
+        it is in pixels, or that "big" lines use a bigger font than
+        "normal" ones. Without this, a line that DOES fit ui.py's column
+        count can still be wider than the box and simply run past its edge.
+        """
         font = self.menu_font if big else self.font
         # _render_text() pads its combined surface by _TEXT_SHADOW_OFFSET
         # for the shadow copy, so the actual rendered width is always a
@@ -843,8 +854,10 @@ class TerminalWindow:
         return lines
 
     def _draw_dialogue_box(self) -> None:
-        """The little Undertale-style box, lower-center - shows only
-        _box_lines(), same shadowed-panel look as the map overlay."""
+        """Draw the little Undertale-style box, lower-center.
+
+        Shows only _box_lines(), same shadowed-panel look as the map overlay.
+        """
         max_box_width = int(self.width * _BOX_WIDTH_FRACTION)
         min_box_width = int(self.width * _BOX_MIN_WIDTH_FRACTION)
         # wrap against the MAX width regardless of how wide the box ends up
@@ -876,7 +889,7 @@ class TerminalWindow:
         pygame.draw.rect(box, (*_TEXT_SHADOW_COLOR, _TEXT_SHADOW_ALPHA), shadow_rect, 1)
         pygame.draw.rect(box, "white", box.get_rect(), 1)
         y = self.margin
-        for surface, row_height in zip(surfaces, row_heights):
+        for surface, row_height in zip(surfaces, row_heights, strict=True):
             box.blit(surface, (self.margin, y))
             y += row_height
 
@@ -885,13 +898,15 @@ class TerminalWindow:
         self.screen.blit(box, (x, y))
 
     def _draw_intro(self) -> None:
-        """The very first screen, before the player has entered any room
-        (self.room_header is still None) - the same full-screen, centered,
-        top-to-bottom layout every line used before the dialogue box
+        """Draw the very first screen, before the player has entered any room.
+
+        self.room_header is still None here - this is the same full-screen,
+        centered, top-to-bottom layout every line used before the dialogue box
         existed. The name prompt and the intro blurb aren't dialogue inside
         a room, so they don't belong crammed in the little box - this is
         "where it originally was". Pacing (typed lines still needing a
-        press) is unchanged; only where it's drawn is different."""
+        press) is unchanged; only where it's drawn is different.
+        """
         top = self.margin
         visible_rows = max(1, (self.height - top - self.margin) // self.line_height - 1)
         for row, (line, color) in enumerate(self.lines[-visible_rows:]):
