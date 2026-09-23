@@ -77,9 +77,16 @@ _EOF = object()
 
 FPS = 60
 
-# fonts with glyphs for the unusual Unicode some puzzle text uses - consolas
-# alone can't draw these, so they live next to this file as small files
+# fonts with glyphs for the unusual Unicode some puzzle text uses - the main
+# font alone can't draw these, so they live next to this file as small files
 _ASSETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
+
+# the game's main font, bundled as an actual file rather than asked for by
+# name - see TerminalWindow._load_main_font for why. Free, redistributable,
+# monospaced, and designed for exactly this (small, screen-rendered text) -
+# see assets/JetBrainsMono-OFL.txt for its license.
+_MAIN_FONT_FILE = "JetBrainsMono-Regular.ttf"
+
 _FALLBACK_FONT_FILES = ["unifont-subset.otf", "unifont-upper-subset.otf"]
 
 # background image per room, keyed by the exact "== Room Name ==" header
@@ -107,9 +114,10 @@ _ROOM_IMAGES = {
 _INTRO_IMAGE = "intro.jpg"
 
 # the exact characters rooms/classroom_2031.py's last puzzle question uses
-# (Canadian syllabics, box-drawing, math symbols, ...) that consolas has no
-# glyph for - everything else (ascii, the heart symbol, accented letters
-# elsewhere in the game) keeps using consolas as normal. This has to be an
+# (Canadian syllabics, box-drawing, math symbols, ...) that the main font
+# (_MAIN_FONT_FILE) has no glyph for - everything else (ascii, the heart
+# symbol, accented letters elsewhere in the game) keeps using it as normal.
+# This has to be an
 # exact list rather than asking pygame "can you draw this character" at
 # runtime: that check (Font.metrics()) turned out to report a character as
 # drawable even when the installed font can't actually draw it, so it
@@ -132,6 +140,21 @@ _TEXT_SHADOW_ALPHA = 190  # 0 = invisible, 255 = fully solid
 # this alpha the photo behind it is only a faint hint, and the map reads as
 # a solid HUD element regardless of what room it's drawn over.
 _MAP_PANEL_ALPHA = 235
+
+# the ASCII conventions floor_map.py's PLAN is drawn with (see that file's
+# WALLS and HERE) - mirrored here rather than imported, the same way
+# _is_map_top_border/_is_map_last_line above pattern-match on plain printed
+# text instead of reaching into floor_map.py: this file only ever acts on
+# what the game actually printed, never on the game's own modules. Used by
+# TerminalWindow._crop_map_to_local_area to figure out, from the text
+# alone, which part of the map is "the room you're in and its doors".
+_MAP_WALL_CHARS = frozenset("+-|=X")
+_MAP_HERE_CHAR = ":"
+
+# extra rows/columns of margin kept around the cropped area, so the crop
+# lands just outside the outermost wall it keeps rather than slicing
+# straight through it
+_MAP_CROP_PADDING = 1
 
 # the little Undertale-style dialogue box, lower-center - height just grows
 # to fit whatever it's currently showing (capped at _BOX_MAX_ROWS so one
@@ -309,20 +332,20 @@ class TerminalWindow:
         pygame.display.set_caption("a-maze-ing-delft")
 
         font_size = max(12, min(18, self.height // 60))
-        self.font = pygame.font.SysFont("consolas", font_size)
+        self.font = self._load_main_font(font_size)
         # some puzzle text uses unusual Unicode (Canadian syllabics, math
-        # symbols, ...) consolas has no glyphs for - these bundled fonts
-        # cover that, and _render_text() below picks whichever one actually
-        # has each character instead of drawing a blank box for it
+        # symbols, ...) the main font has no glyphs for - these bundled
+        # fonts cover that, and _render_text() below picks whichever one
+        # actually has each character instead of drawing a blank box for it
         self.fallback_fonts = self._load_fallback_fonts(font_size)
         # smaller than the main text, so it reads as a HUD panel rather
         # than taking over the screen, but not so small it turns blurry
-        self.map_font = pygame.font.SysFont("consolas", max(12, int(font_size * 0.78)))
+        self.map_font = self._load_main_font(max(12, int(font_size * 0.78)))
         # bigger than the main text - used just for the current question
         # (the prompt and its numbered choices) inside the dialogue box, so
         # what the player can actually act on stands out from narration -
         # see _box_lines/_render_text's `big` argument
-        self.menu_font = pygame.font.SysFont("consolas", int(font_size * 1.35))
+        self.menu_font = self._load_main_font(int(font_size * 1.35))
         self.line_height = font_size + 4
         self.margin = 10
 
@@ -510,9 +533,14 @@ class TerminalWindow:
                         if self._capturing_map:
                             self._map_capture_buffer.append(self.current_line)
                             if self._is_map_last_line(self.current_line):
-                                # the whole map arrived - show it in its own
-                                # corner instead of the normal scrollback
-                                self.map_overlay = list(self._map_capture_buffer)
+                                # the whole map arrived - crop it down to
+                                # the current room and its doors (see
+                                # _crop_map_to_local_area) and show that in
+                                # its own corner instead of the normal
+                                # scrollback
+                                self.map_overlay = self._crop_map_to_local_area(
+                                    self._map_capture_buffer
+                                )
                                 self._map_capture_buffer = []
                                 self._capturing_map = False
                             elif len(self._map_capture_buffer) > self._MAX_MAP_CAPTURE_LINES:
@@ -651,6 +679,24 @@ class TerminalWindow:
         return pygame.transform.scale(image, (self.width, self.height))
 
     @staticmethod
+    def _load_main_font(size: int) -> pygame.font.Font:
+        # bundled as an actual file (_MAIN_FONT_FILE) instead of asked for
+        # by name the way this used to (pygame.font.SysFont("consolas",
+        # size)). SysFont only draws with an installed font if a machine
+        # genuinely has one by that name - "consolas" is a Windows font, so
+        # on the team's Mac and Linux machines it was silently substituting
+        # some other monospace font instead, with no error or warning. That
+        # meant the exact same line of code could render crisp on one
+        # laptop and soft/generic on another - not a bug in any one
+        # person's setup, just this never having been guaranteed to be the
+        # same font twice. Loading the bundled file guarantees everyone
+        # sees the same one, chosen specifically for small on-screen text.
+        path = os.path.join(_ASSETS_DIR, _MAIN_FONT_FILE)
+        if os.path.exists(path):
+            return pygame.font.Font(path, size)
+        return pygame.font.SysFont("consolas", size)  # asset missing - better than crashing
+
+    @staticmethod
     def _load_fallback_fonts(font_size: int) -> list[pygame.font.Font]:
         # skips missing files instead of crashing - worst case, unusual
         # characters go back to drawing as boxes, same as before this existed
@@ -734,6 +780,182 @@ class TerminalWindow:
             x += piece.get_width()
         return combined
 
+    @staticmethod
+    def _split_map_grid_and_footer(lines: list[str]) -> tuple[list[str], list[str]]:
+        """Split a captured map into its ascii grid and the text under it.
+
+        floor_map.py's render() always puts a genuinely blank line between
+        the grid and the legend/status lines under it - and no row of the
+        grid itself is ever blank, every one has at least the plan's own
+        left/right border on it. So the first blank line marks exactly
+        where the grid ends and the small print (the legend, "You are in
+        ...", any "not on the plan yet" notice) begins. That footer is
+        left untouched by cropping below - it's a couple of short
+        sentences, not part of the picture being cropped.
+        """
+        for index, line in enumerate(lines):
+            if not line.strip():
+                return lines[:index], lines[index:]
+        return lines, []
+
+    @staticmethod
+    def _flood_fill_map(sheet: list[list[str]], start: tuple[int, int]) -> set[tuple[int, int]]:
+        """Return every square reachable from start without crossing a wall.
+
+        The same flood fill floor_map.py's own _inside() does to find the
+        shape of a room to shade it - reimplemented here, on the captured
+        text rather than imported (see _MAP_WALL_CHARS), so it can also
+        walk the room on the other side of a doorway, which _inside()
+        never needs to do.
+        """
+        seen = {start}
+        pending = [start]
+        while pending:
+            row, col = pending.pop()
+            for d_row, d_col in ((0, 1), (0, -1), (1, 0), (-1, 0)):
+                spot = (row + d_row, col + d_col)
+                if spot in seen or not 0 <= spot[0] < len(sheet):
+                    continue
+                line = sheet[spot[0]]
+                if not 0 <= spot[1] < len(line) or line[spot[1]] in _MAP_WALL_CHARS:
+                    continue
+                seen.add(spot)
+                pending.append(spot)
+        return seen
+
+    @staticmethod
+    def _doorways_around(
+        sheet: list[list[str]], cells: set[tuple[int, int]]
+    ) -> set[tuple[int, int]]:
+        """Return every doorway ("X") directly touching any square in cells."""
+        doorways = set()
+        for row, col in cells:
+            for d_row, d_col in ((0, 1), (0, -1), (1, 0), (-1, 0)):
+                spot_row, spot_col = row + d_row, col + d_col
+                if not 0 <= spot_row < len(sheet):
+                    continue
+                line = sheet[spot_row]
+                if 0 <= spot_col < len(line) and line[spot_col] == "X":
+                    doorways.add((spot_row, spot_col))
+        return doorways
+
+    @staticmethod
+    def _room_through_doorway(
+        sheet: list[list[str]], doorway: tuple[int, int], home: set[tuple[int, int]]
+    ) -> set[tuple[int, int]]:
+        """Return the room on the far side of doorway from home.
+
+        Checks every square touching the doorway; whichever is not a wall
+        and is not already part of home is the far side, so flood-filling
+        from there finds that neighbour room's own shape.
+        """
+        row, col = doorway
+        far_side: set[tuple[int, int]] = set()
+        for d_row, d_col in ((0, 1), (0, -1), (1, 0), (-1, 0)):
+            spot = (row + d_row, col + d_col)
+            if not 0 <= spot[0] < len(sheet):
+                continue
+            line = sheet[spot[0]]
+            if not 0 <= spot[1] < len(line) or line[spot[1]] in _MAP_WALL_CHARS or spot in home:
+                continue
+            far_side |= TerminalWindow._flood_fill_map(sheet, spot)
+        return far_side
+
+    @staticmethod
+    def _crop_map_to_local_area(captured: list[str]) -> list[str]:
+        """Crop a freshly-captured map down to the current room and its doors.
+
+        floor_map.py already shades the room the player is standing in
+        (with _MAP_HERE_CHAR) before this file ever sees the text - this
+        finds those shaded squares, flood-fills out through every doorway
+        touching them to find whatever room is directly on the other side
+        (one hop through a door, not the whole building), and keeps only
+        that area. A room with a lot of doors - a corridor, mainly - ends
+        up with a bigger crop because it genuinely connects to more of the
+        building; that's a real reflection of the map, not a bug in the
+        cropping.
+
+        This does NOT just slice out the rectangle of rows/columns that
+        bounds the connected area - that was tried first and was wrong.
+        The floor plan isn't a grid of independent boxes; corridors are
+        long strips, and the bounding rectangle around "your room plus a
+        corridor" can span much more of the building than the two of them
+        actually occupy, sweeping in whatever unrelated room happens to
+        sit in the gap (a real bug a teammate caught: standing near a
+        corridor pulled in "Storage" purely because its room happened to
+        fall inside that rectangle, with no door or flood-fill path
+        connecting it to anything actually included). Instead, every
+        character is masked: kept only if it's part of the connected area
+        itself, or a wall character immediately touching it (so a room or
+        corridor still looks like an intact box, corners included) -
+        everything else in the crop's rectangle is blanked out rather than
+        shown. A stray doorway on the very edge, leading further away, can
+        still peek in - that's honest ("there's a door here") rather than
+        a leak of the room behind it, since that room's own letters are
+        always more than one cell further out and never get pulled in.
+
+        Falls back to the whole thing, uncropped, if nothing is shaded (the
+        current room isn't drawn on the plan at all yet) - better an
+        oversized map than a guess at what to show instead.
+        """
+        grid, footer = TerminalWindow._split_map_grid_and_footer(captured)
+        sheet = [list(line) for line in grid]
+        here = {
+            (row, col)
+            for row, line in enumerate(sheet)
+            for col, char in enumerate(line)
+            if char == _MAP_HERE_CHAR
+        }
+        if not here:
+            return captured
+
+        included = set(here)
+        for doorway in TerminalWindow._doorways_around(sheet, here):
+            included.add(doorway)
+            included |= TerminalWindow._room_through_doorway(sheet, doorway, here)
+
+        # dilate by one cell in every direction (including diagonals, to
+        # catch "+" corners) so each included room/corridor's own border
+        # survives, without reaching far enough to touch anything that
+        # isn't actually connected
+        keep = set(included)
+        for row, col in included:
+            for d_row in (-1, 0, 1):
+                for d_col in (-1, 0, 1):
+                    spot = (row + d_row, col + d_col)
+                    if 0 <= spot[0] < len(sheet) and 0 <= spot[1] < len(sheet[spot[0]]):
+                        keep.add(spot)
+
+        rows = [row for row, _ in keep]
+        cols = [col for _, col in keep]
+        top = max(0, min(rows) - _MAP_CROP_PADDING)
+        bottom = min(len(grid) - 1, max(rows) + _MAP_CROP_PADDING)
+        left = max(0, min(cols) - _MAP_CROP_PADDING)
+        right = max(cols) + _MAP_CROP_PADDING
+
+        cropped_grid = []
+        for row in range(top, bottom + 1):
+            line = grid[row]
+            chars = [
+                line[col] if col < len(line) and (row, col) in keep else " "
+                for col in range(left, right + 1)
+            ]
+            cropped_grid.append("".join(chars).rstrip())
+
+        # the padding row above/below usually lands on a wall - but when
+        # the nearest connected cell is right at the very edge of the
+        # crop, that padding row can land past it, on a row where nothing
+        # in this column range was kept at all (masked to nothing but
+        # spaces). A fully blank row like that isn't useful margin, it's
+        # just noise, so trim it rather than show an empty line before
+        # the map even starts.
+        while cropped_grid and not cropped_grid[0]:
+            cropped_grid.pop(0)
+        while cropped_grid and not cropped_grid[-1]:
+            cropped_grid.pop()
+
+        return cropped_grid + footer
+
     def _render_map_line(self, text: str, color: str) -> pygame.Surface:
         # same soft-shadow treatment as _render_text(), just using
         # map_font instead of the main font - the map's lines are plain
@@ -755,6 +977,16 @@ class TerminalWindow:
         # of mixed into the normal scrolling text
         if self.map_overlay is None:
             return
+        # Every row uses the SAME font at the SAME size, on purpose: this
+        # is monospaced ascii art, where a wall's "|" has to land in
+        # exactly the same column on every row for the boxes to look like
+        # boxes at all. A smaller font for some rows was tried here and
+        # reverted - a smaller point size is also narrower per character,
+        # so those rows' walls drifted out of column with the rows above
+        # and below them and the whole map looked broken instead of
+        # smaller. Shrinking this panel has to either shrink every row
+        # equally (map_font itself) or show fewer rows - never some rows
+        # more than others.
         row_height = self.map_font.get_height() + 1
         surfaces = [self._render_map_line(line, "white") for line in self.map_overlay]
         panel_width = max((s.get_width() for s in surfaces), default=0) + self.margin * 2
@@ -803,7 +1035,9 @@ class TerminalWindow:
         margin and a fresh border every page, so it doesn't need the
         terminal's own spacing convention reproduced inside it.
         """
-        shown = [(text, color, True) for text, color in self.lines[self.box_start :] if text != ""]
+        shown = [
+            (text, color, True) for text, color in self.lines[self.box_start :] if text != ""
+        ]
         if self.waiting_to_advance:
             # the game thread is genuinely blocked right now (see
             # wait_for_line_advance) - nothing more can arrive until the
