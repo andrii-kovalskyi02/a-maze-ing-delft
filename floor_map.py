@@ -43,6 +43,8 @@ if TYPE_CHECKING:  # pragma: no cover - import only needed for type checking
     from game import Game
 
 #: The 2nd floor, drawn with WEST at the top. Edit this and the map changes.
+#: Given a little breathing room around the busier boxes (the classrooms,
+#: the corridors, the lobby); the smaller, single-purpose rooms stay tight.
 PLAN = """\
  +--------------------------+---------------------------------+
  |                          |                                 |
@@ -53,7 +55,6 @@ PLAN = """\
  |   b l u e    c o r r i d o r                               |
  |                                                            |
  +----X----+----X----+=========+------------------------------+
- |         |         |         |                              |
  |Teachers | Stair   |         X Storage                      |
  |Room 4   | exit    |         |                              |
  +---------+---------+         +------------------------------+
@@ -61,14 +62,11 @@ PLAN = """\
  |                   |         |                              |
  |                   |         +------------------------------+
  |                   |  corr.  X Equinox student society      |
- |                   |         |                              |
  +-------------------+         +------------------------------+
  | Classroom 2.015   X         X Main Teachers Room           |
  |                   |         |                              |
- |                   |         |                              |
  +-------------------+         |                              |
  | Front Desk Office X         |                              |
- |                   |         |                              |
  +-------------------+=========+------------------------------+
  |                                                            |
  |   L o b b y                                                |
@@ -78,9 +76,7 @@ PLAN = """\
  |                                       +--------------------+
  |                                       X Project room 1     |
  +--------X----------+---------X---------+--------------------+
- |                   |                   |
  |  L A B 2 . 0 0 3  |  L A B 2 . 0 0 1  |
- |                   |                   |
  |                   |                   |
  +-------------------+-------------------+
 """
