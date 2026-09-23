@@ -15,16 +15,26 @@ ROOM = Room(
     name="LAB2.003",
     area=Area.YELLOW,
     description=(
-        "You step into LAB2.003. The room is quiet, lit only by the faint blue "
-        "light of dozens of computer screens.",
-        "At the front, a glowing, digital ghost of Steve Jobs stands at one of "
-        "the desks. He holds a heavy brass key.",
+        "You step into LAB2.003.",
+        0.4,
+        "The room is quiet.",
+        0.3,
+        "It's lit only by the faint blue light of dozens of computer screens.",
+        0.6,
+        "At the front stands a glowing, digital ghost of Steve Jobs.",
+        0.4,
+        "He holds a heavy brass key.",
     ),
     look_around=(
-        "Rows of monitors glow blue in the dark, every one of them showing the "
-        "same bitten-apple logo. The air hums with fans. At the front desk the "
-        "ghost of Steve Jobs waits in a black turtleneck, turning the brass key "
-        "over in his fingers."
+        "Rows of monitors glow blue in the dark.",
+        0.4,
+        "Every one of them shows the same bitten-apple logo.",
+        0.6,
+        "The air hums with fans.",
+        0.6,
+        "At the front desk, the ghost of Steve Jobs waits in a black turtleneck.",
+        0.4,
+        "He's turning the brass key over in his fingers.",
     ),
     exits=("lobby",),
     inspectables=(
@@ -83,14 +93,16 @@ ROOM = Room(
         win_text=(
             "Steve smiles and nods slowly.",
             0.8,
-            "'Stay hungry. Stay foolish.' He places the brass key in your hand and "
-            "fades into the glow of the screens.",
+            "'Stay hungry. Stay foolish.'",
+            0.5,
+            "He places the brass key in your hand and fades into the glow of the screens.",
         ),
         lose_text=(
             "Steve shakes his head.",
             0.8,
-            "'Not quite. Come back when you have done your homework.' The screens "
-            "flicker, and he is waiting at the desk again as if nothing happened.",
+            "'Not quite. Come back when you have done your homework.'",
+            0.5,
+            "The screens flicker, and he waits at the desk again as if nothing happened.",
         ),
         reward="brass_key",
     ),

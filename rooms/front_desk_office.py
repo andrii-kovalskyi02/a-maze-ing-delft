@@ -10,15 +10,20 @@ ROOM = Room(
     name="Front Desk Office",
     area=Area.RED,
     description=(
-        "A cramped front desk office under harsh fluorescent lights, "
-        "smelling of printer paper and bureaucratic authority."
+        "A cramped front desk office under harsh fluorescent lights.",
+        0.4,
+        "It smells of printer paper and bureaucratic authority.",
     ),
     look_around=(
-        "Buzzing fluorescent tubes illuminate a narrow service counter separating "
-        "you from a wall of notice boards and strict administrative regulations. "
-        "On the desk, a silent desktop monitor glows next to an office phone, "
-        "stacks of color-coded request forms, and ink stamps. A small keycard "
-        "scanner on the counter blinks an expectant green light."
+        "Buzzing fluorescent tubes illuminate a narrow service counter.",
+        0.5,
+        "Beyond it is a wall of notice boards and strict administrative regulations.",
+        0.6,
+        "On the desk, a silent desktop monitor glows next to an office phone.",
+        0.5,
+        "Nearby sit stacks of color-coded request forms and ink stamps.",
+        0.6,
+        "A small keycard scanner on the counter blinks an expectant green light.",
     ),
     exits=("corridor_red",),
     inspectables=(
@@ -47,11 +52,17 @@ ROOM = Room(
     boss=Boss(
         name="the Check-In Terminal",
         intro=(
-            "State your business.\n\n"
-            "A mechanical whir rises from the desk as a hybrid scanner-monitor-printer "
-            "comes alive. Its screen displays two glowing digital eyes, its printer "
-            "tray clacks open like a mouth, and visitor slip arms rustle as red "
-            "indicator lights pulse."
+            "State your business.",
+            0.8,
+            "A mechanical whir rises from the desk.",
+            0.4,
+            "A hybrid scanner-monitor-printer comes alive.",
+            0.6,
+            "Its screen displays two glowing digital eyes.",
+            0.4,
+            "Its printer tray clacks open like a mouth.",
+            0.4,
+            "Red indicator lights pulse as its visitor-slip arms rustle.",
         ),
         questions=(
             # Question 1 (Open-ended)
@@ -104,13 +115,18 @@ ROOM = Room(
             ),
         ),
         win_text=(
-            '"Access granted. You may pass."\n\n'
-            "The red lights switch to a steady green, the printer tray closes with a snap, "
-            "and a small metallic key ejects onto the counter."
+            '"Access granted. You may pass."',
+            0.8,
+            "The red lights switch to a steady green.",
+            0.4,
+            "The printer tray closes with a snap.",
+            0.4,
+            "A small metallic key ejects onto the counter.",
         ),
         lose_text=(
-            '"Access denied. Please consult the regulations and try again."\n'
-            "The terminal flashes red and powers down its tray."
+            '"Access denied. Please consult the regulations and try again."',
+            0.6,
+            "The terminal flashes red and powers down its tray.",
         ),
         reward="storage_key",
     ),

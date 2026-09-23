@@ -16,16 +16,24 @@ ROOM = Room(
     name="Teachers room",
     area=Area.RED,
     description=(
-        "What used to be three separate teachers' rooms is now one long "
-        "space - the dividing walls are gone, chunks of plaster and brick "
-        "scattered across the floor like something blew straight through them."
+        "What used to be three separate teachers' rooms is now one long space.",
+        0.4,
+        "The dividing walls are gone.",
+        0.5,
+        "Chunks of plaster and brick are scattered across the floor.",
+        0.4,
+        "It looks like something blew straight through them.",
     ),
     look_around=(
-        "The gaps where the walls used to be are ragged, not sawn - brick "
-        "and torn drywall at odd angles, dust over everything. Three desks, "
-        "coat racks, and nameplates still stand in a neat row, untouched by "
-        "the wreckage around them. Less renovation, more explosion that "
-        "stopped just short of the furniture."
+        "The gaps where the walls used to be are ragged, not sawn.",
+        0.4,
+        "Brick and torn drywall sit at odd angles, dust over everything.",
+        0.6,
+        "Three desks, coat racks, and nameplates still stand in a neat row.",
+        0.4,
+        "They're untouched by the wreckage around them.",
+        0.6,
+        "Less renovation, more explosion that stopped just short of the furniture.",
     ),
     exits=("corridor_red",),
     requires=None,
@@ -40,15 +48,22 @@ ROOM = Room(
         ),
         Inspectable(
             name="the desks",
-            text="Three desks, untouched by the wreckage around them, "
-            "as if the walls avoided them on purpose.",
+            text=(
+                "Three desks stand untouched by the wreckage around them.",
+                0.4,
+                "It's as if the walls avoided them on purpose.",
+            ),
         ),
         Inspectable(
             name="sticky note",
             text=(
-                "A sticky note on one of the desks reads: 'Reminder: submit "
-                "renovation feedback form.' Someone has written underneath, "
-                "'5 stars, would get blown up again.'"
+                "A sticky note on one of the desks reads:",
+                0.4,
+                "'Reminder: submit renovation feedback form.'",
+                0.5,
+                "Someone has written underneath,",
+                0.4,
+                "'5 stars, would get blown up again.'",
             ),
         ),
     ),

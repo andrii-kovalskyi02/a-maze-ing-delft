@@ -41,9 +41,13 @@ ROOM = Room(
     area=Area.BLUE,
     description="A lecture room in the blue wing, empty except for you.",
     look_around=(
-        "Rows of desks face a whiteboard nobody wiped. The clock above the door "
-        "is somehow still audible over the alarm. Your own desk is the only one "
-        "that looks used: a laptop still lit, and something folded beside it."
+        "Rows of desks face a whiteboard nobody wiped.",
+        0.6,
+        "The clock above the door is somehow still audible over the alarm.",
+        0.6,
+        "Your own desk is the only one that looks used.",
+        0.4,
+        "A laptop is still lit, with something folded beside it.",
     ),
     exits=("corridor_blue",),
     inspectables=(

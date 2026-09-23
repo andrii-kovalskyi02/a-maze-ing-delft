@@ -9,14 +9,23 @@ ROOM = Room(
     key="student_society",
     name="Student society",
     area=Area.RED,
-    description="A student society room that looks like someplace you've seen "
-    "before... but you dont remember when or where",
+    description=(
+        "This student society room looks familiar.",
+        0.5,
+        "You don't remember when or where.",
+    ),
     look_around=(
-        "A kicker table stands in the middle of the room, ball frozen on "
-        "the halfway line, an iPad sits on one of the chairs barely visible "
-        "Mismatched seats are pushed in around the walls, and posters "
-        "cover most of the space between them. One flyer is dated for "
-        "next year."
+        "A kicker table stands in the middle of the room.",
+        0.4,
+        "Its ball is frozen on the halfway line.",
+        0.6,
+        "An iPad sits on one of the chairs, barely visible.",
+        0.6,
+        "Mismatched seats are pushed in around the walls.",
+        0.4,
+        "Posters cover most of the space between them.",
+        0.6,
+        "One flyer is dated for next year.",
     ),
     exits=("corridor_red",),
     requires=None,
@@ -25,24 +34,29 @@ ROOM = Room(
         Inspectable(
             name="the kicker table",
             text=(
-                "A battered foosball table, ball frozen mid-shot. A single "
-                "red light blinks above one goal, though you can't see "
-                "where it's plugged in."
+                "A battered foosball table, ball frozen mid-shot.",
+                0.4,
+                "A single red light blinks above one goal.",
+                0.4,
+                "You can't see where it's plugged in.",
             ),
         ),
         Inspectable(
             name="the ipad",
             text=(
-                "Left on one of the chairs, screen still on. It's open to a "
-                "note-taking app, one line typed and unfinished."
+                "Left on one of the chairs, screen still on.",
+                0.4,
+                "It's open to a note-taking app, one line typed and unfinished.",
             ),
         ),
         Inspectable(
             name="the posters",
             text=(
-                "Flyers for a Sinterklaas party, a LAN night, and a bake "
-                "sale - except one of them is dated for next year, and "
-                "you're fairly sure that one hasn't happened."
+                "Flyers for a Sinterklaas party, a LAN night, and a bake sale.",
+                0.4,
+                "Except one of them is dated for next year.",
+                0.4,
+                "You're fairly sure that one hasn't happened.",
             ),
         ),
         Inspectable(
@@ -59,12 +73,23 @@ ROOM = Room(
     boss=Boss(
         name="Automated Kicker Machine",
         intro=(
-            "The red light above the goal blinks once, twice, and the "
-            "  table shudders to life with no cord, no coin, nothing "
-            "               A tiny speaker crackles:               "
-            "       PENALTY. SHOOTOUT. BEST. OF. THREE. The "
-            "mechanical arm lines up a ball that was not there a moment "
-            "ago."
+            "The red light above the goal blinks once, twice.",
+            0.4,
+            "The table shudders to life with no cord, no coin, nothing.",
+            0.6,
+            "A tiny speaker crackles:",
+            0.5,
+            "PENALTY.",
+            0.3,
+            "SHOOTOUT.",
+            0.3,
+            "BEST.",
+            0.2,
+            "OF.",
+            0.2,
+            "THREE.",
+            0.6,
+            "The mechanical arm lines up a ball that was not there a moment ago.",
         ),
         questions=(
             Question(
@@ -84,13 +109,20 @@ ROOM = Room(
             ),
         ),
         win_text=(
-            "The red light flashes green. MATCH. LOST. the speaker "
-            "grumbles, and the table stills again, the ball freezing "
-            "mid-air exactly where it started."
+            "The red light flashes green.",
+            0.3,
+            "MATCH. LOST.",
+            0.5,
+            "The speaker grumbles, and the table stills again.",
+            0.4,
+            "The ball freezes mid-air, exactly where it started.",
         ),
         lose_text=(
-            "The red light stays red. MATCH. WON. the machine "
-            "announces, smug for something that isn't really there."
+            "The red light stays red.",
+            0.3,
+            "MATCH. WON.",
+            0.5,
+            "The machine announces, smug for something that isn't really there.",
         ),
         reward=None,
     ),
