@@ -803,9 +803,7 @@ class TerminalWindow:
         margin and a fresh border every page, so it doesn't need the
         terminal's own spacing convention reproduced inside it.
         """
-        shown = [
-            (text, color, True) for text, color in self.lines[self.box_start :] if text != ""
-        ]
+        shown = [(text, color, True) for text, color in self.lines[self.box_start :] if text != ""]
         if self.waiting_to_advance:
             # the game thread is genuinely blocked right now (see
             # wait_for_line_advance) - nothing more can arrive until the
