@@ -59,8 +59,7 @@ def supervisor_meeting(game: Game) -> None:
 
         if project_choice == 0:
             ui.narrate(
-                "That's reassuring. I was beginning to think "
-                "you were working on something else."
+                "That's reassuring. I was beginning to think you were working on something else."
             )
         else:
             ui.narrate("...The one we're having this meeting about.")
@@ -68,6 +67,7 @@ def supervisor_meeting(game: Game) -> None:
     ui.narrate("You know what? Let's just call this a progress meeting.")
     ui.narrate("What progress?")
     ui.narrate("Exactly.")
+
 
 ROOM = Room(
     key="projectroom_2",
