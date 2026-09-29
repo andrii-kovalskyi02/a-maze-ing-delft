@@ -1,5 +1,3 @@
-"""US1p - Room: LAB2.001 - the forest boss Issue #67."""
-
 from __future__ import annotations
 
 from models import Area, Boss, Inspectable, Question, Room
@@ -9,10 +7,9 @@ ROOM = Room(
     name="Forest room",
     area=Area.BLUE,
     description="It's a classroom filled with grass and vines."
-    "There is no one inside it except a tree sits in the center of it.",
+                " There is no one inside it except a tree sits in the center of it.",
     look_around=(
-        "there are many small animals around the room, "
-        "rabbits,foxes,birds and other small creatures. "
+        "there are many small animals around the room, rabbits,foxes,birds and other small creatures. "
         "Most of them are gathered around the tree."
         "Past the tree, you can see a glistening object on the teacher desk. "
     ),
@@ -26,7 +23,7 @@ ROOM = Room(
     boss=Boss(
         name="tree guard",
         intro="The tree shakes as a loud voice came out of it"
-        "If you want to take the key you have answer our quizzes three!! Or 5.",
+              "If you want to take the key you have answer our quizzes three!! Or 5.",
         questions=(
             Question(
                 prompt=" On what day does autumn start?",
@@ -42,9 +39,8 @@ ROOM = Room(
                 answers=("the 1nd",),
                 choices=("Whale shark", "Manta ray", "Great white shark"),
             ),
-            Question(
-                prompt="Which animal species can live in extremes"
-                "of both heat and cold, from −28 °C to 49 °C?",
+             Question(
+                prompt="Which animal species can live in extremes of both heat and cold, from −28 °C to 49 °C?",
                 answers=("the 3nd",),
                 choices=("Polar bear", "iguana", "Camel"),
             ),
@@ -53,9 +49,9 @@ ROOM = Room(
                 answers=("the 2nd",),
                 choices=("Lincoln", "General sherman", "Cedar "),
             ),
-        ),
+    ),
         win_text="a hamster came out of the tree to congratulate you "
-        "'you've proven yourself. you can take the key.'",
+                 "'you've proven yourself. you can take the key.'",
         lose_text="you did not take the key and you were flung out of the room.",
         reward="digit_3",
     ),
