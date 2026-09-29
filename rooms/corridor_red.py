@@ -28,6 +28,7 @@ ROOM = Room(
         "storage",
         "student_society",
         "teacher_rooms",
+        "classroom_2021",
     ),
     requires="fire_extinguisher",
     is_hallway=True,
