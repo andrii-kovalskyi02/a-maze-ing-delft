@@ -12,7 +12,7 @@ ROOM = Room(
     description="It's a classroom filled with grass and vines."
     " There is no one inside it except a tree sits in the center of it.",
     look_around=(
-        "there are many small animals around the room, rabbits,foxes,birds and "
+        "there are a lot small animals around the room, rabbits,foxes,birds and "
         "other small creatures. Most of them are gathered around the tree."
         "Past the tree, you can see a glistening object on the teacher desk. "
     ),
