@@ -20,7 +20,13 @@ ROOM = Room(
         "Doors lead to the computer labs, but the main central staircase down "
         "to the ground floor is blocked by heavy smoke and fallen debris.",
     ),
-    exits=("corridor_red", "lab_2003"),
+    exits=(
+        "corridor_red",
+        "lab_2001",
+        "lab_2003",
+        "project_room_1",
+        "projectroom_2",
+    ),
     requires="fire_extinguisher",
     locked_text=(
         "A wall of raging fire and thick smoke blocks the way into the lobby. "

@@ -70,6 +70,23 @@ def test_items_are_in_the_catalogue(room: Room) -> None:
         )
 
 
+@pytest.mark.parametrize("room", ALL_ROOMS, ids=ids)
+def test_everything_a_room_hands_over_is_in_the_catalogue(room: Room) -> None:
+    """A reward is an item too, and an unknown one crashes the game mid-fight.
+
+    ``items`` and ``requires`` are checked above, but a boss's reward is only
+    looked up at the moment the player wins - so a typo there survives every
+    test and every review, and goes off in front of whoever is demoing.
+    """
+    rewards = {room.approach_reward}
+    if room.boss is not None:
+        rewards |= {room.boss.reward, room.boss.lose_reward, room.boss.lose_reward_2}
+    for reward in rewards - {None}:
+        assert reward in ITEM_CATALOGUE, (
+            f"{room.key} hands over {reward!r}; add it to ITEM_CATALOGUE in inventory.py"
+        )
+
+
 def test_every_room_is_reachable_from_the_start() -> None:
     """No room is stranded: walking from the start can reach all of them."""
     seen: set[str] = set()

@@ -20,9 +20,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import digits
 import encounters
 import floor_map
-import inventory
 import narrator
 import ui
 import world
@@ -78,6 +78,9 @@ def do_go(game: Game) -> None:
             ui.say()
             ui.narrate(destination.approach_reward_text)
 
+    if destination.is_exit and not _code_opens_the_exit(game, destination):
+        return
+
     if not world.can_enter(destination, game.carrying):
         ui.say()
         ui.say(destination.locked_text)
@@ -90,11 +93,33 @@ def do_go(game: Game) -> None:
         return
 
     game.move_to(destination.key)
+    if destination.is_exit:
+        game.finish()
+
+
+def _code_opens_the_exit(game: Game, door: Room) -> bool:
+    """Key the digits the player has into the exit door (enabler #116).
+
+    The player never types the code: they key in what they are carrying, which
+    is why finding the digits is the game and typing them is not.
+    """
+    if digits.opens_the_door(game):
+        ui.say()
+        ui.narrate(f"You key in {digits.assemble(game)}. The lock gives.")
+        return True
+
+    ui.say()
+    ui.say(door.locked_text)
+    ui.say(digits.summary(game))
+    return False
 
 
 def do_backpack(game: Game) -> None:
     """List what the player carries, and let them look at any of it."""
     carried = list(game.carrying)
+    if digits.carried(game):
+        ui.say()
+        ui.say(digits.summary(game))
     chosen = ui.choose(
         "You are carrying:", [item.name for item in carried], back="Close the backpack"
     )
@@ -171,7 +196,7 @@ def do_status(game: Game) -> None:
     """
     percent = _percent_explored(game)
     played = _format_duration(time.monotonic() - game.started_at)
-    digits_had, digits_total = _digits_collected(game)
+    digits_had, digits_total = len(digits.carried(game)), len(digits.all_digits())
 
     ui.say()
     ui.say(f"{game.name} - {played} played - {percent}% of the floor explored.")
@@ -202,17 +227,6 @@ def _rooms_completed(game: Game) -> int:
         if done:
             completed += 1
     return completed
-
-
-def _digits_collected(game: Game) -> tuple[int, int]:
-    """Return (how many digit items are carried, how many digit items exist).
-
-    The total is counted from the catalogue rather than hard-coded, so it
-    stays correct as more digit rooms are added.
-    """
-    digit_keys = [key for key in inventory.ITEM_CATALOGUE if key.startswith("digit_")]
-    had = sum(1 for key in digit_keys if key in game.carrying)
-    return had, len(digit_keys)
 
 
 def _format_duration(seconds: float) -> str:
@@ -332,5 +346,4 @@ def _door_label(game: Game, door: Room) -> str:
     """
     if door.key in game.visited and not door.is_hallway:
         return f"{door.name} (you have been there)"
-    
     return door.name
