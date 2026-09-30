@@ -179,3 +179,50 @@ def test_the_wake_up_scene_plays_once(console) -> None:
     game.move_to("corridor_blue")
     game.move_to("classroom_2035")
     assert "cheek is stuck to the desk" not in console.output
+
+
+def test_project_room_2_supervisor_meeting_plays_once(console) -> None:
+    """US1o: the supervisor meeting runs when entering Project Room 2."""
+    game = start()
+    console.lines.clear()
+
+    console.script("1", "1", "1")
+    game.move_to("projectroom_2")
+
+    assert "you're late for the meeting." in console.output
+    assert "the project meeting." in console.output
+
+    console.lines.clear()
+    game.move_to("lobby")
+    game.move_to("projectroom_2")
+
+    assert "You're late for the meeting." not in console.output
+
+    def test_project_room_2_has_todo_list(console) -> None:
+        """US1o: the TODO list can be inspected."""
+        game = start()
+        console.lines.clear()
+
+        game.move_to("projectroom_2")
+
+        console.lines.clear()
+        console.script(option(game, "Look around"), "1", "0")
+        game.turn()
+
+        assert "finish project" in console.output
+        assert "finish documentation" in console.output
+        assert "test everything" in console.output
+        assert "fix everything" in console.output
+        assert "do not panic" in console.output
+
+
+def test_project_room_2_supervisor_dialogue_reaches_the_end(console) -> None:
+    """US1o: the supervisor dialogue reaches its final joke."""
+    game = start()
+    console.lines.clear()
+
+    console.script("1", "2", "1")
+    game.move_to("projectroom_2")
+
+    assert "what progress?" in console.output
+    assert "exactly." in console.output

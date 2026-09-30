@@ -17,6 +17,7 @@ from rooms import (  # noqa: F401
     lab_2003,
     lobby,
     project_room_1,
+    projectroom_2,
     projectroom_3,
     stair_exit,
     storage,
