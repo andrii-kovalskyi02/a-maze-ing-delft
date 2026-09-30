@@ -40,20 +40,29 @@ ITEM_CATALOGUE: dict[str, Item] = {
                 "things, and complains about it constantly."
             ),
         ),
+        # The four digits of the exit code (enabler #116). ``colour`` says
+        # which passage a digit belongs to and ``value`` is the character it
+        # shows; the door assembles the code from these - see digits.py.
         Item(
             key="digit_4",
             name="digit 4",
             description="The fourth digit of the code.",
+            colour="final",
+            value="4",
         ),
         Item(
             key="digit_3",
             name="digit 3",
             description="The third digit of the code, carved into a piece of bark.",
+            colour="yellow",
+            value="7",
         ),
         Item(
             key="digit_1",
             name="digit 1",
             description="The first digit used to unlock exit door",
+            colour="blue",
+            value="1",
         ),
         Item(
             key="blue_card",
@@ -82,6 +91,8 @@ ITEM_CATALOGUE: dict[str, Item] = {
             name="digit 2",
             description="A small piece of paper with a 6 or 9 on it, you can't tell",
             single_use=False,
+            colour="red",
+            value="9",
         ),
         Item(
             key="lab_2001_key",

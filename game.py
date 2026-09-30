@@ -127,6 +127,18 @@ class Game:
         if first_time and room.on_first_enter is not None:
             room.on_first_enter(self)
 
+    def finish(self) -> None:
+        """End the game: the player has walked out of the building (US1e).
+
+        Shows the final status so the player sees how much of the floor they
+        explored. Writing the run to the scoreboard belongs to the
+        persistence enabler (#121).
+        """
+        ui.say()
+        ui.say("You are out of the building. Fresh air, at last.")
+        commands.do_status(self)
+        self.running = False
+
     def turn(self) -> None:
         """Offer the menu once, and carry out whatever the player picks."""
         menu = commands.build_menu(self)
