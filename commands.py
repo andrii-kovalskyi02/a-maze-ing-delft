@@ -237,7 +237,14 @@ def _format_duration(seconds: float) -> str:
 
 
 def do_quit(game: Game) -> None:
-    """Stop playing."""
+    """Stop playing after confirming with the player."""
+    chosen = ui.choose(
+        "Are you sure you want to quit? Any progress from this run will be lost.",
+        ["Quit the game", "Keep playing"],
+    )
+    if chosen != 0:
+        return
+
     ui.say()
     ui.say("You step away from the building. Game over.")
     game.running = False
