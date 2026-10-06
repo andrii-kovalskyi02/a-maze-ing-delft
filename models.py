@@ -196,7 +196,8 @@ class Room:
             player enters.  Use it only when plain data is not enough.
         approach_reward: The key of an item handed over the first time the
             player walks up to this room's door, whether or not it opens.
-        approach_reward_text: Printed after ``approach_reward`` is handed over.
+        approach_reward_text: Printed when ``approach_reward`` is handed over,
+            just before the "You are now carrying..." line.
         is_hallway: If True, this room is a corridor/lobby the player is
             expected to pass through repeatedly, so its door label never
             grows the "(you have been there)" tag - that tag is only useful

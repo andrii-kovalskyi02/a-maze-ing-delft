@@ -72,11 +72,13 @@ def do_go(game: Game) -> None:
     if destination.approach_reward is not None and destination.key not in game.approached:
         game.approached.add(destination.key)
         item = game.carrying.add(destination.approach_reward)
-        ui.say()
-        ui.say(f"You are now carrying the {item.name}.")
+        # The story first, then the plain fact: the player reads what they
+        # found before being told it is in their pocket.
         if destination.approach_reward_text is not None:
             ui.say()
             ui.narrate(destination.approach_reward_text)
+        ui.say()
+        ui.say(f"You are now carrying the {item.name}.")
 
     if not world.can_enter(destination, game.carrying):
         ui.say()
