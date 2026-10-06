@@ -26,6 +26,7 @@ import floor_map
 import narrator
 import ui
 import world
+from inventory import get_item
 
 if TYPE_CHECKING:  # pragma: no cover - import only needed for type checking
     from game import Game
@@ -81,7 +82,7 @@ def do_go(game: Game) -> None:
     if destination.is_exit and not _code_opens_the_exit(game, destination):
         return
 
-    if not world.can_enter(destination, game.carrying):
+    if not world.can_enter(destination, game.carrying, game.unlocked):
         ui.say()
         ui.say(destination.locked_text)
         # The backpack only notices the player rattling the same handle, not
@@ -91,6 +92,18 @@ def do_go(game: Game) -> None:
         if tries > 1:
             narrator.remark(game, "locked_again")
         return
+
+    if destination.requires is not None and destination.key not in game.unlocked:
+        item = get_item(destination.requires)
+        if item.single_use:
+            game.carrying.consume(destination.requires)
+        if destination.requires == "fire_extinguisher":
+            ui.say()
+            ui.narrate(
+                f"You spray the fire extinguisher onto the wall of fire. "
+                f"The flames hiss, die down, and clear the way to {destination.name}."
+            )
+        game.unlocked.add(destination.key)
 
     game.move_to(destination.key)
     if destination.is_exit:

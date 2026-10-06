@@ -41,8 +41,10 @@ def all_rooms() -> tuple[Room, ...]:
     return tuple(_ROOMS.values())
 
 
-def can_enter(room: Room, backpack) -> bool:
+def can_enter(room: Room, backpack, unlocked: set[str] | None = None) -> bool:
     """Return True if the player carrying ``backpack`` may enter ``room``."""
+    if unlocked is not None and room.key in unlocked:
+        return True
     return room.requires is None or room.requires in backpack
 
 
