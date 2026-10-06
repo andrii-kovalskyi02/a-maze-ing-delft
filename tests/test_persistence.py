@@ -19,6 +19,7 @@ def test_save_and_load_preserves_game_state(tmp_path, monkeypatch) -> None:
     game.current = "corridor_blue"
     game.hearts = Health(2)
     game.visited = {"classroom_2035", "corridor_blue"}
+    game.unlocked = {"corridor_red"}
     game.defeated = {"some_challenge"}
     game.taken = {("corridor_blue", "evacuation_plan")}
     game.approached = {"some_encounter"}
@@ -35,6 +36,7 @@ def test_save_and_load_preserves_game_state(tmp_path, monkeypatch) -> None:
     assert loaded.hearts == game.hearts
     assert set(item.key for item in loaded.carrying) == set(item.key for item in game.carrying)
     assert loaded.visited == game.visited
+    assert loaded.unlocked == game.unlocked
     assert loaded.defeated == game.defeated
     assert loaded.taken == game.taken
     assert loaded.approached == game.approached
