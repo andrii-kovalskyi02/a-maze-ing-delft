@@ -69,6 +69,7 @@ class Game:
     defeated: set[str] = field(default_factory=set)
     taken: set[tuple[str, str]] = field(default_factory=set)
     approached: set[str] = field(default_factory=set)
+    unlocked: set[str] = field(default_factory=set)
     #: How many times the backpack has had something to say about each kind
     #: of event, so it can keep quiet most of the time - see narrator.py.
     heard: dict[str, int] = field(default_factory=dict)
