@@ -84,7 +84,9 @@ class Game:
     percent_explored: float = 0
 
     def __post_init__(self) -> None:
-        """Hand the player their starting items, if the story gives them any."""
+        """Use the name the player logged in with, and hand them their starting items."""
+        if self.player_name:
+            self.name = self.player_name
         for key in STARTING_ITEMS:
             self.carrying.add(key)
 
@@ -167,15 +169,6 @@ class Game:
         ui.set_pause_handler(self.pause)
 
         try:
-            try:
-                typed = ui.ask("What should we call you?: ")
-                if typed:
-                    self.name = typed
-            except EOFError:
-                # Nobody at the keyboard even for the name - keep the default
-                # and let the main loop below hit the same EOFError.
-                pass
-
             ui.say(HOW_TO_PLAY)
             self.enter()
 

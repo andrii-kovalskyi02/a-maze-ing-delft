@@ -83,7 +83,7 @@ def save_game(game: Game) -> None:
             game.player_name,
             game.current,
             json.dumps(inventory),
-            game.hearts,
+            game.hearts.halves,
             json.dumps(digits),
             json.dumps(sorted(game.visited)),
             json.dumps(sorted(game.defeated)),
@@ -125,6 +125,7 @@ def load_game(player_name: str) -> Game | None:
         return None
 
     from game import Game
+    from health import Health
 
     (
         current_room,
@@ -141,7 +142,7 @@ def load_game(player_name: str) -> Game | None:
     game = Game(
         player_name=player_name,
         current=current_room,
-        hearts=hearts,
+        hearts=Health(hearts),
         visited=set(json.loads(visited_json)),
         defeated=set(json.loads(defeated_json)),
         taken={(room, item) for room, item in json.loads(taken_json)},

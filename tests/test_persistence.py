@@ -5,6 +5,7 @@ from __future__ import annotations
 import persistence
 import rooms  # noqa: F401
 from game import Game
+from health import Health
 
 
 def test_save_and_load_preserves_game_state(tmp_path, monkeypatch) -> None:
@@ -16,7 +17,7 @@ def test_save_and_load_preserves_game_state(tmp_path, monkeypatch) -> None:
 
     game = Game(player_name="Michaela")
     game.current = "corridor_blue"
-    game.hearts = 2
+    game.hearts = Health(2)
     game.visited = {"classroom_2035", "corridor_blue"}
     game.defeated = {"some_challenge"}
     game.taken = {("corridor_blue", "evacuation_plan")}
@@ -49,7 +50,7 @@ def test_pause_saves_the_game_and_stops_running(tmp_path, monkeypatch) -> None:
 
     game = Game(player_name="Michaela")
     game.current = "corridor_blue"
-    game.hearts = 2
+    game.hearts = Health(2)
     game.elapsed_time = 10.0
 
     game.pause()
@@ -60,5 +61,5 @@ def test_pause_saves_the_game_and_stops_running(tmp_path, monkeypatch) -> None:
 
     assert loaded is not None
     assert loaded.current == "corridor_blue"
-    assert loaded.hearts == 2
+    assert loaded.hearts == Health(2)
     assert loaded.elapsed_time >= 10.0
