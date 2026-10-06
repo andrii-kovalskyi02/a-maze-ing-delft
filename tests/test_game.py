@@ -155,11 +155,20 @@ def option_in_options(game: Game, label: str) -> str:
     raise AssertionError(f"Options has no choice matching {label!r}")
 
 
-def test_quitting_from_the_options_menu(console) -> None:
+def test_quitting_from_the_options_menu_after_confirmation(console) -> None:
     game = start()
-    console.script(option(game, "Options"), option_in_options(game, "Quit"))
+    console.script(option(game, "Options"), option_in_options(game, "Quit"), "1")
     game.turn()
     assert game.running is False
+    assert "game over" in console.output
+
+
+def test_canceling_quit_keeps_the_game_running(console) -> None:
+    game = start()
+    console.script(option(game, "Options"), option_in_options(game, "Quit"), "2")
+    game.turn()
+    assert game.running is True
+    assert "game over" not in console.output
 
 
 def test_the_game_ends_cleanly_when_the_input_runs_out(console) -> None:
