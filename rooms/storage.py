@@ -16,7 +16,8 @@ ROOM = Room(
     look_around=(
         "Tall metal shelves line the walls, packed tight with cleaning fluids, "
         "spare light tubes, and heavy maintenance equipment. On a sturdy workbench "
-        "near the back rests a heavy fire axe, sharp and ready for emergencies."
+        "near the back rests a heavy fire axe and a spare fire extinguisher, "
+        "sharp and ready for emergencies."
     ),
     exits=("corridor_red",),
     requires="storage_key",
@@ -36,7 +37,7 @@ ROOM = Room(
             name="workbench",
             text=(
                 "A scarred wooden workbench covered in dust circles, stray washers, "
-                "and an empty oil can."
+                "and an empty oil can. A red fire extinguisher sits next to a heavy fire axe."
             ),
         ),
         Inspectable(
@@ -54,7 +55,7 @@ ROOM = Room(
             ),
         ),
     ),
-    items=("axe_key",),
+    items=("axe_key", "fire_extinguisher"),
 )
 
 register(ROOM)
