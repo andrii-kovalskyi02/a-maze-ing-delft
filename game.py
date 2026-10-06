@@ -61,6 +61,7 @@ the typing off altogether.\
 class Game:
     """Everything that is true about one play-through."""
 
+    player_name: str = ""
     current: str = STARTING_ROOM
     name: str = "Player"
     carrying: Inventory = field(default_factory=Inventory)
@@ -77,14 +78,23 @@ class Game:
     #: notice them rattling the same handle (#103).
     refused: dict[str, int] = field(default_factory=dict)
     running: bool = True
+    #: Time played in earlier sessions, carried over by a saved game (US3).
+    elapsed_time: float = 0.0
     #: When this play-through began, for the status command's "time played".
     #: A monotonic clock, so a system clock change mid-game cannot make it
     #: run backwards.
     started_at: float = field(default_factory=time.monotonic)
+    _session_started: float = field(
+        default_factory=time.monotonic,
+        repr=False,
+        compare=False,
+    )
     percent_explored: float = 0
 
     def __post_init__(self) -> None:
-        """Hand the player their starting items, if the story gives them any."""
+        """Use the name the player logged in with, and hand them their starting items."""
+        if self.player_name:
+            self.name = self.player_name
         for key in STARTING_ITEMS:
             self.carrying.add(key)
 
@@ -128,6 +138,20 @@ class Game:
         if first_time and room.on_first_enter is not None:
             room.on_first_enter(self)
 
+    def update_elapsed_time(self) -> None:
+        """Add the current session duration to the total play time."""
+        now = time.monotonic()
+        self.elapsed_time += now - self._session_started
+        self._session_started = now
+
+    def pause(self) -> None:
+        """Save the game and stop the current play session."""
+        from persistence import save_game
+
+        self.update_elapsed_time()
+        save_game(self)
+        self.running = False
+
     def finish(self) -> None:
         """End the game: the player has walked out of the building (US1e).
 
@@ -161,22 +185,23 @@ class Game:
             self.running = False
 
     def run(self) -> None:
-        """Play until the player quits, or until there is no more input."""
-        try:
-            typed = ui.ask("What should we call you?: ")
-            if typed:
-                self.name = typed
-        except EOFError:
-            # Nobody at the keyboard even for the name - keep the default and
-            # let the main loop below hit the same EOFError and end cleanly.
-            pass
+        """Play until the player quits, pauses, or until there is no more input."""
+        ui.set_pause_handler(self.pause)
 
-        ui.say(HOW_TO_PLAY)
-        self.enter()
-        while self.running:
-            try:
-                self.turn()
-            except EOFError:
-                ui.say()
-                ui.say("There is nobody at the keyboard any more. Game over.")
-                self.running = False
+        try:
+            ui.say(HOW_TO_PLAY)
+            self.enter()
+
+            while self.running:
+                try:
+                    self.turn()
+                except ui.PauseRequested:
+                    ui.say()
+                    ui.say("Game saved. See you next time!")
+                    self.running = False
+                except EOFError:
+                    ui.say()
+                    ui.say("There is nobody at the keyboard any more. Game over.")
+                    self.running = False
+        finally:
+            ui.set_pause_handler(None)

@@ -73,11 +73,13 @@ def do_go(game: Game) -> None:
     if destination.approach_reward is not None and destination.key not in game.approached:
         game.approached.add(destination.key)
         item = game.carrying.add(destination.approach_reward)
-        ui.say()
-        ui.say(f"You are now carrying the {item.name}.")
+        # The story first, then the plain fact: the player reads what they
+        # found before being told it is in their pocket.
         if destination.approach_reward_text is not None:
             ui.say()
             ui.narrate(destination.approach_reward_text)
+        ui.say()
+        ui.say(f"You are now carrying the {item.name}.")
 
     if destination.is_exit and not _code_opens_the_exit(game, destination):
         return
@@ -157,9 +159,16 @@ def options_menu(game: Game) -> tuple[MenuItem, ...]:
         MenuItem("Status", do_status),
         MenuItem("Scoreboard", _not_built_yet("The scoreboard", 121)),
         MenuItem(_text_speed_label(), do_text_speed),
-        MenuItem("Save and continue later", _not_built_yet("Saving", 121)),
+        MenuItem("Save and continue later", _save_and_continue),
         MenuItem("Quit the game", do_quit),
     )
+
+
+def _save_and_continue(game: Game) -> None:
+    """Save the current game and leave it for later."""
+    game.pause()
+    ui.say()
+    ui.say("Game saved. See you next time!")
 
 
 def do_options(game: Game) -> None:

@@ -203,7 +203,8 @@ class Room:
             player enters.  Use it only when plain data is not enough.
         approach_reward: The key of an item handed over the first time the
             player walks up to this room's door, whether or not it opens.
-        approach_reward_text: Printed after ``approach_reward`` is handed over.
+        approach_reward_text: Printed when ``approach_reward`` is handed over,
+            just before the "You are now carrying..." line.
         is_exit: If True, this is the way out of the building. The engine
             asks for the four-digit code here instead of an item, and walking
             through ends the game - see ``digits.py`` (enabler #116).
