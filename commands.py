@@ -15,7 +15,6 @@ puts it: `look around -> interact <item, boss>`.
 
 from __future__ import annotations
 
-import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -26,6 +25,7 @@ import floor_map
 import narrator
 import ui
 import world
+from inventory import get_item
 
 if TYPE_CHECKING:  # pragma: no cover - import only needed for type checking
     from game import Game
@@ -72,16 +72,18 @@ def do_go(game: Game) -> None:
     if destination.approach_reward is not None and destination.key not in game.approached:
         game.approached.add(destination.key)
         item = game.carrying.add(destination.approach_reward)
-        ui.say()
-        ui.say(f"You are now carrying the {item.name}.")
+        # The story first, then the plain fact: the player reads what they
+        # found before being told it is in their pocket.
         if destination.approach_reward_text is not None:
             ui.say()
             ui.narrate(destination.approach_reward_text)
+        ui.say()
+        ui.say(f"You are now carrying the {item.name}.")
 
     if destination.is_exit and not _code_opens_the_exit(game, destination):
         return
 
-    if not world.can_enter(destination, game.carrying):
+    if not world.can_enter(destination, game.carrying, game.unlocked):
         ui.say()
         ui.say(destination.locked_text)
         # The backpack only notices the player rattling the same handle, not
@@ -91,6 +93,18 @@ def do_go(game: Game) -> None:
         if tries > 1:
             narrator.remark(game, "locked_again")
         return
+
+    if destination.requires is not None and destination.key not in game.unlocked:
+        item = get_item(destination.requires)
+        if item.single_use:
+            game.carrying.consume(destination.requires)
+        if destination.requires == "fire_extinguisher":
+            ui.say()
+            ui.narrate(
+                f"You spray the fire extinguisher onto the wall of fire. "
+                f"The flames hiss, die down, and clear the way to {destination.name}."
+            )
+        game.unlocked.add(destination.key)
 
     game.move_to(destination.key)
     if destination.is_exit:
@@ -144,9 +158,16 @@ def options_menu(game: Game) -> tuple[MenuItem, ...]:
         MenuItem("Status", do_status),
         MenuItem("Scoreboard", _not_built_yet("The scoreboard", 121)),
         MenuItem(_text_speed_label(), do_text_speed),
-        MenuItem("Save and continue later", _not_built_yet("Saving", 121)),
+        MenuItem("Save and continue later", _save_and_continue),
         MenuItem("Quit the game", do_quit),
     )
+
+
+def _save_and_continue(game: Game) -> None:
+    """Save the current game and leave it for later."""
+    game.pause()
+    ui.say()
+    ui.say("Game saved. See you next time!")
 
 
 def do_options(game: Game) -> None:
@@ -195,7 +216,7 @@ def do_status(game: Game) -> None:
     ends up spending those elsewhere.
     """
     percent = _percent_explored(game)
-    played = _format_duration(time.monotonic() - game.started_at)
+    played = _format_duration(game.time_played())
     digits_had, digits_total = len(digits.carried(game)), len(digits.all_digits())
 
     ui.say()
@@ -237,7 +258,14 @@ def _format_duration(seconds: float) -> str:
 
 
 def do_quit(game: Game) -> None:
-    """Stop playing."""
+    """Stop playing after confirming with the player."""
+    chosen = ui.choose(
+        "Are you sure you want to quit? Any progress from this run will be lost.",
+        ["Quit the game", "Keep playing"],
+    )
+    if chosen != 0:
+        return
+
     ui.say()
     ui.say("You step away from the building. Game over.")
     game.running = False

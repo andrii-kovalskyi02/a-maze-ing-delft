@@ -38,7 +38,14 @@ _instant = False
 _write: Callable[[str], None] = print
 _read: Callable[[str], str] = input
 _sleep: Callable[[float], None] = time.sleep
+
 _clock: Callable[[], float] = time.monotonic
+
+_pause_handler: Callable[[], None] | None = None
+
+
+class PauseRequested(Exception):
+    """Raised when the player asks to pause the game."""
 
 
 def say(text: str = "") -> None:
@@ -230,8 +237,14 @@ def set_instant(instant: bool) -> None:
 
 
 def ask(prompt: str = "> ") -> str:
-    """Ask the player for a line of input and return it stripped."""
-    return _read(prompt).strip()
+    """Ask the player for a line of input and handle the pause command."""
+    answer = _read(prompt).strip()
+
+    if answer.lower() == "pause" and _pause_handler is not None:
+        _pause_handler()
+        raise PauseRequested
+
+    return answer
 
 
 def now() -> float:
@@ -247,6 +260,12 @@ def now() -> float:
 def pause(seconds: float) -> None:
     """Wait ``seconds`` before continuing. Uses the same clock as narrate."""
     _sleep(seconds)
+
+
+def set_pause_handler(handler: Callable[[], None] | None) -> None:
+    """Set the function called when the player types ``pause``."""
+    global _pause_handler
+    _pause_handler = handler
 
 
 def choose(prompt: str, options: Sequence[str], back: str | None = None) -> int | None:

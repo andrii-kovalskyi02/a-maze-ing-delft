@@ -45,13 +45,18 @@ ROOM = Room(
     area=Area.RED,
     requires="brass_key",
     description=(
-        "The room feels strangely familiar, although you cannot immediately understand why."
+        "The room feels strangely familiar, although you cannot immediately understand why.",
+        0.6,
     ),
     look_around=(
-        "A clock on the wall shows 23:17. "
-        'A whiteboard displays the word "REMEMBER". '
-        "A laptop sits on a nearby desk, and the desk feels familiar. "
-        "The Memory Keeper watches you silently."
+        "A clock on the wall shows 23:17. ",
+        0.6,
+        'A whiteboard displays the word "REMEMBER". ',
+        0,
+        6,
+        "A laptop sits on a nearby desk, and the desk feels familiar. ",
+        0.6,
+        "The Memory Keeper watches you silently.",
     ),
     exits=("corridor_red",),
     inspectables=(
@@ -70,7 +75,11 @@ ROOM = Room(
     ),
     boss=Boss(
         name="the Memory Keeper",
-        intro="The Memory Keeper steps forward and asks you to prove what you remember.",
+        intro=(
+            "The Memory Keeper steps forward",
+            0.6,
+            "he asks you to prove what you remember.",
+        ),
         questions=QUESTIONS,
         win_text=(
             "Correct. Now you remember. You were sitting at the desk, "
@@ -78,9 +87,6 @@ ROOM = Room(
             "you fell asleep."
         ),
         lose_text="The Memory Keeper shakes its head. You cannot remember enough.",
-        # NOTE: "digit_4" is a guess at the naming convention for the digit
-        # items — confirm this matches whatever key the other boss rooms use
-        # (e.g. classroom_2015's boss, lab_0_1's boss) before merging.
         reward="digit_4",
     ),
 )
