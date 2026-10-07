@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 
 import commands
 import narrator
+import persistence
 import ui
 import world
 from health import Health
@@ -162,6 +163,9 @@ class Game:
         ui.say()
         ui.say("You are out of the building. Fresh air, at last.")
         commands.do_status(self)
+        self.update_elapsed_time()
+        persistence.save_score(self.name, commands.percent_explored(self), self.elapsed_time)
+        commands.do_scoreboard(self)
         self.running = False
 
     def turn(self) -> None:
@@ -187,6 +191,7 @@ class Game:
     def run(self) -> None:
         """Play until the player quits, pauses, or until there is no more input."""
         ui.set_pause_handler(self.pause)
+        ui.set_scoreboard_handler(lambda: commands.do_scoreboard(self))
 
         try:
             ui.say(HOW_TO_PLAY)
@@ -205,3 +210,4 @@ class Game:
                     self.running = False
         finally:
             ui.set_pause_handler(None)
+            ui.set_scoreboard_handler(None)

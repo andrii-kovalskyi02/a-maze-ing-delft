@@ -19,7 +19,7 @@ def get_connection() -> sqlite3.Connection:
 
 
 def create_tables() -> None:
-    """Create the game save table if it does not exist."""
+    """Create the game save and scoreboard tables if they do not exist."""
     connection = get_connection()
 
     connection.execute(
@@ -36,6 +36,16 @@ def create_tables() -> None:
             taken_items TEXT NOT NULL,
             approached TEXT NOT NULL,
             elapsed_time REAL NOT NULL
+        )
+        """
+    )
+
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS scores (
+            player_name TEXT NOT NULL,
+            completion INTEGER NOT NULL,
+            play_time REAL NOT NULL
         )
         """
     )
@@ -99,6 +109,32 @@ def save_game(game: Game) -> None:
 
     connection.commit()
     connection.close()
+
+
+def save_score(player_name: str, completion: int, play_time: float) -> None:
+    """Save one finished run to the scoreboard."""
+    connection = get_connection()
+
+    connection.execute(
+        "INSERT INTO scores VALUES (?, ?, ?)",
+        (player_name, completion, play_time),
+    )
+
+    connection.commit()
+    connection.close()
+
+
+def top_scores() -> list[tuple[str, int, float]]:
+    """Return the top 5 runs, best completion first, then fastest time."""
+    connection = get_connection()
+
+    rows = connection.execute(
+        "SELECT * FROM scores ORDER BY completion DESC, play_time ASC LIMIT 5"
+    ).fetchall()
+
+    connection.close()
+
+    return rows
 
 
 def load_game(player_name: str) -> Game | None:

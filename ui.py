@@ -42,6 +42,7 @@ _sleep: Callable[[float], None] = time.sleep
 _clock: Callable[[], float] = time.monotonic
 
 _pause_handler: Callable[[], None] | None = None
+_scoreboard_handler: Callable[[], None] | None = None
 
 
 class PauseRequested(Exception):
@@ -268,6 +269,12 @@ def set_pause_handler(handler: Callable[[], None] | None) -> None:
     _pause_handler = handler
 
 
+def set_scoreboard_handler(handler: Callable[[], None] | None) -> None:
+    """Set the function called when the player types ``scoreboard``."""
+    global _scoreboard_handler
+    _scoreboard_handler = handler
+
+
 def choose(prompt: str, options: Sequence[str], back: str | None = None) -> int | None:
     """Show a numbered list and let the player pick one.
 
@@ -293,6 +300,9 @@ def choose(prompt: str, options: Sequence[str], back: str | None = None) -> int 
             say(f"  0) {back}")
 
         typed = ask()
+        if typed.lower() == "scoreboard" and _scoreboard_handler is not None:
+            _scoreboard_handler()
+            continue
         if back is not None and typed == "0":
             return None
         if typed.isdigit() and 1 <= int(typed) <= len(options):

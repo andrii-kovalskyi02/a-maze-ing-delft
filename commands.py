@@ -24,6 +24,7 @@ import digits
 import encounters
 import floor_map
 import narrator
+import persistence
 import ui
 import world
 from inventory import get_item
@@ -157,7 +158,7 @@ def options_menu(game: Game) -> tuple[MenuItem, ...]:
     """
     return (
         MenuItem("Status", do_status),
-        MenuItem("Scoreboard", _not_built_yet("The scoreboard", 121)),
+        MenuItem("Scoreboard", do_scoreboard),
         MenuItem(_text_speed_label(), do_text_speed),
         MenuItem("Save and continue later", _save_and_continue),
         MenuItem("Quit the game", do_quit),
@@ -216,7 +217,7 @@ def do_status(game: Game) -> None:
     to check - no turn, no heart, no matter how the hearts enabler (#108)
     ends up spending those elsewhere.
     """
-    percent = _percent_explored(game)
+    percent = percent_explored(game)
     played = _format_duration(time.monotonic() - game.started_at)
     digits_had, digits_total = len(digits.carried(game)), len(digits.all_digits())
 
@@ -225,7 +226,7 @@ def do_status(game: Game) -> None:
     ui.say(f"Hearts: {game.hearts}   Digits: {digits_had}/{digits_total}")
 
 
-def _percent_explored(game: Game) -> int:
+def percent_explored(game: Game) -> int:
     """Return how much of the whole world graph is *done*, as a percent.
 
     Counts every registered room, finished or still a skeleton - the guide
@@ -239,6 +240,14 @@ def _percent_explored(game: Game) -> int:
     if total == 0:
         return 0
     return round(_rooms_completed(game) / total * 100)
+
+
+def do_scoreboard(game: Game) -> None:
+    """Show the top 5 finished runs (issues #89, #90, #91)."""
+    ui.say()
+    ui.say("Top 5 players:")
+    for place, (name, completion, play_time) in enumerate(persistence.top_scores(), start=1):
+        ui.say(f"  {place}. {name} - {completion}% - {_format_duration(play_time)}")
 
 
 def _rooms_completed(game: Game) -> int:
