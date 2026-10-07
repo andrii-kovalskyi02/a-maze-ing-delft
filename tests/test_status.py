@@ -67,6 +67,17 @@ def test_status_shows_name_time_and_percentage(console, monkeypatch) -> None:
     assert f"{expected_percent}%" in console.output
 
 
+def test_status_counts_time_from_earlier_sessions(console, monkeypatch) -> None:
+    game = Game()
+    game.elapsed_time = 600.0  # ten minutes in a saved session
+    game.started_at = 0.0
+    monkeypatch.setattr(time, "monotonic", lambda: 65.0)  # 1:05 this session
+
+    do_status(game)
+
+    assert "11:05 played" in console.output
+
+
 def test_a_boss_room_only_counts_once_the_boss_is_resolved(console) -> None:
     """Walking up to a boss and walking away does not finish that room."""
     boss_room = _some_boss_room()
