@@ -15,7 +15,6 @@ puts it: `look around -> interact <item, boss>`.
 
 from __future__ import annotations
 
-import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -217,7 +216,7 @@ def do_status(game: Game) -> None:
     ends up spending those elsewhere.
     """
     percent = _percent_explored(game)
-    played = _format_duration(time.monotonic() - game.started_at)
+    played = _format_duration(game.time_played())
     digits_had, digits_total = len(digits.carried(game)), len(digits.all_digits())
 
     ui.say()
