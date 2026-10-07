@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import sqlite3
 from typing import TYPE_CHECKING
@@ -19,7 +20,7 @@ def get_connection() -> sqlite3.Connection:
 
 
 def create_tables() -> None:
-    """Create the game save and scoreboard tables if they do not exist."""
+    """Create the game save table if it does not exist."""
     connection = get_connection()
 
     connection.execute(
@@ -35,20 +36,17 @@ def create_tables() -> None:
             defeated_challenges TEXT NOT NULL,
             taken_items TEXT NOT NULL,
             approached TEXT NOT NULL,
-            elapsed_time REAL NOT NULL
+            elapsed_time REAL NOT NULL,
+            completion INTEGER,
+            finish_time REAL
         )
         """
     )
 
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS scores (
-            player_name TEXT NOT NULL,
-            completion INTEGER NOT NULL,
-            play_time REAL NOT NULL
-        )
-        """
-    )
+    for column in ("completion INTEGER", "finish_time REAL"):
+        # An older game.db has no scoreboard columns yet; the error means it already has them.
+        with contextlib.suppress(sqlite3.OperationalError):
+            connection.execute(f"ALTER TABLE game_states ADD COLUMN {column}")
 
     connection.commit()
     connection.close()
@@ -112,12 +110,12 @@ def save_game(game: Game) -> None:
 
 
 def save_score(player_name: str, completion: int, play_time: float) -> None:
-    """Save one finished run to the scoreboard."""
+    """Save a finished run's score on the player's row in game_states."""
     connection = get_connection()
 
     connection.execute(
-        "INSERT INTO scores VALUES (?, ?, ?)",
-        (player_name, completion, play_time),
+        "UPDATE game_states SET completion = ?, finish_time = ? WHERE player_name = ?",
+        (completion, play_time, player_name),
     )
 
     connection.commit()
@@ -129,7 +127,13 @@ def top_scores() -> list[tuple[str, int, float]]:
     connection = get_connection()
 
     rows = connection.execute(
-        "SELECT * FROM scores ORDER BY completion DESC, play_time ASC LIMIT 5"
+        """
+        SELECT player_name, completion, finish_time
+        FROM game_states
+        WHERE completion IS NOT NULL
+        ORDER BY completion DESC, finish_time ASC
+        LIMIT 5
+        """
     ).fetchall()
 
     connection.close()

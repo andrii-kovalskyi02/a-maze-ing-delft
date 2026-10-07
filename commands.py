@@ -216,7 +216,7 @@ def do_status(game: Game) -> None:
     to check - no turn, no heart, no matter how the hearts enabler (#108)
     ends up spending those elsewhere.
     """
-    percent = _percent_explored(game)
+    percent = percent_explored(game)
     played = _format_duration(game.time_played())
     digits_had, digits_total = len(digits.carried(game)), len(digits.all_digits())
 

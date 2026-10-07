@@ -162,6 +162,7 @@ class Game:
         ui.say("You are out of the building. Fresh air, at last.")
         commands.do_status(self)
         self.update_elapsed_time()
+        persistence.save_game(self)
         persistence.save_score(self.name, commands.percent_explored(self), self.elapsed_time)
         commands.do_scoreboard(self)
         self.running = False
