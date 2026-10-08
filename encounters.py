@@ -79,35 +79,42 @@ def run(game: Game, boss: Boss) -> bool:
 def _ask_question(number: int, total: int, question: Question) -> bool:
     """Ask one question and return whether the player got it right in time."""
     header = f"Question {number} of {total}: {question.prompt}"
-    if question.seconds is not None:
-        header += f"  ({question.seconds:g} seconds)"
+    seconds = question.seconds
+    if seconds is not None:
+        header += f"  ({seconds:g} seconds)"
 
     started = ui.now()
-    if question.choices:
-        chosen = ui.choose(header, question.choices)
-        given = question.choices[chosen]
-    else:
+    try:
+        if question.choices:
+            chosen = ui.choose(header, question.choices, timeout=seconds)
+            given = question.choices[chosen]
+        else:
+            ui.say()
+            ui.say(header)
+            ui.say("Answer in your own words.")
+            given = ui.ask(timeout=seconds)
+    except ui.TimedOut:
+        # The clock ran out while the player was still thinking or typing.
         ui.say()
-        ui.say(header)
-        ui.say("Answer in your own words.")
-        given = ui.ask()
+        ui.say(TOO_SLOW)
+        return False
 
-    if _ran_out_of_time(question, ui.now() - started):
+    if _ran_out_of_time(seconds, ui.now() - started):
         ui.say()
         ui.say(TOO_SLOW)
         return False
     return question.is_correct(given)
 
 
-def _ran_out_of_time(question: Question, taken: float) -> bool:
-    """Return True if the player took longer than ``question`` allows.
+def _ran_out_of_time(seconds: float | None, taken: float) -> bool:
+    """Return True if the player took longer than ``seconds``.
 
-    The clock is read after the answer arrives rather than interrupting the
-    player mid-word. That keeps the game honest about what it is measuring -
-    how long you took - and keeps it working the same on all three operating
-    systems the team uses, which a background timer would not.
+    In a real terminal :func:`ui.ask` already stops the player when the time
+    is up. Everywhere else - tests, piped input, a terminal whose keyboard
+    cannot be watched - the answer is simply waited for, and this check on the
+    clock afterwards is what makes a slow answer count as wrong.
     """
-    return question.seconds is not None and taken > question.seconds
+    return seconds is not None and taken > seconds
 
 
 def _hurt(game: Game, boss: Boss) -> None:
