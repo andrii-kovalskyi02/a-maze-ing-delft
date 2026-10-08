@@ -73,18 +73,21 @@ ROOM = Room(
                     "an intercom",
                     "desk phone",
                 ),
+                seconds=15,
             ),
             # Question 2 (Multiple choice)
             Question(
                 prompt="Which object is used to hold paper steady while someone writes on it?",
                 choices=("Clipboard", "Mouse", "Stapler", "Desk lamp"),
                 answers=("Clipboard",),
+                seconds=15,
             ),
             # Question 3 (Multiple choice)
             Question(
                 prompt="What object is used to fasten papers together temporarily?",
                 choices=("Paperclip", "Highlighter", "Phone", "Monitor"),
                 answers=("Paperclip",),
+                seconds=15,
             ),
             # Question 4 (Open-ended)
             Question(
@@ -101,6 +104,7 @@ ROOM = Room(
                     "name badge",
                     "a name badge",
                 ),
+                seconds=15,
             ),
         ),
         win_text=(
