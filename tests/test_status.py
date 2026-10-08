@@ -67,6 +67,17 @@ def test_status_shows_name_time_and_percentage(console, monkeypatch) -> None:
     assert f"{expected_percent}%" in console.output
 
 
+def test_status_counts_time_from_earlier_sessions(console, monkeypatch) -> None:
+    game = Game()
+    game.elapsed_time = 600.0  # ten minutes in a saved session
+    game.started_at = 0.0
+    monkeypatch.setattr(time, "monotonic", lambda: 65.0)  # 1:05 this session
+
+    do_status(game)
+
+    assert "11:05 played" in console.output
+
+
 def test_a_boss_room_only_counts_once_the_boss_is_resolved(console) -> None:
     """Walking up to a boss and walking away does not finish that room."""
     boss_room = _some_boss_room()
@@ -154,3 +165,26 @@ def test_opening_menu_is_unchanged_by_the_status_feature(console) -> None:
         "Go through a door",
         "Options",
     ]
+
+
+def test_percentage_is_zero_when_no_rooms_are_visited(console) -> None:
+    """US4.2: no visited rooms means 0% completion."""
+    game = Game()
+
+    do_status(game)
+
+    assert "0% of the floor explored" in console.output
+
+
+def test_percentage_is_100_when_all_rooms_are_completed(console) -> None:
+    """US4.2: all rooms completed means 100%."""
+    game = Game()
+
+    for room in world.all_rooms():
+        game.visited.add(room.key)
+        if room.boss is not None:
+            game.defeated.add(room.key)
+
+    do_status(game)
+
+    assert "100% of the floor explored" in console.output

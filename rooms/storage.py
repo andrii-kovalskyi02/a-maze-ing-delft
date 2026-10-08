@@ -57,7 +57,7 @@ ROOM = Room(
             ),
         ),
     ),
-    items=("axe_key",),
+    items=("axe_key", "fire_extinguisher"),
 )
 
 register(ROOM)

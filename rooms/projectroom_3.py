@@ -71,7 +71,11 @@ ROOM = Room(
     ),
     boss=Boss(
         name="the Memory Keeper",
-        intro="The Memory Keeper steps forward and asks you to prove what you remember.",
+        intro=(
+            "The Memory Keeper steps forward",
+            0.6,
+            "he asks you to prove what you remember.",
+        ),
         questions=QUESTIONS,
         win_text=(
             "Correct. Now you remember.",
@@ -83,9 +87,6 @@ ROOM = Room(
             "And then you fell asleep.",
         ),
         lose_text="The Memory Keeper shakes its head. You cannot remember enough.",
-        # NOTE: "digit_4" is a guess at the naming convention for the digit
-        # items — confirm this matches whatever key the other boss rooms use
-        # (e.g. classroom_2015's boss, lab_0_1's boss) before merging.
         reward="digit_4",
     ),
 )

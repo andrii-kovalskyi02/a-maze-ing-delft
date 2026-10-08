@@ -28,8 +28,13 @@ ROOM = Room(
         "storage",
         "student_society",
         "teacher_rooms",
+        "classroom_2021",
     ),
     requires="fire_extinguisher",
+    locked_text=(
+        "A wall of roaring fire blocks the way into the Red corridor. "
+        "You need a fire extinguisher to get through."
+    ),
     is_hallway=True,
 )
 register(ROOM)

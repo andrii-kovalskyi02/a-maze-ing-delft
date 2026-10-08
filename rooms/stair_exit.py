@@ -11,7 +11,7 @@ ROOM = Room(
     area=Area.BLUE,
     description="The stairs leading to the main exit.",
     exits=("corridor_blue",),
-    requires="digit_4",
+    is_exit=True,
     locked_text="The exit is locked. A 4 digit pin is needed to unlock.",
     inspectables=(
         Inspectable(name="poster", text="A fire evacuation poster, curling at the corners."),

@@ -63,6 +63,11 @@ This is why your room is only data. Listing an `Inspectable` is enough to make
 it appear. Setting `requires=` is enough to make the door refuse the player.
 There is nothing to wire up.
 
+A digit of the exit code is an ordinary item with a `colour` and a `value`
+(see `ITEM_CATALOGUE`). Hand one out as a boss `reward` or leave it in `items`:
+it shows in the backpack, cannot be picked up twice, and the exit door (a room
+with `is_exit=True`) counts it. See `digits.py` (#116).
+
 If your room needs something the engine cannot do, say so in the issue before
 you build a workaround. Nine times out of ten it belongs in the engine so that
 everyone's room gets it.
@@ -114,6 +119,7 @@ what lets the tests play your room without a human at the keyboard.
 | `encounters.py` | running a boss's questions, and what a fight costs | #104 |
 | `health.py` | hearts, in halves | #108 |
 | `narrator.py` | what the Evil Backpack says, and when | #103 |
+| `digits.py` | the four digits of the code, and the exit door | #116 |
 | `ui.py` | all screen output, keyboard input, and the numbered menu | #151 |
 | `floor_map.py` | the map | #120 |
 

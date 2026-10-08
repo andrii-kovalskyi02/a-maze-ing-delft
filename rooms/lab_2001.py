@@ -22,8 +22,8 @@ ROOM = Room(
         "Past the tree, you can see a glistening object on the teacher's desk.",
     ),
     exits=("lobby",),
-    requires="digit_2",
-    locked_text="The door is locked. Something with a blue stripe would help.",
+    requires="lab_2001_key",
+    locked_text="The door is locked. You need the LAB 2.001 key to enter.",
     inspectables=(
         Inspectable(name="poster", text="A dont give up cat poster, curling at the corners."),
     ),

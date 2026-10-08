@@ -63,6 +63,7 @@ ROOM = Room(
                 ),
                 answers=("App Store",),
                 choices=("Maps", "Notes", "Stocks", "App Store"),
+                seconds=15,
             ),
             Question(
                 prompt=(
@@ -71,6 +72,7 @@ ROOM = Room(
                     "used for documents. Where did I pull it from?"
                 ),
                 answers=("envelope", "an envelope", "manila envelope", "a manila envelope"),
+                seconds=20,
             ),
             Question(
                 prompt=(
@@ -79,6 +81,7 @@ ROOM = Room(
                     "commands. What was it?"
                 ),
                 answers=("mouse", "a mouse", "the mouse"),
+                seconds=20,
             ),
             Question(
                 prompt=(
@@ -88,6 +91,7 @@ ROOM = Room(
                 ),
                 answers=("1984",),
                 choices=("Think Different", "Big Brother", "1984", "The Crazy Ones"),
+                seconds=15,
             ),
         ),
         win_text=(

@@ -54,12 +54,19 @@ class Item:
         name: How the item is shown on screen, e.g. ``"blue key card"``.
         description: What the player reads when they ``inspect`` the item.
         single_use: If True the item disappears from the backpack after use.
+        colour: For a digit of the exit code, which passage it belongs to -
+            one of ``digits.ORDER``. Leave it out for anything else.
+        value: For a digit of the exit code, the character it shows. The door's
+            code is assembled from these, so changing a digit here changes the
+            code and nothing else - see ``digits.py``.
     """
 
     key: str
     name: str
     description: str
     single_use: bool = False
+    colour: str | None = None
+    value: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -196,7 +203,11 @@ class Room:
             player enters.  Use it only when plain data is not enough.
         approach_reward: The key of an item handed over the first time the
             player walks up to this room's door, whether or not it opens.
-        approach_reward_text: Printed after ``approach_reward`` is handed over.
+        approach_reward_text: Printed when ``approach_reward`` is handed over,
+            just before the "You are now carrying..." line.
+        is_exit: If True, this is the way out of the building. The engine
+            asks for the four-digit code here instead of an item, and walking
+            through ends the game - see ``digits.py`` (enabler #116).
         is_hallway: If True, this room is a corridor/lobby the player is
             expected to pass through repeatedly, so its door label never
             grows the "(you have been there)" tag - that tag is only useful
@@ -219,4 +230,5 @@ class Room:
     on_first_enter: Callable[[Game], None] | None = None
     approach_reward: str | None = None
     approach_reward_text: Text | None = None
+    is_exit: bool = False
     is_hallway: bool = False
