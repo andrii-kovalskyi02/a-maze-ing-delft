@@ -73,7 +73,7 @@ ROOM = Room(
                     "an intercom",
                     "desk phone",
                 ),
-                seconds=20,
+                seconds=15,
             ),
             # Question 2 (Multiple choice)
             Question(
@@ -104,7 +104,7 @@ ROOM = Room(
                     "name badge",
                     "a name badge",
                 ),
-                seconds=20,
+                seconds=15,
             ),
         ),
         win_text=(
