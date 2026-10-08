@@ -45,11 +45,6 @@ if TYPE_CHECKING:  # pragma: no cover - import only needed for type checking
 #: What the player reads when the clock beats them.
 TOO_SLOW = "Too slow."
 
-#: Every question has a time limit. A question that does not set its own
-#: ``seconds`` gets one of these.
-DEFAULT_CHOICE_SECONDS = 15
-DEFAULT_OPEN_SECONDS = 20
-
 
 def run(game: Game, boss: Boss) -> bool:
     """Play out ``boss``'s challenge.
@@ -63,7 +58,7 @@ def run(game: Game, boss: Boss) -> bool:
     ui.say(f"Hearts: {game.hearts}")
 
     for number, question in enumerate(boss.questions, start=1):
-        if _ask_question(number, len(boss.questions), question, boss.single_attempt):
+        if _ask_question(number, len(boss.questions), question):
             continue
         _hurt(game, boss)
         ui.say()
@@ -81,12 +76,12 @@ def run(game: Game, boss: Boss) -> bool:
     return True
 
 
-def _ask_question(number: int, total: int, question: Question, untimed: bool) -> bool:
+def _ask_question(number: int, total: int, question: Question) -> bool:
     """Ask one question and return whether the player got it right in time."""
     header = f"Question {number} of {total}: {question.prompt}"
     seconds = question.seconds
-    if seconds is None and not untimed:
-        seconds = DEFAULT_CHOICE_SECONDS if question.choices else DEFAULT_OPEN_SECONDS
+    if seconds is not None:
+        header += f"  ({seconds:g} seconds)"
 
     started = ui.now()
     try:
@@ -95,7 +90,7 @@ def _ask_question(number: int, total: int, question: Question, untimed: bool) ->
             given = question.choices[chosen]
         else:
             ui.say()
-            ui.say(header, timer=seconds)
+            ui.say(header)
             ui.say("Answer in your own words.")
             given = ui.ask(timeout=seconds)
     except ui.TimedOut:
