@@ -165,3 +165,26 @@ def test_opening_menu_is_unchanged_by_the_status_feature(console) -> None:
         "Go through a door",
         "Options",
     ]
+
+
+def test_percentage_is_zero_when_no_rooms_are_visited(console) -> None:
+    """US4.2: no visited rooms means 0% completion."""
+    game = Game()
+
+    do_status(game)
+
+    assert "0% of the floor explored" in console.output
+
+
+def test_percentage_is_100_when_all_rooms_are_completed(console) -> None:
+    """US4.2: all rooms completed means 100%."""
+    game = Game()
+
+    for room in world.all_rooms():
+        game.visited.add(room.key)
+        if room.boss is not None:
+            game.defeated.add(room.key)
+
+    do_status(game)
+
+    assert "100% of the floor explored" in console.output
