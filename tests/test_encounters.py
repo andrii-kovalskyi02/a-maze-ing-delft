@@ -11,6 +11,7 @@ from __future__ import annotations
 import encounters
 import health
 import rooms  # noqa: F401  (importing rooms registers them)
+import ui
 from game import Game
 from health import Health
 from models import Boss, Question, typing_attack
@@ -52,7 +53,7 @@ def test_an_untimed_question_can_be_thought_about_for_as_long_as_you_like(consol
     """US1c: the Evil Backpack's questions have no clock on them."""
     console.script("2")
     console.take_seconds(600)
-    assert encounters.run(Game(), boss(single_attempt=True))
+    assert encounters.run(Game(), boss())
 
 
 def test_a_timed_question_is_lost_by_being_slow(console) -> None:
@@ -94,6 +95,21 @@ def test_running_out_of_time_costs_the_same_as_getting_it_wrong(console) -> None
     console.script("photosynthesis")
     console.take_seconds(30)
     assert not encounters.run(game, boss(questions=(typing_attack("photosynthesis", 5),)))
+    assert game.hearts == Health().lose(health.BOSS)
+
+
+def test_being_cut_off_by_the_clock_costs_the_same_as_getting_it_wrong(
+    console, monkeypatch
+) -> None:
+    """E4.1: in a real terminal the clock stops the player mid-answer."""
+
+    def clock_runs_out(*args, **kwargs) -> str:
+        raise ui.TimedOut
+
+    monkeypatch.setattr(ui, "ask", clock_runs_out)
+    game = Game()
+    assert not encounters.run(game, boss(questions=(typing_attack("photosynthesis", 5),)))
+    assert encounters.TOO_SLOW.casefold() in console.output
     assert game.hearts == Health().lose(health.BOSS)
 
 

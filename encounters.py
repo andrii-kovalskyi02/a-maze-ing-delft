@@ -109,10 +109,10 @@ def _ask_question(number: int, total: int, question: Question) -> bool:
 def _ran_out_of_time(seconds: float | None, taken: float) -> bool:
     """Return True if the player took longer than ``seconds``.
 
-    The clock is read after the answer arrives rather than interrupting the
-    player mid-word. That keeps the game honest about what it is measuring -
-    how long you took - and keeps it working the same on all three operating
-    systems the team uses, which a background timer would not.
+    In a real terminal :func:`ui.ask` already stops the player when the time
+    is up. Everywhere else - tests, piped input, a terminal whose keyboard
+    cannot be watched - the answer is simply waited for, and this check on the
+    clock afterwards is what makes a slow answer count as wrong.
     """
     return seconds is not None and taken > seconds
 
