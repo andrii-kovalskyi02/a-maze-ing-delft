@@ -52,7 +52,7 @@ def test_an_untimed_question_can_be_thought_about_for_as_long_as_you_like(consol
     """US1c: the Evil Backpack's questions have no clock on them."""
     console.script("2")
     console.take_seconds(600)
-    assert encounters.run(Game(), boss())
+    assert encounters.run(Game(), boss(single_attempt=True))
 
 
 def test_a_timed_question_is_lost_by_being_slow(console) -> None:

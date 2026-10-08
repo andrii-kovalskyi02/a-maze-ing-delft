@@ -8,6 +8,8 @@ directly from a room.
 from __future__ import annotations
 
 import contextlib
+import math
+import shutil
 import sys
 import textwrap
 import time
@@ -44,18 +46,47 @@ _clock: Callable[[], float] = time.monotonic
 _pause_handler: Callable[[], None] | None = None
 
 
+#: The part of the timed question's last line that comes before its "(15 seconds)",
+#: and how many lines have been written since. They let the keyboard reader
+#: redraw that number as the time runs down - see :func:`_redraw_countdown`.
+_countdown_prefix: str | None = None
+_countdown_rows_below = 0
+
+
 class PauseRequested(Exception):
     """Raised when the player asks to pause the game."""
 
 
-def say(text: str = "") -> None:
+class TimedOut(Exception):
+    """Raised when the player did not answer in time."""
+
+
+def say(text: str = "", timer: float | None = None) -> None:
     """Show ``text`` to the player, wrapped to :data:`WIDTH` columns.
 
     Write your room text as one long string; the wrapping happens here.
     Blank lines and leading indentation are preserved.
+
+    Args:
+        text: What to show.
+        timer: For a question with a time limit: how many seconds are left. It
+            is shown at the end of ``text`` as "(15 seconds)", and in a real
+            terminal it counts down while the player is thinking (see
+            :func:`ask`).
     """
-    for line in _wrap(text):
+    global _countdown_prefix, _countdown_rows_below
+    if timer is not None:
+        # A non-breaking space keeps "(15 seconds)" together when it wraps.
+        text += "  (" + _seconds_left(timer).replace(" ", "\u00a0") + ")"
+    lines = [line.replace("\u00a0", " ") for line in _wrap(text)]
+    for line in lines:
         _write(line)
+
+    if timer is not None:
+        _countdown_prefix = lines[-1].split("\n")[-1].rsplit("(", 1)[0]
+        _countdown_rows_below = 0
+    elif _countdown_prefix is not None:
+        _countdown_rows_below += sum(line.count("\n") + 1 for line in lines)
 
 
 def narrate(text: Text) -> None:
@@ -236,15 +267,160 @@ def set_instant(instant: bool) -> None:
     _instant = instant
 
 
-def ask(prompt: str = "> ") -> str:
-    """Ask the player for a line of input and handle the pause command."""
-    answer = _read(prompt).strip()
+def ask(prompt: str = "> ", timeout: float | None = None) -> str:
+    """Ask the player for a line of input and handle the pause command.
+
+    Args:
+        prompt: What to show in front of the cursor.
+        timeout: How many seconds the player has, or None to wait for ever.
+
+    Raises:
+        TimedOut: If the clock runs out before the player presses Enter. This
+            only happens where the keyboard can be watched while waiting - a
+            real terminal. Anywhere else the answer is simply waited for, and
+            whoever asked looks at the clock afterwards.
+    """
+    try:
+        answer = _read_line(prompt, timeout).strip()
+    finally:
+        _forget_countdown()
 
     if answer.lower() == "pause" and _pause_handler is not None:
         _pause_handler()
         raise PauseRequested
 
     return answer
+
+
+def _read_line(prompt: str, timeout: float | None) -> str:
+    """Read one line, giving up after ``timeout`` seconds where that is possible."""
+    # Only a real keyboard can be watched while waiting. A test has its own
+    # way of getting input, so it is simply waited for.
+    if timeout is not None and _read is input and _at_a_real_terminal():
+        return _read_from_keyboard(prompt, timeout)
+    return _read(prompt)
+
+
+def _seconds_left(seconds: float) -> str:
+    """Return ``seconds`` the way the player reads it: "15 seconds", "1 second"."""
+    whole = max(0, math.ceil(seconds))
+    return f"{whole} second" if whole == 1 else f"{whole} seconds"
+
+
+def _forget_countdown() -> None:
+    """Stop redrawing the countdown: its question has been answered."""
+    global _countdown_prefix, _countdown_rows_below
+    _countdown_prefix = None
+    _countdown_rows_below = 0
+
+
+def _enable_ansi() -> bool:  # pragma: no cover - needs a real terminal
+    """Return True if this terminal understands cursor-movement codes.
+
+    Windows consoles only do after being asked; macOS and Linux always do.
+    """
+    if sys.platform != "win32":
+        return True
+    try:
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+        handle = kernel32.GetStdHandle(-11)  # standard output
+        mode = ctypes.c_ulong()
+        if not kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+            return False
+        # 0x0004 is ENABLE_VIRTUAL_TERMINAL_PROCESSING
+        return bool(kernel32.SetConsoleMode(handle, mode.value | 0x0004))
+    except Exception:
+        return False
+
+
+def _redraw_countdown(seconds: float) -> None:  # pragma: no cover - needs a real terminal
+    """Rewrite the "(15 seconds)" on the question above the cursor, in place.
+
+    The cursor is on the prompt line, ``_countdown_rows_below`` + 1 lines under
+    the question. Go up, rewrite that one line, and come back to exactly where
+    the player was typing. If the question has scrolled off the top of the
+    screen, leave it alone rather than write over the wrong line.
+    """
+    rows = _countdown_rows_below + 1
+    if _countdown_prefix is None or rows >= shutil.get_terminal_size().lines:
+        return
+    line = f"{_countdown_prefix}({_seconds_left(seconds)})"
+    sys.stdout.write(f"\x1b7\x1b[{rows}A\r\x1b[2K{line}\x1b8")  # save, up, rewrite, restore
+    sys.stdout.flush()
+
+
+def _read_from_keyboard(prompt: str, timeout: float) -> str:  # pragma: no cover
+    """Read a line from the real keyboard, or raise :class:`TimedOut`.
+
+    ``input()`` cannot be interrupted, so the keyboard is watched instead. As
+    with :func:`_pressed_a_key`, there is one way to do that on Windows and
+    another on macOS and Linux. Each time a whole second has passed, the
+    countdown on the question above is redrawn.
+    """
+    sys.stdout.write(prompt)
+    sys.stdout.flush()
+    end = time.monotonic() + max(0.0, timeout)
+    counting = _countdown_prefix is not None and _enable_ansi()
+    shown = math.ceil(timeout)
+
+    def out_of_time() -> TimedOut:
+        if counting:
+            _redraw_countdown(0)
+        sys.stdout.write("\n")
+        return TimedOut()
+
+    if sys.platform == "win32":
+        import msvcrt
+
+        typed: list[str] = []
+        while True:
+            remaining = end - time.monotonic()
+            if counting and math.ceil(remaining) != shown and remaining > 0:
+                shown = math.ceil(remaining)
+                _redraw_countdown(remaining)
+            if msvcrt.kbhit():
+                key = msvcrt.getwch()
+                if key in "\r\n":
+                    sys.stdout.write("\n")
+                    return "".join(typed)
+                if key == "\x03":
+                    raise KeyboardInterrupt
+                if key in "\x00\xe0":  # an arrow or function key: two codes
+                    msvcrt.getwch()
+                elif key == "\x08":
+                    if typed:
+                        typed.pop()
+                        sys.stdout.write("\b \b")
+                else:
+                    typed.append(key)
+                    sys.stdout.write(key)
+                sys.stdout.flush()
+            elif remaining <= 0:
+                raise out_of_time()
+            else:
+                time.sleep(0.01)
+
+    import select
+    import termios
+
+    while True:
+        remaining = end - time.monotonic()
+        if counting and math.ceil(remaining) != shown and remaining > 0:
+            shown = math.ceil(remaining)
+            _redraw_countdown(remaining)
+        if remaining <= 0:
+            termios.tcflush(sys.stdin, termios.TCIFLUSH)  # drop a half-typed answer
+            raise out_of_time()
+        # sleep until the displayed number is due to change, or a line arrives
+        wait = remaining - (math.ceil(remaining) - 1) + 0.001
+        if select.select([sys.stdin], [], [], min(wait, remaining))[0]:
+            break
+    line = sys.stdin.readline()
+    if not line:
+        raise EOFError
+    return line.rstrip("\n")
 
 
 def now() -> float:
@@ -268,7 +444,12 @@ def set_pause_handler(handler: Callable[[], None] | None) -> None:
     _pause_handler = handler
 
 
-def choose(prompt: str, options: Sequence[str], back: str | None = None) -> int | None:
+def choose(
+    prompt: str,
+    options: Sequence[str],
+    back: str | None = None,
+    timeout: float | None = None,
+) -> int | None:
     """Show a numbered list and let the player pick one.
 
     The player never types a word: they type the number next to what they
@@ -280,19 +461,22 @@ def choose(prompt: str, options: Sequence[str], back: str | None = None) -> int 
         options: What the player can choose, in the order shown.
         back: The label for a "0" option that returns without choosing, or
             None for a list that must be answered.
+        timeout: How many seconds the player has in all, counting any wrong
+            tries, or None to wait for ever. See :func:`ask`.
 
     Returns:
         The index of the chosen option, or None if the player chose ``back``.
     """
+    deadline = None if timeout is None else now() + timeout
     while True:
         say()
-        say(prompt)
+        say(prompt, timer=None if deadline is None else max(0.0, deadline - now()))
         for number, option in enumerate(options, start=1):
             say(f"  {number}) {option}")
         if back is not None:
             say(f"  0) {back}")
 
-        typed = ask()
+        typed = ask(timeout=None if deadline is None else max(0.0, deadline - now()))
         if back is not None and typed == "0":
             return None
         if typed.isdigit() and 1 <= int(typed) <= len(options):
