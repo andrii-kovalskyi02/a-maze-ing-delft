@@ -23,6 +23,7 @@ import digits
 import encounters
 import floor_map
 import narrator
+import scoreboard
 import ui
 import world
 from inventory import get_item
@@ -156,7 +157,7 @@ def options_menu(game: Game) -> tuple[MenuItem, ...]:
     """
     return (
         MenuItem("Status", do_status),
-        MenuItem("Scoreboard", _not_built_yet("The scoreboard", 121)),
+        MenuItem("Scoreboard", lambda game: scoreboard.show()),
         MenuItem(_text_speed_label(), do_text_speed),
         MenuItem("Save and continue later", _save_and_continue),
         MenuItem("Quit the game", do_quit),
