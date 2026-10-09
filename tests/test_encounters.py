@@ -8,6 +8,9 @@ the engine should fail because somebody improved a joke.
 
 from __future__ import annotations
 
+import pytest
+
+import commands
 import encounters
 import health
 import rooms  # noqa: F401  (importing rooms registers them)
@@ -111,6 +114,17 @@ def test_being_cut_off_by_the_clock_costs_the_same_as_getting_it_wrong(
     assert not encounters.run(game, boss(questions=(typing_attack("photosynthesis", 5),)))
     assert encounters.TOO_SLOW.casefold() in console.output
     assert game.hearts == Health().lose(health.BOSS)
+
+
+def test_quit_can_be_typed_in_the_middle_of_a_fight(console) -> None:
+    """US2: quit works at every prompt, including a boss's question."""
+    console.script("quit", "1")
+    ui.set_quit_handler(commands.confirm_quit)
+    try:
+        with pytest.raises(ui.QuitRequested):
+            encounters.run(Game(), boss())
+    finally:
+        ui.set_quit_handler(None)
 
 
 def test_beating_a_boss_gives_a_heart_back(console) -> None:

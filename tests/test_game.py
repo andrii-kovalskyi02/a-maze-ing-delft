@@ -7,7 +7,9 @@ story says the player starts with nothing, the test says so too.
 from __future__ import annotations
 
 import commands
+import main
 import memories
+import persistence
 import rooms  # noqa: F401  (importing rooms registers them)
 import world
 from commands import build_menu
@@ -235,3 +237,32 @@ def test_project_room_2_supervisor_dialogue_reaches_the_end(console) -> None:
 
     assert "what progress?" in console.output
     assert "exactly." in console.output
+
+
+def test_typing_quit_and_confirming_ends_the_game_without_saving(console) -> None:
+    """US2: quit works at any prompt, asks first, and leaves no save behind."""
+    console.script("Krug", "quit", "1")
+
+    main.main()  # returns normally: no traceback, exit code 0
+
+    assert "game over" in console.output
+    assert persistence.load_game("Krug") is None
+
+
+def test_taking_back_a_typed_quit_asks_the_same_question_again(console) -> None:
+    console.script("Krug", "quit", "2")
+
+    main.main()
+
+    assert "step away from the building" not in console.output
+    assert console.output.count("what do you do?") == 2
+
+
+def test_typing_scoreboard_shows_it_and_carries_on(console) -> None:
+    """US5: the scoreboard can be typed at any prompt as well as found in Options."""
+    console.script("Krug", "scoreboard")
+
+    main.main()
+
+    assert "scoreboard - top 5" in console.output
+    assert console.output.count("what do you do?") == 2

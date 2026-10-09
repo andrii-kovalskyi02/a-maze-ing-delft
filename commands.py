@@ -228,16 +228,20 @@ def do_status(game: Game) -> None:
 
 def do_quit(game: Game) -> None:
     """Stop playing after confirming with the player."""
+    if confirm_quit():
+        game.quit()
+
+
+def confirm_quit() -> bool:
+    """Ask the player whether they really want to quit, and return their answer.
+
+    Used by Options -> Quit and by typing ``quit`` at any prompt (US2).
+    """
     chosen = ui.choose(
         "Are you sure you want to quit? Any progress from this run will be lost.",
         ["Quit the game", "Keep playing"],
     )
-    if chosen != 0:
-        return
-
-    ui.say()
-    ui.say("You step away from the building. Game over.")
-    game.running = False
+    return chosen == 0
 
 
 def build_menu(game: Game) -> tuple[MenuItem, ...]:
