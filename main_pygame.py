@@ -260,12 +260,12 @@ class _QueueToStream:
         self._on_wait_end = on_wait_end
 
     def read_answer(self, prompt: str) -> str:
-        """What ui.ask() reads with - passed into ui.use_io() as the read argument.
+        """What the game reads every answer with - see read_line_with_clock.
 
-        Not the built-in input(), on purpose: ui.py only watches the real
-        keyboard for timed questions when it is reading with input(), and the
-        real keyboard is not where the player is typing - the window is. On
-        macOS/Linux that crashed, on Windows every timed question ran out.
+        Never the built-in input(), on purpose: ui.py's own timed-question
+        code watches the real keyboard, and the real keyboard is not where
+        the player is typing - the window is. On macOS/Linux that crashed, on
+        Windows every timed question ran out.
         """
         sys.stdout.write(prompt)
         self._on_wait_start()
@@ -472,7 +472,7 @@ class TerminalWindow:
         sys.stdin = keyboard
 
         # the only place this file changes game behaviour - see _make_dialogue_sleep,
-        # and _QueueToStream.read_answer for why answers aren't read with input()
+        # and read_line_with_clock below for how answers are read
         ui.use_io(write=print, read=keyboard.read_answer, sleep=_make_dialogue_sleep(self))
 
         # ui.py's _type_line() has its OWN independent skip check that
@@ -496,19 +496,21 @@ class TerminalWindow:
             f"ui.CHAR_DELAY = {getattr(ui, 'CHAR_DELAY', 'MISSING')}"
         )
 
-        # wraps every question: resets the skip flag, so skipping one line doesn't
-        # skip the next, and starts the clock if the question is timed
-        real_ask = ui.ask
-
-        def ask_with_clock(prompt: str = "> ", timeout: float | None = None) -> str:
+        # wraps every read of an answer: resets the skip flag, so skipping one
+        # line doesn't skip the next, and starts the clock if the question is
+        # timed. Hooked on ui._read_line rather than ui.ask because it is the
+        # one place EVERY answer passes through - ui.choose() reads its menus
+        # without going through ask() at all, so a hook on ask() never saw a
+        # timed multiple-choice question.
+        def read_line_with_clock(prompt: str, timeout: float | None) -> str:
             self.skip_event.clear()
             self.deadline = None if timeout is None else time.monotonic() + timeout
             try:
-                return real_ask(prompt, timeout)
+                return keyboard.read_answer(prompt)
             finally:
                 self.deadline = None
 
-        ui.ask = ask_with_clock
+        ui._read_line = read_line_with_clock
 
         thread = threading.Thread(target=self._run_game, daemon=True)
         thread.start()
@@ -516,9 +518,10 @@ class TerminalWindow:
     def _run_game(self) -> None:
         try:
             run_console_game()
-        except (EOFError, ui.PauseRequested):
-            # PauseRequested: "pause" (or Escape) during the very first room's
-            # arrival - the game is already saved by then, so it's a clean end
+        except (EOFError, ui.PauseRequested, ui.QuitRequested):
+            # "pause" (or Escape) or a confirmed "quit" during the very first
+            # room's arrival, before game.py's own loop is there to catch it -
+            # the game has already saved (or been told not to), so it's a clean end
             pass
         except Exception:
             traceback.print_exc()  # real terminal, not the window - bugs stay visible

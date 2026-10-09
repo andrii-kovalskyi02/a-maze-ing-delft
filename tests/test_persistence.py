@@ -65,3 +65,39 @@ def test_pause_saves_the_game_and_stops_running(tmp_path, monkeypatch) -> None:
     assert loaded.current == "corridor_blue"
     assert loaded.hearts == Health(2)
     assert loaded.elapsed_time >= 10.0
+
+
+def test_the_scoreboard_puts_the_most_complete_first_and_breaks_a_tie_on_time() -> None:
+    """US5: completion descending, then play time ascending - in that order."""
+    persistence.record_score("Slow", 40, 500.0)
+    persistence.record_score("Fast", 40, 100.0)
+    persistence.record_score("Thorough", 90, 900.0)
+
+    names = [name for name, _, _ in persistence.top_scores()]
+
+    assert names == ["Thorough", "Fast", "Slow"]
+
+
+def test_the_scoreboard_shows_only_the_top_five() -> None:
+    for number in range(7):
+        persistence.record_score(f"Player {number}", number * 10, 60.0)
+
+    names = [name for name, _, _ in persistence.top_scores()]
+
+    assert names == ["Player 6", "Player 5", "Player 4", "Player 3", "Player 2"]
+
+
+def test_a_player_keeps_only_their_best_run() -> None:
+    persistence.record_score("Krug", 50, 300.0)
+    persistence.record_score("Krug", 40, 100.0)  # explored less: not better
+    persistence.record_score("Krug", 50, 200.0)  # same, but faster: better
+
+    assert persistence.top_scores() == [("Krug", 50, 200.0)]
+
+
+def test_the_scoreboard_survives_a_restart() -> None:
+    """US5: it is stored in the database, not in memory."""
+    persistence.record_score("Krug", 50, 300.0)
+    persistence.create_tables()  # what the next start of the program does first
+
+    assert persistence.top_scores() == [("Krug", 50, 300.0)]

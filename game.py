@@ -13,6 +13,8 @@ from dataclasses import dataclass, field
 
 import commands
 import narrator
+import persistence
+import progress
 import scoreboard
 import ui
 import world
@@ -54,7 +56,10 @@ to lose before the building is finished with you.
 
 The story is typed out a letter at a time. Press Enter while it is typing and
 the rest of it appears at once - handy the second time round. Options can turn
-the typing off altogether.\
+the typing off altogether.
+
+Three words work at any prompt, even in the middle of a fight: pause (save and
+come back later), quit (stop without saving), and scoreboard.\
 """
 
 
@@ -145,22 +150,23 @@ class Game:
 
     def pause(self) -> None:
         """Save the game and stop the current play session."""
-        from persistence import save_game
-
         self.update_elapsed_time()
-        save_game(self)
+        persistence.save_game(self)
         self.running = False
 
     def finish(self) -> None:
         """End the game: the player has walked out of the building (US1e).
 
         Shows the final status so the player sees how much of the floor they
-        explored, and then the scoreboard (US5). Writing the run to the
-        scoreboard belongs to the persistence enabler (#121).
+        explored, puts the run on the scoreboard, and shows it (US5). The save
+        is removed, so a finished run cannot be resumed and finished again.
         """
         ui.say()
         ui.say("You are out of the building. Fresh air, at last.")
         commands.do_status(self)
+        self.update_elapsed_time()
+        persistence.record_score(self.name, progress.percent_explored(self), self.elapsed_time)
+        persistence.delete_save(self.player_name)
         scoreboard.show()
         self.running = False
 
@@ -184,9 +190,17 @@ class Game:
             ui.narrate(OUT_OF_HEARTS)
             self.running = False
 
+    def quit(self) -> None:
+        """End the run without saving it (US2)."""
+        ui.say()
+        ui.say("You step away from the building. Game over.")
+        self.running = False
+
     def run(self) -> None:
         """Play until the player quits, pauses, or until there is no more input."""
         ui.set_pause_handler(self.pause)
+        ui.set_quit_handler(commands.confirm_quit)
+        ui.set_scoreboard_handler(scoreboard.show)
 
         try:
             ui.say(HOW_TO_PLAY)
@@ -199,9 +213,13 @@ class Game:
                     ui.say()
                     ui.say("Game saved. See you next time!")
                     self.running = False
+                except ui.QuitRequested:
+                    self.quit()
                 except EOFError:
                     ui.say()
                     ui.say("There is nobody at the keyboard any more. Game over.")
                     self.running = False
         finally:
             ui.set_pause_handler(None)
+            ui.set_quit_handler(None)
+            ui.set_scoreboard_handler(None)

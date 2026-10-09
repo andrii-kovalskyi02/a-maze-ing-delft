@@ -41,11 +41,19 @@ _sleep: Callable[[float], None] = time.sleep
 
 _clock: Callable[[], float] = time.monotonic
 
+#: What to do when the player types one of the words that work at any prompt
+#: (see :func:`ask`). None while no game is running - at the name prompt, say.
 _pause_handler: Callable[[], None] | None = None
+_quit_handler: Callable[[], bool] | None = None
+_scoreboard_handler: Callable[[], None] | None = None
 
 
 class PauseRequested(Exception):
     """Raised when the player asks to pause the game."""
+
+
+class QuitRequested(Exception):
+    """Raised when the player has typed ``quit`` and confirmed it."""
 
 
 class TimedOut(Exception):
@@ -241,7 +249,11 @@ def set_instant(instant: bool) -> None:
 
 
 def ask(prompt: str = "> ", timeout: float | None = None) -> str:
-    """Ask the player for a line of input and handle the pause command.
+    """Ask the player for a line of input, and handle the words that work anywhere.
+
+    ``pause``, ``quit`` and ``scoreboard`` work at every prompt, even in the
+    middle of a fight. After a look at the scoreboard, or a quit the player
+    takes back, the same question is simply asked again.
 
     Args:
         prompt: What to show in front of the cursor.
@@ -252,13 +264,35 @@ def ask(prompt: str = "> ", timeout: float | None = None) -> str:
             only happens where the keyboard can be watched while waiting - a
             real terminal. Anywhere else the answer is simply waited for, and
             whoever asked looks at the clock afterwards.
+        PauseRequested: If the player typed ``pause``; the game is saved.
+        QuitRequested: If the player typed ``quit`` and confirmed it.
+    """
+    while True:
+        answer = _answer_or_none(prompt, timeout)
+        if answer is not None:
+            return answer
+
+
+def _answer_or_none(prompt: str, timeout: float | None) -> str | None:
+    """Read one answer, or return None if it was one of the words that work anywhere.
+
+    None means "that was dealt with - ask the same thing again". :func:`choose`
+    uses it to show its list again, so the player is not left looking at a
+    scoreboard with nothing to pick from.
     """
     answer = _read_line(prompt, timeout).strip()
+    word = answer.lower()
 
-    if answer.lower() == "pause" and _pause_handler is not None:
+    if word == "pause" and _pause_handler is not None:
         _pause_handler()
         raise PauseRequested
-
+    if word == "quit" and _quit_handler is not None:
+        if _quit_handler():
+            raise QuitRequested
+        return None
+    if word == "scoreboard" and _scoreboard_handler is not None:
+        _scoreboard_handler()
+        return None
     return answer
 
 
@@ -344,6 +378,18 @@ def set_pause_handler(handler: Callable[[], None] | None) -> None:
     _pause_handler = handler
 
 
+def set_quit_handler(handler: Callable[[], bool] | None) -> None:
+    """Set the function that asks whether a typed ``quit`` is meant."""
+    global _quit_handler
+    _quit_handler = handler
+
+
+def set_scoreboard_handler(handler: Callable[[], None] | None) -> None:
+    """Set the function called when the player types ``scoreboard``."""
+    global _scoreboard_handler
+    _scoreboard_handler = handler
+
+
 def choose(
     prompt: str,
     options: Sequence[str],
@@ -376,7 +422,9 @@ def choose(
         if back is not None:
             say(f"  0) {back}")
 
-        typed = ask(timeout=None if deadline is None else max(0.0, deadline - now()))
+        typed = _answer_or_none("> ", None if deadline is None else max(0.0, deadline - now()))
+        if typed is None:
+            continue
         if back is not None and typed == "0":
             return None
         if typed.isdigit() and 1 <= int(typed) <= len(options):
