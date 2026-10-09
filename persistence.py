@@ -1,4 +1,10 @@
-"""Save and load game state using SQLite."""
+"""Save and load game state, and keep the scoreboard, using SQLite (enabler #121).
+
+Two tables, because they hold two different things - see SCHEMA.md:
+
+- ``game_states``: one unfinished game per player, to resume later (US3).
+- ``scores``: one finished run per player - their best - for the scoreboard (US5).
+"""
 
 from __future__ import annotations
 
@@ -12,14 +18,19 @@ if TYPE_CHECKING:
 
 DATABASE_NAME = "game.db"
 
+#: How long, in seconds, to wait for another copy of the game that is writing
+#: at the same moment. SQLite lets one writer in at a time and makes the other
+#: wait, so two players on one machine cannot corrupt the file.
+BUSY_TIMEOUT = 5.0
+
 
 def get_connection() -> sqlite3.Connection:
     """Return a connection to the game database."""
-    return sqlite3.connect(DATABASE_NAME)
+    return sqlite3.connect(DATABASE_NAME, timeout=BUSY_TIMEOUT)
 
 
 def create_tables() -> None:
-    """Create the game save table if it does not exist."""
+    """Create the save table and the scoreboard table if they do not exist."""
     connection = get_connection()
 
     connection.execute(
@@ -36,6 +47,17 @@ def create_tables() -> None:
             taken_items TEXT NOT NULL,
             approached TEXT NOT NULL,
             elapsed_time REAL NOT NULL
+        )
+        """
+    )
+
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS scores (
+            player_name TEXT PRIMARY KEY,
+            percent INTEGER NOT NULL,
+            seconds REAL NOT NULL,
+            finished_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
         """
     )
@@ -161,3 +183,56 @@ def load_game(player_name: str) -> Game | None:
         game.carrying.add(item_key)
 
     return game
+
+
+def delete_save(player_name: str) -> None:
+    """Remove ``player_name``'s saved game, if there is one.
+
+    Called when a game is finished, so the player cannot resume - and finish
+    again - a run that is already on the scoreboard.
+    """
+    connection = get_connection()
+    connection.execute("DELETE FROM game_states WHERE player_name = ?", (player_name,))
+    connection.commit()
+    connection.close()
+
+
+def record_score(player_name: str, percent: int, seconds: float) -> None:
+    """Put a finished run on the scoreboard, if it is the player's best (US5).
+
+    Each player has one row: their best run. A new run replaces it only if it
+    explored more of the floor, or the same amount in less time - the same
+    order the scoreboard is sorted in.
+    """
+    connection = get_connection()
+    connection.execute(
+        """
+        INSERT INTO scores (player_name, percent, seconds)
+        VALUES (?, ?, ?)
+        ON CONFLICT(player_name) DO UPDATE SET
+            percent = excluded.percent,
+            seconds = excluded.seconds,
+            finished_at = CURRENT_TIMESTAMP
+        WHERE excluded.percent > scores.percent
+            OR (excluded.percent = scores.percent AND excluded.seconds < scores.seconds)
+        """,
+        (player_name, percent, seconds),
+    )
+    connection.commit()
+    connection.close()
+
+
+def top_scores(limit: int = 5) -> list[tuple[str, int, float]]:
+    """Return (name, percent, seconds) for the best players: highest % first, then fastest."""
+    connection = get_connection()
+    rows = connection.execute(
+        """
+        SELECT player_name, percent, seconds
+        FROM scores
+        ORDER BY percent DESC, seconds ASC
+        LIMIT ?
+        """,
+        (limit,),
+    ).fetchall()
+    connection.close()
+    return rows
