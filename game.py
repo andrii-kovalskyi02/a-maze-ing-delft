@@ -19,6 +19,7 @@ import world
 from health import Health
 from inventory import Inventory, get_item
 from models import Item, Room
+from persistence import create_tables, save_game
 
 #: Where a new game starts (US1a).
 STARTING_ROOM = "classroom_2035"
@@ -155,12 +156,13 @@ class Game:
         """End the game: the player has walked out of the building (US1e).
 
         Shows the final status so the player sees how much of the floor they
-        explored, and then the scoreboard (US5). Writing the run to the
-        scoreboard belongs to the persistence enabler (#121).
+        explored, saves the finished run, and then shows the scoreboard (US5).
         """
         ui.say()
         ui.say("You are out of the building. Fresh air, at last.")
         commands.do_status(self)
+        create_tables()
+        save_game(self)
         scoreboard.show()
         self.running = False
 
