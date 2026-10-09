@@ -10,7 +10,9 @@ Run it with:
     python main_pygame.py
 
 Type + Enter like a normal console. Any key skips typing/pauses. Escape
-quits.
+(or closing the window) saves and quits, the same as typing "pause". A timed
+question shows its seconds counting down, and presses Enter for you when
+they run out.
 
 Quick map of the file:
     _StreamToQueue                   -> the fake stdout - also where typed
@@ -24,6 +26,7 @@ Quick map of the file:
     TerminalWindow.start_game_thread -> wires the fakes in, starts the game
     TerminalWindow._pump_output      -> turns printed text into screen lines
     TerminalWindow._handle_events    -> turns keypresses into "advance the box" or typed answers
+    TerminalWindow._check_clock      -> presses Enter when a timed question runs out
     TerminalWindow._draw             -> draws everything each frame
     TerminalWindow._draw_intro       -> the old full-screen layout, before the first room
     TerminalWindow._draw_dialogue_box -> draws the Undertale-style box, lower-center
@@ -38,6 +41,7 @@ Quick map of the file:
 from __future__ import annotations
 
 import ctypes
+import math
 import os
 import queue
 import sys
@@ -72,8 +76,11 @@ try:
 except Exception:
     sys.stderr = open(os.devnull, "w")  # noqa: SIM115 - stays open all program
 
-# tells the game "stop waiting" - input() turns this into EOFError on its own
+# tells the game "stop waiting" - the game reads it as the end of the input
 _EOF = object()
+
+# tells the game "the clock ran out" - sent by the window, never typed
+_TIMED_OUT = object()
 
 FPS = 60
 
@@ -245,22 +252,40 @@ class _StreamToQueue:
 
 
 class _QueueToStream:
-    """Fake sys.stdin - input() blocks here until the player types something."""
+    """Fake sys.stdin - the game blocks here until the player types something."""
 
     def __init__(self, in_queue: queue.Queue[object], on_wait_start, on_wait_end) -> None:
         self._queue = in_queue
         self._on_wait_start = on_wait_start
         self._on_wait_end = on_wait_end
 
-    def readline(self) -> str:
+    def read_answer(self, prompt: str) -> str:
+        """What ui.ask() reads with - passed into ui.use_io() as the read argument.
+
+        Not the built-in input(), on purpose: ui.py only watches the real
+        keyboard for timed questions when it is reading with input(), and the
+        real keyboard is not where the player is typing - the window is. On
+        macOS/Linux that crashed, on Windows every timed question ran out.
+        """
+        sys.stdout.write(prompt)
         self._on_wait_start()
         try:
             line = self._queue.get()
         finally:
             self._on_wait_end()
         if line is _EOF:
+            raise EOFError
+        if line is _TIMED_OUT:
+            raise ui.TimedOut  # the same thing ui.py does in a real terminal
+        return line
+
+    def readline(self) -> str:
+        # nothing in the game calls this (ui.py reads with read_answer), but a
+        # stray input() should still work rather than crash
+        try:
+            return f"{self.read_answer('')}\n"
+        except (EOFError, ui.TimedOut):
             return ""  # empty string = EOF, same as a real terminal
-        return f"{line}\n"
 
     def isatty(self) -> bool:
         # fixes the same narrate() bug as above - ui.py checks BOTH stdout and stdin
@@ -305,6 +330,8 @@ def _make_dialogue_sleep(window: TerminalWindow):
     """
 
     def _sleep(seconds: float) -> None:
+        if window.quitting:
+            return  # Escape was pressed - rush the game to its save, no waiting
         if window.skip_pause_event.is_set():
             window.skip_pause_event.clear()
             return
@@ -372,11 +399,16 @@ class TerminalWindow:
         self._map_capture_buffer: list[str] = []
 
         self.game_over = False
-        self._quit_requested = False
+        # True from the moment Escape is pressed - the game thread then stops
+        # waiting for presses and sleeps, so it reaches its save straight away
+        self.quitting = False
         self._quit_requested_at = 0.0
 
         # True only while the game is blocked waiting on an answer, not while narrating
         self.waiting_for_input = False
+
+        # when a timed question runs out (time.monotonic()), or None if untimed
+        self.deadline: float | None = None
 
         # set the instant a new prompt starts, cleared once used - see _pump_output
         self._prompt_pending = False
@@ -426,6 +458,8 @@ class TerminalWindow:
         wouldn't be enough, since the text would already be fully typed and
         waiting by the time they caught up.
         """
+        if self.quitting:
+            return  # Escape was pressed - don't make the player press through to the save
         self.advance_event.clear()
         self.waiting_to_advance = True
         self.advance_event.wait()
@@ -434,10 +468,12 @@ class TerminalWindow:
     def start_game_thread(self) -> None:
         """Wire the fake stdout/stdin in, then start the real game in the background."""
         sys.stdout = _StreamToQueue(self.out_queue, self)
-        sys.stdin = _QueueToStream(self.in_queue, self._wait_start, self._wait_end)
+        keyboard = _QueueToStream(self.in_queue, self._wait_start, self._wait_end)
+        sys.stdin = keyboard
 
-        # the only place this file changes game behaviour - see _make_dialogue_sleep
-        ui.use_io(write=print, read=input, sleep=_make_dialogue_sleep(self))
+        # the only place this file changes game behaviour - see _make_dialogue_sleep,
+        # and _QueueToStream.read_answer for why answers aren't read with input()
+        ui.use_io(write=print, read=keyboard.read_answer, sleep=_make_dialogue_sleep(self))
 
         # ui.py's _type_line() has its OWN independent skip check that
         # peeks at the real console's keyboard buffer (msvcrt on Windows) -
@@ -460,14 +496,19 @@ class TerminalWindow:
             f"ui.CHAR_DELAY = {getattr(ui, 'CHAR_DELAY', 'MISSING')}"
         )
 
-        # reset the skip flag each new question, so skipping one line doesn't skip the next
+        # wraps every question: resets the skip flag, so skipping one line doesn't
+        # skip the next, and starts the clock if the question is timed
         real_ask = ui.ask
 
-        def ask_and_reset_skip(prompt: str = "> ") -> str:
+        def ask_with_clock(prompt: str = "> ", timeout: float | None = None) -> str:
             self.skip_event.clear()
-            return real_ask(prompt)
+            self.deadline = None if timeout is None else time.monotonic() + timeout
+            try:
+                return real_ask(prompt, timeout)
+            finally:
+                self.deadline = None
 
-        ui.ask = ask_and_reset_skip
+        ui.ask = ask_with_clock
 
         thread = threading.Thread(target=self._run_game, daemon=True)
         thread.start()
@@ -475,7 +516,9 @@ class TerminalWindow:
     def _run_game(self) -> None:
         try:
             run_console_game()
-        except EOFError:
+        except (EOFError, ui.PauseRequested):
+            # PauseRequested: "pause" (or Escape) during the very first room's
+            # arrival - the game is already saved by then, so it's a clean end
             pass
         except Exception:
             traceback.print_exc()  # real terminal, not the window - bugs stay visible
@@ -616,38 +659,71 @@ class TerminalWindow:
                     self.skip_event.set()
                     continue
                 if event.key == pygame.K_RETURN:
-                    answer_line = self.current_line + self.typed
-                    if self._prompt_start is not None:
-                        # collapse the whole question down to just what you picked
-                        block = self.lines[self._prompt_start :]
-                        label = self._option_label(self.typed, block)
-                        if label is not None:
-                            # show "Look around", not "1"
-                            answer_line = f"{self.current_line}{label}"
-                        del self.lines[self._prompt_start :]
-                        self._prompt_start = None
-                        self._last_blank_index = None
-                    self.lines.append((answer_line, "gray"))
-                    self.lines.append((self.DIVIDER, "gray"))
-                    self.current_line = ""
-                    self.in_queue.put(self.typed)
-                    self.typed = ""
-                    # start the box fresh for whatever comes next, instead
-                    # of leaving the answered question sitting in it
-                    self.box_start = len(self.lines)
+                    self._submit(self.typed)
                 elif event.key == pygame.K_BACKSPACE:
                     self.typed = self.typed[:-1]
                 elif event.unicode and event.unicode.isprintable():
                     self.typed += event.unicode
 
+    def _check_clock(self) -> None:
+        """Press Enter for the player when a timed question runs out."""
+        deadline = self.deadline
+        if self.waiting_for_input and deadline is not None and time.monotonic() >= deadline:
+            self._submit(_TIMED_OUT)
+
+    def _seconds_left(self) -> int | None:
+        # what the countdown shows under a timed question, or None if untimed
+        if not self.waiting_for_input or self.deadline is None:
+            return None
+        return max(0, math.ceil(self.deadline - time.monotonic()))
+
+    def _submit(self, answer: object) -> None:
+        """Send an answer to the game, and tidy the question away on screen.
+
+        ``answer`` is what the player typed, or _TIMED_OUT when the clock did
+        the pressing - either way the screen looks the same as pressing Enter.
+        """
+        answer_line = self.current_line + self.typed
+        if self._prompt_start is not None:
+            # collapse the whole question down to just what you picked
+            block = self.lines[self._prompt_start :]
+            label = self._option_label(self.typed, block)
+            if label is not None:
+                # show "Look around", not "1"
+                answer_line = f"{self.current_line}{label}"
+            del self.lines[self._prompt_start :]
+            self._prompt_start = None
+            self._last_blank_index = None
+        self.lines.append((answer_line, "gray"))
+        self.lines.append((self.DIVIDER, "gray"))
+        self.current_line = ""
+        self.typed = ""
+        # stop listening now, not when the game thread gets round to it - so a
+        # second Enter (or the clock) in the next frame can't answer twice
+        self.waiting_for_input = False
+        self.deadline = None
+        self.in_queue.put(answer)
+        # start the box fresh for whatever comes next, instead
+        # of leaving the answered question sitting in it
+        self.box_start = len(self.lines)
+
     def _quit(self) -> None:
-        if self._quit_requested:
-            return  # don't push _EOF twice if Escape gets pressed more than once
-        self._quit_requested = True
+        """Save and quit, the same as typing "pause" - or just quit if there is nothing to save."""
+        if self.quitting:
+            return  # don't save twice if Escape gets pressed more than once
+        self.quitting = True
         self._quit_requested_at = time.monotonic()
-        self.in_queue.put(_EOF)
+        if self.game_over:
+            return
+        # ui.py only has a pause handler once a game is being played - before
+        # that (typing your name) there is nothing to save yet
+        if ui._pause_handler is not None:
+            self.typed = ""
+            self.in_queue.put("pause")
+        else:
+            self.in_queue.put(_EOF)
         # the game thread might be genuinely blocked in wait_for_line_advance
-        # or mid-skip right now - let it go so it can reach the EOF above and
+        # or mid-skip right now - let it go so it can reach the answer above and
         # shut down cleanly instead of hanging until the window is killed
         self.advance_event.set()
         self.skip_event.set()
@@ -1054,6 +1130,9 @@ class TerminalWindow:
         else:
             live_text, live_color = self.current_line + self.typed + cursor, "lightgreen"
         shown.append((live_text, live_color, True))
+        seconds_left = self._seconds_left()
+        if seconds_left is not None:
+            shown.append((f"[{seconds_left}s left]", "orange", True))
         return shown
 
     def _wrap_to_width(self, text: str, big: bool, max_width: int) -> list[str]:
@@ -1179,8 +1258,8 @@ class TerminalWindow:
 
         pygame.display.flip()  # nothing is visible until this swaps the frame onto the screen
 
-    # after quitting, wait this long for the game's own "goodbye" message
-    QUIT_GRACE_PERIOD = 1.0
+    # after quitting, wait this long for the game to save and say goodbye
+    QUIT_GRACE_PERIOD = 5.0
 
     def run(self) -> None:
         """The main loop: read input, pull in new text, draw - 60 times a second."""
@@ -1188,9 +1267,10 @@ class TerminalWindow:
         clock = pygame.time.Clock()
         while True:
             self._handle_events()
+            self._check_clock()
             self._pump_output()
             self._draw()
-            if self._quit_requested and (
+            if self.quitting and (
                 self.game_over
                 or time.monotonic() - self._quit_requested_at > self.QUIT_GRACE_PERIOD
             ):

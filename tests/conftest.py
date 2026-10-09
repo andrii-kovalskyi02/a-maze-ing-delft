@@ -16,8 +16,21 @@ from collections.abc import Iterator
 import pytest
 
 import narrator
+import persistence
 import rooms  # noqa: F401  (importing rooms registers them)
 import ui
+
+
+@pytest.fixture(autouse=True)
+def own_database(tmp_path, monkeypatch) -> None:
+    """Give every test an empty database of its own, never the real game.db.
+
+    Finishing the game shows the scoreboard, which reads the saves - so any
+    test that walks out of the building would otherwise read, and could
+    write, the saves of whoever last played on this machine.
+    """
+    monkeypatch.setattr(persistence, "DATABASE_NAME", str(tmp_path / "test.db"))
+    persistence.create_tables()
 
 
 @pytest.fixture(autouse=True)

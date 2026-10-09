@@ -96,16 +96,19 @@ ROOM = Room(
                 prompt="Round 1: Where do you aim?",
                 choices=("Left", "Center", "Right"),
                 answers=("Left",),
+                seconds=15,
             ),
             Question(
                 prompt="Round 2: Where do you aim?",
                 choices=("Left", "Center", "Right"),
                 answers=("Right",),
+                seconds=15,
             ),
             Question(
                 prompt="Round 3: Where do you aim?",
                 choices=("Left", "Center", "Right"),
                 answers=("Center",),
+                seconds=15,
             ),
         ),
         win_text=(

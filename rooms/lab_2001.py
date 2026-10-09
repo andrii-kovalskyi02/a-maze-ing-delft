@@ -40,16 +40,19 @@ ROOM = Room(
                 prompt=" On what day does autumn start?",
                 answers=("September 21st",),
                 choices=("September 21st", "October 10th", "December 1st"),
+                seconds=15,
             ),
             Question(
                 prompt="What is the fastest animal on earth?",
                 answers=("the 2nd", "Peregrine falcons"),
                 choices=("Chetahs", "Peregrine falcons", "Horse flies", "cockroaches"),
+                seconds=15,
             ),
             Question(
                 prompt="What is the largest fish on earth?",
                 answers=("the 1st", "Whale shark"),
                 choices=("Whale shark", "Manta ray", "Great white shark"),
+                seconds=15,
             ),
             Question(
                 prompt=(
@@ -58,11 +61,13 @@ ROOM = Room(
                 ),
                 answers=("the 3rd", "Camel"),
                 choices=("Polar bear", "iguana", "Camel"),
+                seconds=15,
             ),
             Question(
                 prompt="What is the tallest tree on earth?",
                 answers=("the 2nd", "General sherman"),
                 choices=("Lincoln", "General sherman", "Cedar"),
+                seconds=15,
             ),
         ),
         win_text=(

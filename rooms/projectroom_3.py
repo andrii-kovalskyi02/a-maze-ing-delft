@@ -9,6 +9,7 @@ QUESTIONS = (
         # This room's own clock — the twin of the one in 2.035 (see memories.py).
         prompt="What time does the clock in Project Room 3 show?",
         answers=(memories.CLOCK_TIME,),
+        seconds=20,
     ),
     Question(
         # Answer lives in memories.py: this is what was on the desk in 2.035,
@@ -16,14 +17,17 @@ QUESTIONS = (
         # can never drift apart.
         prompt="What did you find on your desk in classroom 2.035?",
         answers=(memories.DESK_CONTENTS,),
+        seconds=20,
     ),
     Question(
         prompt="What did you find inside the storage room?",
         answers=("axe",),
+        seconds=20,
     ),
     Question(
         prompt="In which room was the second digit?",
         answers=("classroom2015",),
+        seconds=20,
     ),
     Question(
         # This is the one memories.py calls out as answered only by the
@@ -36,6 +40,7 @@ QUESTIONS = (
             "Watching a movie",
             "Doing homework",
         ),
+        seconds=15,
     ),
 )
 

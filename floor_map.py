@@ -107,7 +107,7 @@ ON_THE_PLAN: dict[str, tuple[str, str]] = {
     "teacher_rooms": ("Main Teachers Room", "the Main Teachers Room"),
     # the east end
     "lobby": ("L o b b y", "the lobby"),
-    "project_room_2": ("Project room 2", "Project room 2"),
+    "projectroom_2": ("Project room 2", "Project room 2"),
     "project_room_1": ("Project room 1", "Project room 1"),
     "lab_2003": ("L A B 2 . 0 0 3", "LAB2.003"),
     "lab_2001": ("L A B 2 . 0 0 1", "LAB2.001"),

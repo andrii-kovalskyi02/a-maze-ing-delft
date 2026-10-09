@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 
 import commands
 import narrator
+import scoreboard
 import ui
 import world
 from health import Health
@@ -154,12 +155,13 @@ class Game:
         """End the game: the player has walked out of the building (US1e).
 
         Shows the final status so the player sees how much of the floor they
-        explored. Writing the run to the scoreboard belongs to the
-        persistence enabler (#121).
+        explored, and then the scoreboard (US5). Writing the run to the
+        scoreboard belongs to the persistence enabler (#121).
         """
         ui.say()
         ui.say("You are out of the building. Fresh air, at last.")
         commands.do_status(self)
+        scoreboard.show()
         self.running = False
 
     def turn(self) -> None:

@@ -23,6 +23,8 @@ import digits
 import encounters
 import floor_map
 import narrator
+import progress
+import scoreboard
 import ui
 import world
 from inventory import get_item
@@ -156,7 +158,7 @@ def options_menu(game: Game) -> tuple[MenuItem, ...]:
     """
     return (
         MenuItem("Status", do_status),
-        MenuItem("Scoreboard", _not_built_yet("The scoreboard", 121)),
+        MenuItem("Scoreboard", scoreboard.show),
         MenuItem(_text_speed_label(), do_text_speed),
         MenuItem("Save and continue later", _save_and_continue),
         MenuItem("Quit the game", do_quit),
@@ -215,46 +217,13 @@ def do_status(game: Game) -> None:
     to check - no turn, no heart, no matter how the hearts enabler (#108)
     ends up spending those elsewhere.
     """
-    percent = _percent_explored(game)
-    played = _format_duration(game.time_played())
+    percent = progress.percent_explored(game)
+    played = progress.format_duration(game.time_played())
     digits_had, digits_total = len(digits.carried(game)), len(digits.all_digits())
 
     ui.say()
     ui.say(f"{game.name} - {played} played - {percent}% of the floor explored.")
     ui.say(f"Hearts: {game.hearts}   Digits: {digits_had}/{digits_total}")
-
-
-def _percent_explored(game: Game) -> int:
-    """Return how much of the whole world graph is *done*, as a percent.
-
-    Counts every registered room, finished or still a skeleton - the guide
-    treats that as the game's completion metric, not just what is playable
-    today. Walking in is enough for a plain room, but a room with a boss only
-    counts once that boss is resolved (``game.defeated``) - stepping up to
-    the Evil Backpack and walking away does not count as having finished
-    classroom 2.031, only actually facing it does.
-    """
-    total = len(world.all_rooms())
-    if total == 0:
-        return 0
-    return round(_rooms_completed(game) / total * 100)
-
-
-def _rooms_completed(game: Game) -> int:
-    """Return how many rooms in the world graph count as done."""
-    completed = 0
-    for room in world.all_rooms():
-        done = room.key in game.defeated if room.boss is not None else room.key in game.visited
-        if done:
-            completed += 1
-    return completed
-
-
-def _format_duration(seconds: float) -> str:
-    """Return ``seconds`` as ``MM:SS``, for the status line."""
-    total_seconds = max(0, int(seconds))
-    minutes, secs = divmod(total_seconds, 60)
-    return f"{minutes:02d}:{secs:02d}"
 
 
 def do_quit(game: Game) -> None:

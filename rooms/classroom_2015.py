@@ -95,6 +95,7 @@ ROOM = Room(
             Question(
                 prompt="When is the Oktoberfest usually held?",
                 answers=("september", "october", "september/october", "september and october"),
+                seconds=20,
             ),
             Question(
                 prompt="Name a German beer. Come on... you must know ONE!",
@@ -114,6 +115,7 @@ ROOM = Room(
                     "krombacher",
                     "andechs",
                 ),
+                seconds=20,
             ),
             Question(
                 prompt="What traditional food is often eaten with beer in a beer hall (Bier-Zelt)?",
@@ -124,6 +126,7 @@ ROOM = Room(
                     "Sauerkraut",
                     "Bavarian potato salad",
                 ),
+                seconds=15,
             ),
             Question(
                 prompt="What do people traditionally wear at Oktoberfest?",
@@ -134,6 +137,7 @@ ROOM = Room(
                     "Trachten jackets und suits",
                     "Hanbok und lederhosen",
                 ),
+                seconds=15,
             ),
         ),
         win_text="Gut gemacht, here your digit. Bis später",
