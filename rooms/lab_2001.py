@@ -1,24 +1,24 @@
-"""US1p - Room: LAB2.001 - the forest boss Issue #67."""
+"""room/us1p-lab-2001 - LAB 2.001, the forest boss. Issue #67."""
 
 from __future__ import annotations
 
 from models import Area, Boss, Inspectable, Question, Room
+from world import register
 
 ROOM = Room(
-    key="lab_room_3",
+    key="lab_2001",
     name="Forest room",
-    area=Area.BLUE,
+    area=Area.YELLOW,
     description="It's a classroom filled with grass and vines."
-    "There is no one inside it except a tree sits in the center of it.",
+    " There is no one inside it except a tree sits in the center of it.",
     look_around=(
-        "there are many small animals around the room, "
-        "rabbits,foxes,birds and other small creatures. "
-        "Most of them are gathered around the tree."
+        "there are a lot small animals around the room, rabbits,foxes,birds and "
+        "other small creatures. Most of them are gathered around the tree."
         "Past the tree, you can see a glistening object on the teacher desk. "
     ),
-    exits=("corridor_red",),
-    requires="digit_2",
-    locked_text="The door is locked. Something with a blue stripe would help.",
+    exits=("lobby",),
+    requires="lab_2001_key",
+    locked_text="The door is locked. You need the LAB 2.001 key to enter.",
     inspectables=(
         Inspectable(name="poster", text="A dont give up cat poster, curling at the corners."),
     ),
@@ -30,33 +30,50 @@ ROOM = Room(
         questions=(
             Question(
                 prompt=" On what day does autumn start?",
-                answers=("September 21st", "October 10th ", "December 1st"),
+                answers=("September 21st",),
+                choices=("September 21st", "October 10th", "December 1st"),
+                seconds=15,
             ),
             Question(
                 prompt="What is the fastest animal on earth?",
-                answers=("the 2nd",),
-                choices=("Chetahs", "Peregrine falcons ", "Horse flies", "cockroaches"),
+                answers=("the 2nd", "Peregrine falcons"),
+                choices=("Chetahs", "Peregrine falcons", "Horse flies", "cockroaches"),
+                seconds=15,
             ),
             Question(
                 prompt="What is the largest fish on earth?",
-                answers=("the 1nd",),
+                answers=("the 1st", "Whale shark"),
                 choices=("Whale shark", "Manta ray", "Great white shark"),
+                seconds=15,
             ),
             Question(
-                prompt="Which animal species can live in extremes"
-                "of both heat and cold, from −28 °C to 49 °C?",
-                answers=("the 3nd",),
+                prompt=(
+                    "Which animal species can live in extremes of both heat and cold, "
+                    "from −28 °C to 49 °C?"
+                ),
+                answers=("the 3rd", "Camel"),
                 choices=("Polar bear", "iguana", "Camel"),
+                seconds=15,
             ),
             Question(
                 prompt="What is the tallest tree on earth?",
-                answers=("the 2nd",),
-                choices=("Lincoln", "General sherman", "Cedar "),
+                answers=("the 2nd", "General sherman"),
+                choices=("Lincoln", "General sherman", "Cedar"),
+                seconds=15,
             ),
         ),
-        win_text="a hamster came out of the tree to congratulate you "
-        "'you've proven yourself. you can take the key.'",
-        lose_text="you did not take the key and you were flung out of the room.",
+        win_text=(
+            "a hamster came out of the tree to congratulate you ",
+            0.8,
+            "'you've proven yourself. you can take the key.'",
+        ),
+        lose_text=(
+            "you did not take the key and you were flung out of the room.",
+            0.8,
+            "Comeback when you know better ",
+        ),
         reward="digit_3",
     ),
 )
+
+register(ROOM)

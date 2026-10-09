@@ -48,6 +48,10 @@ class PauseRequested(Exception):
     """Raised when the player asks to pause the game."""
 
 
+class TimedOut(Exception):
+    """Raised when the player did not answer in time."""
+
+
 def say(text: str = "") -> None:
     """Show ``text`` to the player, wrapped to :data:`WIDTH` columns.
 
@@ -236,15 +240,87 @@ def set_instant(instant: bool) -> None:
     _instant = instant
 
 
-def ask(prompt: str = "> ") -> str:
-    """Ask the player for a line of input and handle the pause command."""
-    answer = _read(prompt).strip()
+def ask(prompt: str = "> ", timeout: float | None = None) -> str:
+    """Ask the player for a line of input and handle the pause command.
+
+    Args:
+        prompt: What to show in front of the cursor.
+        timeout: How many seconds the player has, or None to wait for ever.
+
+    Raises:
+        TimedOut: If the clock runs out before the player presses Enter. This
+            only happens where the keyboard can be watched while waiting - a
+            real terminal. Anywhere else the answer is simply waited for, and
+            whoever asked looks at the clock afterwards.
+    """
+    answer = _read_line(prompt, timeout).strip()
 
     if answer.lower() == "pause" and _pause_handler is not None:
         _pause_handler()
         raise PauseRequested
 
     return answer
+
+
+def _read_line(prompt: str, timeout: float | None) -> str:
+    """Read one line, giving up after ``timeout`` seconds where that is possible."""
+    # Only a real keyboard can be watched while waiting. A test has its own
+    # way of getting input, so it is simply waited for.
+    if timeout is not None and _read is input and _at_a_real_terminal():
+        return _read_from_keyboard(prompt, timeout)
+    return _read(prompt)
+
+
+def _read_from_keyboard(prompt: str, timeout: float) -> str:  # pragma: no cover
+    """Read a line from the real keyboard, or raise :class:`TimedOut`.
+
+    ``input()`` cannot be interrupted, so the keyboard is watched instead. As
+    with :func:`_pressed_a_key`, there is one way to do that on Windows and
+    another on macOS and Linux.
+    """
+    sys.stdout.write(prompt)
+    sys.stdout.flush()
+    end = time.monotonic() + max(0.0, timeout)
+
+    if sys.platform == "win32":
+        import msvcrt
+
+        typed: list[str] = []
+        while True:
+            if msvcrt.kbhit():
+                key = msvcrt.getwch()
+                if key in "\r\n":
+                    sys.stdout.write("\n")
+                    return "".join(typed)
+                if key == "\x03":
+                    raise KeyboardInterrupt
+                if key in "\x00\xe0":  # an arrow or function key: two codes
+                    msvcrt.getwch()
+                elif key == "\x08":
+                    if typed:
+                        typed.pop()
+                        sys.stdout.write("\b \b")
+                else:
+                    typed.append(key)
+                    sys.stdout.write(key)
+                sys.stdout.flush()
+            elif time.monotonic() >= end:
+                sys.stdout.write("\n")
+                raise TimedOut
+            else:
+                time.sleep(0.01)
+
+    import select
+    import termios
+
+    if not select.select([sys.stdin], [], [], max(0.0, end - time.monotonic()))[0]:
+        termios.tcflush(sys.stdin, termios.TCIFLUSH)  # drop a half-typed answer
+        sys.stdout.write("\n")
+        raise TimedOut
+    line = sys.stdin.readline()
+    if not line:
+        raise EOFError
+    return line.rstrip("\n")
 
 
 def now() -> float:
@@ -268,7 +344,12 @@ def set_pause_handler(handler: Callable[[], None] | None) -> None:
     _pause_handler = handler
 
 
-def choose(prompt: str, options: Sequence[str], back: str | None = None) -> int | None:
+def choose(
+    prompt: str,
+    options: Sequence[str],
+    back: str | None = None,
+    timeout: float | None = None,
+) -> int | None:
     """Show a numbered list and let the player pick one.
 
     The player never types a word: they type the number next to what they
@@ -280,10 +361,13 @@ def choose(prompt: str, options: Sequence[str], back: str | None = None) -> int 
         options: What the player can choose, in the order shown.
         back: The label for a "0" option that returns without choosing, or
             None for a list that must be answered.
+        timeout: How many seconds the player has in all, counting any wrong
+            tries, or None to wait for ever. See :func:`ask`.
 
     Returns:
         The index of the chosen option, or None if the player chose ``back``.
     """
+    deadline = None if timeout is None else now() + timeout
     while True:
         say()
         say(prompt)
@@ -292,7 +376,7 @@ def choose(prompt: str, options: Sequence[str], back: str | None = None) -> int 
         if back is not None:
             say(f"  0) {back}")
 
-        typed = ask()
+        typed = ask(timeout=None if deadline is None else max(0.0, deadline - now()))
         if back is not None and typed == "0":
             return None
         if typed.isdigit() and 1 <= int(typed) <= len(options):
