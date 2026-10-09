@@ -49,17 +49,13 @@ ROOM = Room(
     name="Project Room 3",
     area=Area.RED,
     requires="brass_key",
-    description=(
-        "The room feels strangely familiar, although you cannot immediately understand why.",
-        0.6,
-    ),
+    description="The room feels strangely familiar, though you can't say why.",
     look_around=(
-        "A clock on the wall shows 23:17. ",
+        "A clock on the wall shows 23:17.",
         0.6,
-        'A whiteboard displays the word "REMEMBER". ',
-        0,
-        6,
-        "A laptop sits on a nearby desk, and the desk feels familiar. ",
+        'A whiteboard displays the word "REMEMBER".',
+        0.6,
+        "A laptop sits on a nearby desk, and the desk feels familiar.",
         0.6,
         "The Memory Keeper watches you silently.",
     ),
@@ -87,9 +83,13 @@ ROOM = Room(
         ),
         questions=QUESTIONS,
         win_text=(
-            "Correct. Now you remember. You were sitting at the desk, "
-            "working on your project, looking at the clock... and then "
-            "you fell asleep."
+            "Correct. Now you remember.",
+            0.5,
+            "You were sitting at the desk, working on your project.",
+            0.4,
+            "You were looking at the clock...",
+            0.5,
+            "And then you fell asleep.",
         ),
         lose_text="The Memory Keeper shakes its head. You cannot remember enough.",
         reward="digit_4",

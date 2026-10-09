@@ -9,12 +9,17 @@ ROOM = Room(
     key="lab_2001",
     name="Forest room",
     area=Area.YELLOW,
-    description="It's a classroom filled with grass and vines."
-    " There is no one inside it except a tree sits in the center of it.",
+    description=(
+        "It's a classroom filled with grass and vines.",
+        0.5,
+        "There is no one inside it except a tree sits in the center of it.",
+    ),
     look_around=(
-        "there are a lot small animals around the room, rabbits,foxes,birds and "
-        "other small creatures. Most of them are gathered around the tree."
-        "Past the tree, you can see a glistening object on the teacher desk. "
+        "Many small animals wander the room: rabbits, foxes, birds, and more.",
+        0.6,
+        "Most of them are gathered around the tree.",
+        0.6,
+        "Past the tree, you can see a glistening object on the teacher's desk.",
     ),
     exits=("lobby",),
     requires="lab_2001_key",
@@ -25,8 +30,11 @@ ROOM = Room(
     items=(),
     boss=Boss(
         name="tree guard",
-        intro="The tree shakes as a loud voice came out of it"
-        "If you want to take the key you have answer our quizzes three!! Or 5.",
+        intro=(
+            "The tree shakes as a loud voice comes out of it.",
+            0.6,
+            "If you want to take the key you have to answer our quizzes three!! Or 5.",
+        ),
         questions=(
             Question(
                 prompt=" On what day does autumn start?",

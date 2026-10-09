@@ -43,6 +43,8 @@ if TYPE_CHECKING:  # pragma: no cover - import only needed for type checking
     from game import Game
 
 #: The 2nd floor, drawn with WEST at the top. Edit this and the map changes.
+#: Given a little breathing room around the busier boxes (the classrooms,
+#: the corridors, the lobby); the smaller, single-purpose rooms stay tight.
 PLAN = """\
  +--------------------------+---------------------------------+
  |                          |                                 |
@@ -53,22 +55,18 @@ PLAN = """\
  |   b l u e    c o r r i d o r                               |
  |                                                            |
  +----X----+----X----+=========+------------------------------+
- |         |         |         |                              |
  |Teachers | Stair   |         X Storage                      |
- |Room     | exit    |         |                              |
+ |Room 4   | exit    |         |                              |
  +---------+---------+         +------------------------------+
  | Classroom 2.021   X   red   X Project room 3               |
  |                   |         |                              |
  |                   |         +------------------------------+
  |                   |  corr.  X Equinox student society      |
- |                   |         |                              |
  +-------------------+         +------------------------------+
  | Classroom 2.015   X         X Main Teachers Room           |
  |                   |         |                              |
- |                   |         |                              |
  +-------------------+         |                              |
  | Front Desk Office X         |                              |
- |                   |         |                              |
  +-------------------+=========+------------------------------+
  |                                                            |
  |   L o b b y                                                |
@@ -78,9 +76,7 @@ PLAN = """\
  |                                       +--------------------+
  |                                       X Project room 1     |
  +--------X----------+---------X---------+--------------------+
- |                   |                   |
  |  L A B 2 . 0 0 3  |  L A B 2 . 0 0 1  |
- |                   |                   |
  |                   |                   |
  +-------------------+-------------------+
 """
@@ -106,12 +102,12 @@ ON_THE_PLAN: dict[str, tuple[str, str]] = {
     "classroom_2015": ("Classroom 2.015", "Classroom 2.015"),
     "front_desk_office": ("Front Desk Office", "the Front Desk Office"),
     "storage": ("Storage", "the storage room"),
-    "project_room_3": ("Project room 3", "Project room 3"),
-    "equinox_student_society": ("Equinox student society", "the Equinox student society"),
-    "main_teachers_room": ("Main Teachers Room", "the Main Teachers Room"),
+    "projectroom_3": ("Project room 3", "Project room 3"),
+    "student_society": ("Equinox student society", "the Equinox student society"),
+    "teacher_rooms": ("Main Teachers Room", "the Main Teachers Room"),
     # the east end
     "lobby": ("L o b b y", "the lobby"),
-    "project_room_2": ("Project room 2", "Project room 2"),
+    "projectroom_2": ("Project room 2", "Project room 2"),
     "project_room_1": ("Project room 1", "Project room 1"),
     "lab_2003": ("L A B 2 . 0 0 3", "LAB2.003"),
     "lab_2001": ("L A B 2 . 0 0 1", "LAB2.001"),

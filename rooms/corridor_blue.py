@@ -13,11 +13,7 @@ ROOM = Room(
     key="corridor_blue",
     name="The Blue corridor",
     area=Area.BLUE,
-    description=(
-        "A long corridor with glass walls",
-        0.5,
-        "and far too many doors.",
-    ),
+    description=("A long corridor with glass walls, and far too many doors.",),
     look_around=(
         "Doors line both sides, each with a room number screwed to it.",
         0.6,

@@ -10,36 +10,52 @@ ROOM = Room(
     key="classroom_2015",
     name="classroom.2015",
     area=Area.RED,
-    description="This place feels odd. What kind of makeshift furniture tarp tent is that? ",
+    description=(
+        "This place feels odd.",
+        0.5,
+        "What kind of makeshift furniture tarp tent is that?",
+    ),
     look_around=(
-        "The furniture-tent takes up most of the room, and it smells like "
-        "woodsmoke and spilled beer. Something about it feels familiar, like "
-        "a campsite you've been to before. A whiteboard still reads "
-        "'Intercultural Collaboration' in someone's handwriting. Beer cans "
-        "are scattered across the floor, and there's a small fireplace "
-        "burning in the corner."
+        "The furniture-tent takes up most of the room.",
+        0.4,
+        "It smells like woodsmoke and spilled beer.",
+        0.6,
+        "Something about it feels familiar, like a campsite you've been to before.",
+        0.6,
+        "A whiteboard still reads 'Intercultural Collaboration' in someone's handwriting.",
+        0.6,
+        "Beer cans are scattered across the floor.",
+        0.4,
+        "There's a small fireplace burning in the corner.",
     ),
     exits=("corridor_red",),
     requires="axe_key",
-    locked_text="A washed-out locked door, it looks like its on its last legs."
-    "If only there was a way to break it open ",
+    locked_text="A washed-out locked door, it looks like its on its last legs. "
+    "If only there was a way to break it open.",
     inspectables=(
         Inspectable(
             name="the furniture-pile / tent",
             text=(
-                "A tent, built out of stacked chairs and tables. and a single tarp."
-                " It looks surprisingly sturdy. Someone has clearly done this before."
+                "A tent, built out of stacked chairs and tables, and a single tarp.",
+                0.5,
+                "It looks surprisingly sturdy. Someone has clearly done this before.",
             ),
         ),
         Inspectable(
             name="whiteboard",
-            text=" It looks like someone has written 'Intercultural Collaboration' on it"
-            " but the smoke residue is making it hard to see",
+            text=(
+                "Someone has written 'Intercultural Collaboration' on it.",
+                0.4,
+                "The smoke residue is making it hard to see.",
+            ),
         ),
         Inspectable(
             name="fireplace",
-            text="A small campfire, somehow burning safely in the middle of a classroom."
-            "You decide not to ask why or how.",
+            text=(
+                "A small campfire, somehow burning safely in the middle of a classroom.",
+                0.5,
+                "You decide not to ask why or how.",
+            ),
         ),
         Inspectable(
             name="cans of beer scattered around",
@@ -47,8 +63,11 @@ ROOM = Room(
         ),
         Inspectable(
             name="an odd smell",
-            text="Woodsmoke, spilled beer, and something else - familiar,"
-            "though you can't place it.",
+            text=(
+                "Woodsmoke and spilled beer, and something else that's familiar.",
+                0.4,
+                "You can't place it.",
+            ),
         ),
     ),
     items=(),
@@ -57,12 +76,21 @@ ROOM = Room(
     #
     boss=Boss(
         name="The drunk german",
-        intro="Inspecting the furniture-pile, you hear a rustle - and a "
-        "Bavarian guy in full traditional dress ducks out of the "
-        "makeshift tent, beer in hand, swaying slightly. You recognise "
-        "him from somewhere - a campsite, maybe? That's why this room "
-        "looked familiar. He squints at you, then grins. You want the "
-        "digit? Answer me about my culture first.",
+        intro=(
+            "Inspecting the furniture-pile, you hear a rustle.",
+            0.5,
+            "A Bavarian guy in full traditional dress ducks out of the makeshift tent.",
+            0.5,
+            "He's swaying slightly, beer in hand.",
+            0.6,
+            "You recognise him from somewhere - a campsite, maybe?",
+            0.6,
+            "That's why this room looked familiar.",
+            0.6,
+            "He squints at you, then grins.",
+            0.5,
+            "You want the digit? Answer me about my culture first.",
+        ),
         questions=(
             Question(
                 prompt="When is the Oktoberfest usually held?",
