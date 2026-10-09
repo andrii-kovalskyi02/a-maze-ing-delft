@@ -96,6 +96,12 @@ _MAIN_FONT_FILE = "JetBrainsMono-Regular.ttf"
 
 _FALLBACK_FONT_FILES = ["unifont-subset.otf", "unifont-upper-subset.otf"]
 
+# the heart in "Hearts: ♥♥♥" (health.py) - the main font has no glyph for it
+# either, so it gets a tiny font of its own: one glyph, built to the main
+# font's size and spacing so it sits on the same line as the text around it
+_HEART = "♥"
+_HEART_FONT_FILE = "heart.otf"
+
 # background image per room, keyed by the exact "== Room Name ==" header
 # text the game prints when you walk in (see TerminalWindow._is_room_header)
 # - a room with no entry here just shows a plain black background, same as
@@ -122,8 +128,9 @@ _INTRO_IMAGE = "intro.jpg"
 
 # the exact characters rooms/classroom_2031.py's last puzzle question uses
 # (Canadian syllabics, box-drawing, math symbols, ...) that the main font
-# (_MAIN_FONT_FILE) has no glyph for - everything else (ascii, the heart
-# symbol, accented letters elsewhere in the game) keeps using it as normal.
+# (_MAIN_FONT_FILE) has no glyph for - everything else (ascii, accented
+# letters elsewhere in the game) keeps using it as normal. The heart is the
+# one other exception: it has its own font, see _HEART_FONT_FILE.
 # This has to be an
 # exact list rather than asking pygame "can you draw this character" at
 # runtime: that check (Font.metrics()) turned out to report a character as
@@ -353,9 +360,15 @@ class TerminalWindow:
     def __init__(self) -> None:
         """Set up the window itself, and all the state tracked between frames."""
         pygame.init()
-        info = pygame.display.Info()
-        self.width, self.height = info.current_w, info.current_h
-        self.screen = pygame.display.set_mode((self.width, self.height), pygame.FULLSCREEN)
+        if os.environ.get("AMAZE_WINDOWED") == "1":
+            # a normal 1280x720 window instead of fullscreen - handy for
+            # watching the game next to an editor, or for demos
+            self.width, self.height = 1280, 720
+            self.screen = pygame.display.set_mode((self.width, self.height))
+        else:
+            info = pygame.display.Info()
+            self.width, self.height = info.current_w, info.current_h
+            self.screen = pygame.display.set_mode((self.width, self.height), pygame.FULLSCREEN)
         pygame.display.set_caption("a-maze-ing-delft")
 
         font_size = max(12, min(18, self.height // 60))
@@ -373,6 +386,9 @@ class TerminalWindow:
         # what the player can actually act on stands out from narration -
         # see _box_lines/_render_text's `big` argument
         self.menu_font = self._load_main_font(int(font_size * 1.35))
+        # the hearts, at both text sizes - see _HEART_FONT_FILE
+        self.heart_font = self._load_heart_font(font_size)
+        self.heart_menu_font = self._load_heart_font(int(font_size * 1.35))
         self.line_height = font_size + 4
         self.margin = 10
 
@@ -409,6 +425,10 @@ class TerminalWindow:
 
         # when a timed question runs out (time.monotonic()), or None if untimed
         self.deadline: float | None = None
+        # the last "Hearts: ..." line the game printed, so a timed question can
+        # show its countdown next to the hearts even on a page that does not
+        # have the hearts line on it any more
+        self.hearts_line: str | None = None
 
         # set the instant a new prompt starts, cleared once used - see _pump_output
         self._prompt_pending = False
@@ -613,6 +633,8 @@ class TerminalWindow:
                             self.box_start = 0
                         else:
                             self.lines.append((self.current_line, "white"))
+                            if self.current_line.startswith("Hearts:"):
+                                self.hearts_line = self.current_line
                             if self.current_line == "":
                                 self._last_blank_index = len(self.lines) - 1
                         self.current_line = ""
@@ -776,6 +798,13 @@ class TerminalWindow:
         return pygame.font.SysFont("consolas", size)  # asset missing - better than crashing
 
     @staticmethod
+    def _load_heart_font(size: int) -> pygame.font.Font | None:
+        # None if the file is missing - hearts then draw as boxes, same as
+        # before this existed, instead of crashing the game over a symbol
+        path = os.path.join(_ASSETS_DIR, _HEART_FONT_FILE)
+        return pygame.font.Font(path, size) if os.path.exists(path) else None
+
+    @staticmethod
     def _load_fallback_fonts(font_size: int) -> list[pygame.font.Font]:
         # skips missing files instead of crashing - worst case, unusual
         # characters go back to drawing as boxes, same as before this existed
@@ -790,8 +819,11 @@ class TerminalWindow:
         # everything except the specific characters _NEEDS_FALLBACK_FONT
         # lists uses the main font (or menu_font, for the current
         # question's prompt/choices - see _render_text's `big` argument),
-        # same as before any of this existed - covers ascii, the heart
-        # symbol, accented letters, all of it
+        # same as before any of this existed - covers ascii and accented
+        # letters, all of it. The heart is the exception: its own font, at
+        # the same size the text around it is drawn in
+        if character == _HEART and self.heart_font is not None:
+            return self.heart_menu_font if big else self.heart_font
         if character not in _NEEDS_FALLBACK_FONT or not self.fallback_fonts:
             return self.menu_font if big else self.font
         # codepoints under 0x10000 are covered by the first fallback font
@@ -1131,9 +1163,14 @@ class TerminalWindow:
         else:
             live_text, live_color = self.current_line + self.typed + cursor, "lightgreen"
         shown.append((live_text, live_color, True))
-        seconds_left = self._seconds_left()
-        if seconds_left is not None:
-            shown.append((f"[{seconds_left}s left]", "orange", True))
+        if (
+            self._seconds_left() is not None
+            and self.hearts_line is not None
+            and not any(text.startswith("Hearts:") for text, _color, _big in shown)
+        ):
+            # the hearts line belongs to an earlier page - bring it along, so
+            # the countdown (drawn next to it) has somewhere to sit
+            shown.insert(0, (self.hearts_line, "white", True))
         return shown
 
     def _wrap_to_width(self, text: str, big: bool, max_width: int) -> list[str]:
@@ -1184,7 +1221,28 @@ class TerminalWindow:
                 wrapped.append((sub_line, color, big))
         wrapped = wrapped[-_BOX_MAX_ROWS:]
 
+        # a timed question shows its countdown in orange, right next to the
+        # hearts, at the same text size - on a row of its own only if there
+        # is no hearts row to sit beside
+        seconds_left = self._seconds_left()
+        countdown = None if seconds_left is None else f"[{seconds_left}s left]"
+        hearts_row = None
+        if countdown is not None:
+            for index in range(len(wrapped) - 1, -1, -1):
+                if wrapped[index][0].startswith("Hearts:"):
+                    hearts_row = index
+                    break
+            if hearts_row is None:
+                wrapped.append((countdown, "orange", True))
+                wrapped = wrapped[-_BOX_MAX_ROWS:]
+                countdown = None
+
         surfaces = [self._render_text(text, color, big) for text, color, big in wrapped]
+        countdown_surface = None
+        countdown_x = 0
+        if countdown is not None and hearts_row is not None:
+            countdown_surface = self._render_text(countdown, "orange", True)
+            countdown_x = surfaces[hearts_row].get_width() + self.menu_font.size("  ")[0]
         row_heights = [surface.get_height() + 2 for surface in surfaces]
         box_height = sum(row_heights, self.margin * 2)
 
@@ -1193,6 +1251,8 @@ class TerminalWindow:
         # max width - clamped so it never gets so narrow a line clips, and
         # never wider than what wrapping was budgeted for above
         content_width = max((surface.get_width() for surface in surfaces), default=0)
+        if countdown_surface is not None:
+            content_width = max(content_width, countdown_x + countdown_surface.get_width())
         box_width = min(max_box_width, max(min_box_width, content_width + self.margin * 2))
 
         box = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
@@ -1201,8 +1261,10 @@ class TerminalWindow:
         pygame.draw.rect(box, (*_TEXT_SHADOW_COLOR, _TEXT_SHADOW_ALPHA), shadow_rect, 1)
         pygame.draw.rect(box, "white", box.get_rect(), 1)
         y = self.margin
-        for surface, row_height in zip(surfaces, row_heights, strict=True):
+        for row, (surface, row_height) in enumerate(zip(surfaces, row_heights, strict=True)):
             box.blit(surface, (self.margin, y))
+            if countdown_surface is not None and row == hearts_row:
+                box.blit(countdown_surface, (self.margin + countdown_x, y))
             y += row_height
 
         x = (self.width - box_width) // 2
