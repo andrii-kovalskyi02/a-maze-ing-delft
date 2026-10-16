@@ -1,3 +1,4 @@
+
 """room/us1f-classroom-2015. Issue #30."""
 
 from __future__ import annotations
@@ -30,8 +31,10 @@ ROOM = Room(
     ),
     exits=("corridor_red",),
     requires="axe_key",
-    locked_text="A washed-out locked door, it looks like its on its last legs. "
-    "If only there was a way to break it open.",
+    locked_text=(
+        "A washed-out locked door, it looks like its on its last legs. "
+        "If only there was a way to break it open."
+    ),
     inspectables=(
         Inspectable(
             name="the furniture-pile / tent",
@@ -71,9 +74,7 @@ ROOM = Room(
         ),
     ),
     items=(),
-    #   I still need to make it so that the boss fight starts after inspecting furniture-pile
-    #   Bosstrigger
-    #
+    # Boss fight: The Drunk German
     boss=Boss(
         name="The drunk german",
         intro=(
@@ -93,51 +94,48 @@ ROOM = Room(
         ),
         questions=(
             Question(
-                prompt="When is the Oktoberfest usually held?",
-                answers=("september", "october", "september/october", "september and october"),
-                seconds=20,
-            ),
-            Question(
-                prompt="Name a German beer. Come on... you must know ONE!",
-                answers=(
-                    "augustiner",
-                    "tegernseer",
-                    "paulaner",
-                    "franziskaner",
-                    "becks",
-                    "beck's",
-                    "warsteiner",
-                    "erdinger",
-                    "spaten",
-                    "hofbräu",
-                    "löwenbräu",
-                    "bitburger",
-                    "krombacher",
-                    "andechs",
+                prompt="What is the capital of Germany?",
+                answers=("berlin",),
+                choices=(
+                    "Berlin",
+                    "Munich",
+                    "Hamburg",
+                    "Frankfurt",
                 ),
                 seconds=20,
             ),
             Question(
-                prompt="What traditional food is often eaten with beer in a beer hall (Bier-Zelt)?",
-                answers=("Sauerkraut", "Pretzel mit Obatzda"),
+                prompt="What language is mainly spoken in Germany?",
+                answers=("german",),
                 choices=(
-                    "Pretzel with Obatzda",
-                    "Bratwurst",
-                    "Sauerkraut",
-                    "Bavarian potato salad",
+                    "German",
+                    "French",
+                    "Spanish",
+                    "Italian",
                 ),
-                seconds=15,
+                seconds=20,
             ),
             Question(
-                prompt="What do people traditionally wear at Oktoberfest?",
-                answers=("b", "Dirndl and Lederhose"),
+                prompt="What are the colours of the German flag?",
+                answers=("black, red and gold",),
                 choices=(
-                    "Dresses und embroidered shirts",
-                    "Dirndl und Lederhose",
-                    "Trachten jackets und suits",
-                    "Hanbok und lederhosen",
+                    "Black, red and gold",
+                    "Blue, white and red",
+                    "Green, white and orange",
+                    "Black, white and green",
                 ),
-                seconds=15,
+                seconds=20,
+            ),
+            Question(
+                prompt="Which traditional outfits are associated with Oktoberfest?",
+                answers=("dirndl and lederhosen",),
+                choices=(
+                    "Dirndl and Lederhosen",
+                    "Kimonos and sandals",
+                    "Kilts and sweaters",
+                    "Saris and scarves",
+                ),
+                seconds=20,
             ),
         ),
         win_text="Gut gemacht, here your digit. Bis später",
@@ -147,4 +145,3 @@ ROOM = Room(
 )
 
 register(ROOM)
-# register(classroom_2015)
