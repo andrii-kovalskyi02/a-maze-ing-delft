@@ -96,6 +96,16 @@ _MAIN_FONT_FILE = "JetBrainsMono-Regular.ttf"
 
 _FALLBACK_FONT_FILES = ["unifont-subset.otf", "unifont-upper-subset.otf"]
 
+# every size on screen - text, margins, spacing - is measured against this
+# screen height and scaled to match the real one, so the window looks the
+# same on every resolution: the same proportions, not the same pixel counts.
+# 900 is what Pygame reports on the machine this layout was tuned on (a
+# 2880x1800 panel with Windows display scaling at 200%).
+_REFERENCE_HEIGHT = 900
+_REFERENCE_FONT_SIZE = 15
+_REFERENCE_MAP_FONT_SIZE = 12
+_REFERENCE_MARGIN = 10
+
 # the heart in "Hearts: ♥♥♥" (health.py) - the main font has no glyph for it
 # either, so it gets a tiny font of its own: one glyph, built to the main
 # font's size and spacing so it sits on the same line as the text around it
@@ -106,17 +116,23 @@ _HEART_FONT_FILE = "heart.otf"
 # text the game prints when you walk in (see TerminalWindow._is_room_header)
 # - a room with no entry here just shows a plain black background, same as
 # every room did before this existed. Photos are reused across rooms that
-# are the same kind of real-world space (two ordinary classrooms, two plain
-# hallways) - rooms written as something stranger than the real room they're
-# based on (classroom_2015's furniture-tent, lab_2001's forest) are left
-# without a photo on purpose, since a straight photo of the real room would
-# fight the text instead of matching it.
+# are the same kind of real-world space (every classroom, both plain
+# hallways, both labs, both teachers' rooms and the front desk office, every
+# project room). The storage room is left without a photo on purpose.
 _ROOM_IMAGES = {
+    "== classroom.2015 ==": "classroom_2035.jpg",
+    "== Classroom 2021 ==": "classroom_2035.jpg",
     "== Classroom 2.035 ==": "classroom_2035.jpg",
     "== Classroom 2031 ==": "classroom_2035.jpg",
     "== The Blue corridor ==": "hallway.jpg",
     "== The Red corridor ==": "hallway.jpg",
-    "== LAB2.003 ==": "computer_lab.jpg",
+    "== LAB2.003 ==": "lab.jpg",
+    "== Forest room ==": "lab.jpg",  # lab_2001
+    "== Teachers room ==": "teacher_room.jpg",
+    "== Teachers room 4 ==": "teacher_room.jpg",
+    "== Front Desk Office ==": "teacher_room.jpg",
+    "== Project room 1 ==": "project_room.jpg",
+    "== Project Room 2 ==": "project_room.jpg",
     "== Student society ==": "student_society.jpg",
     "== Project Room 3 ==": "project_room.jpg",
 }
@@ -371,7 +387,10 @@ class TerminalWindow:
             self.screen = pygame.display.set_mode((self.width, self.height), pygame.FULLSCREEN)
         pygame.display.set_caption("a-maze-ing-delft")
 
-        font_size = max(12, min(18, self.height // 60))
+        # how much bigger or smaller this screen is than the reference one -
+        # everything below that is measured in pixels is multiplied by it
+        self.scale = self.height / _REFERENCE_HEIGHT
+        font_size = max(8, round(_REFERENCE_FONT_SIZE * self.scale))
         self.font = self._load_main_font(font_size)
         # some puzzle text uses unusual Unicode (Canadian syllabics, math
         # symbols, ...) the main font has no glyphs for - these bundled
@@ -379,8 +398,8 @@ class TerminalWindow:
         # actually has each character instead of drawing a blank box for it
         self.fallback_fonts = self._load_fallback_fonts(font_size)
         # smaller than the main text, so it reads as a HUD panel rather
-        # than taking over the screen, but not so small it turns blurry
-        self.map_font = self._load_main_font(max(12, int(font_size * 0.78)))
+        # than taking over the screen
+        self.map_font = self._load_main_font(max(8, round(_REFERENCE_MAP_FONT_SIZE * self.scale)))
         # bigger than the main text - used just for the current question
         # (the prompt and its numbered choices) inside the dialogue box, so
         # what the player can actually act on stands out from narration -
@@ -389,8 +408,9 @@ class TerminalWindow:
         # the hearts, at both text sizes - see _HEART_FONT_FILE
         self.heart_font = self._load_heart_font(font_size)
         self.heart_menu_font = self._load_heart_font(int(font_size * 1.35))
-        self.line_height = font_size + 4
-        self.margin = 10
+        self.row_gap = max(1, round(2 * self.scale))  # space between two rows of the box
+        self.line_height = font_size + max(1, round(4 * self.scale))
+        self.margin = max(4, round(_REFERENCE_MARGIN * self.scale))
 
         self.lines: list[tuple[str, str]] = []  # (text, color) for every finished line
         self.current_line = ""  # the line being built right now, character by character
@@ -1098,7 +1118,7 @@ class TerminalWindow:
         # smaller. Shrinking this panel has to either shrink every row
         # equally (map_font itself) or show fewer rows - never some rows
         # more than others.
-        row_height = self.map_font.get_height() + 1
+        row_height = self.map_font.get_height() + max(1, round(self.scale))
         surfaces = [self._render_map_line(line, "white") for line in self.map_overlay]
         panel_width = max((s.get_width() for s in surfaces), default=0) + self.margin * 2
         panel_height = len(surfaces) * row_height + self.margin * 2
@@ -1243,7 +1263,7 @@ class TerminalWindow:
         if countdown is not None and hearts_row is not None:
             countdown_surface = self._render_text(countdown, "orange", True)
             countdown_x = surfaces[hearts_row].get_width() + self.menu_font.size("  ")[0]
-        row_heights = [surface.get_height() + 2 for surface in surfaces]
+        row_heights = [surface.get_height() + self.row_gap for surface in surfaces]
         box_height = sum(row_heights, self.margin * 2)
 
         # now that we know how wide the actual (already-wrapped) lines are,
