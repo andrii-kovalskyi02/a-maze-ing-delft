@@ -263,7 +263,9 @@ def build_menu(game: Game) -> tuple[MenuItem, ...]:
     if "evacuation_plan" in game.carrying:
         items.append(MenuItem("Look at the evacuation plan", do_map))
 
-    items.append(MenuItem("Options", do_options))
+    if not ui.has_pause_menu():
+        # the Pygame window keeps these in its Escape menu instead
+        items.append(MenuItem("Options", do_options))
     return tuple(items)
 
 

@@ -148,6 +148,19 @@ class Game:
         """Return the total time played, earlier sessions included (US3)."""
         return self.elapsed_time + time.monotonic() - self.started_at
 
+    def hold_time(self, seconds: float) -> None:
+        """Take ``seconds`` off the time played: the game sat in the pause menu that long."""
+        self.started_at += seconds
+
+    def status(self) -> dict[str, object]:
+        """Return what the pause menu shows: name, hearts, time played, and how much is explored."""
+        return {
+            "name": self.name,
+            "hearts": str(self.hearts),
+            "seconds": self.time_played(),
+            "percent": progress.percent_explored(self),
+        }
+
     def pause(self) -> None:
         """Save the game and stop the current play session."""
         self.update_elapsed_time()
@@ -201,6 +214,8 @@ class Game:
         ui.set_pause_handler(self.pause)
         ui.set_quit_handler(commands.confirm_quit)
         ui.set_scoreboard_handler(scoreboard.show)
+        ui.set_status_provider(self.status)
+        ui.set_time_hold_handler(self.hold_time)
 
         try:
             ui.say(HOW_TO_PLAY)
@@ -223,3 +238,5 @@ class Game:
             ui.set_pause_handler(None)
             ui.set_quit_handler(None)
             ui.set_scoreboard_handler(None)
+            ui.set_status_provider(None)
+            ui.set_time_hold_handler(None)

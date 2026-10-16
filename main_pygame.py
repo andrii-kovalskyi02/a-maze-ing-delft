@@ -10,9 +10,10 @@ Run it with:
     python main_pygame.py
 
 Type + Enter like a normal console. Any key skips typing/pauses. Escape
-(or closing the window) saves and quits, the same as typing "pause". A timed
-question shows its seconds counting down, and presses Enter for you when
-they run out.
+opens the pause menu: the whole game stops behind it, timers included, and
+Escape again resumes. Closing the window saves and quits, the same as typing
+"pause". A timed question shows its seconds counting down, and presses Enter
+for you when they run out.
 
 Quick map of the file:
     _StreamToQueue                   -> the fake stdout - also where typed
@@ -51,6 +52,8 @@ import traceback
 
 import pygame
 
+import progress
+import scoreboard
 import ui  # the real console ui.py - nothing here reimplements any of it
 from main import main as run_console_game
 
@@ -111,6 +114,12 @@ _REFERENCE_MARGIN = 10
 # font's size and spacing so it sits on the same line as the text around it
 _HEART = "♥"
 _HEART_FONT_FILE = "heart.otf"
+
+# the pause menu sits over a blurred, dimmed freeze-frame of the game, so it is
+# obvious the game is stopped, yet you can still see where you were
+_PAUSE_BLUR_RADIUS = 14  # at the reference screen height - scaled to the real one
+_PAUSE_DIM_ALPHA = 130  # how much the frozen scene is darkened: 0 = not at all, 255 = black
+_PAUSE_ACCENT = (240, 200, 80)
 
 # background image per room, keyed by the exact "== Room Name ==" header
 # text the game prints when you walk in (see TerminalWindow._is_room_header)
@@ -248,6 +257,7 @@ class _StreamToQueue:
         # lands here instead of a real screen
         if not text:
             return
+        self._window.wait_while_paused()  # the pause menu is open: the game stands still
         _debug_log(f"stdout.write() len={len(text)} text={text!r}")
         if text == "\n":
             was_typed = self._typing_current_line
@@ -362,6 +372,7 @@ def _make_dialogue_sleep(window: TerminalWindow):
         while time.monotonic() < end:
             if window.skip_event.is_set():
                 return
+            end += window.wait_while_paused()  # the pause menu is open: stop this clock too
             time.sleep(0.005)  # check often so a keypress feels instant
 
     return _sleep
@@ -405,6 +416,8 @@ class TerminalWindow:
         # what the player can actually act on stands out from narration -
         # see _box_lines/_render_text's `big` argument
         self.menu_font = self._load_main_font(int(font_size * 1.35))
+        # the word PAUSED on the pause menu
+        self.title_font = self._load_main_font(max(12, round(font_size * 2.6)))
         # the hearts, at both text sizes - see _HEART_FONT_FILE
         self.heart_font = self._load_heart_font(font_size)
         self.heart_menu_font = self._load_heart_font(int(font_size * 1.35))
@@ -480,6 +493,19 @@ class TerminalWindow:
         # answers a question (see _draw_dialogue_box / _handle_events)
         self.box_start = 0
 
+        # the pause menu (Escape) - see _open_pause_menu. The game thread waits on
+        # pause_gate (set = running), so the whole game stops behind the menu
+        self.paused = False
+        self.pause_gate = threading.Event()
+        self.pause_gate.set()
+        self._paused_at = 0.0
+        self.pause_selected = 0
+        self.pause_view = "menu"  # "menu", or "scoreboard" while the scores are showing
+        self.pause_status: dict[str, object] = {}
+        self.pause_scores: list[str] = []
+        # the blurred freeze-frame drawn behind the menu, made when it opens
+        self.pause_backdrop: pygame.Surface | None = None
+
     def _wait_start(self) -> None:
         self.waiting_for_input = True
         self._prompt_pending = True
@@ -505,6 +531,96 @@ class TerminalWindow:
         self.advance_event.wait()
         self.waiting_to_advance = False
 
+    def wait_while_paused(self) -> float:
+        """Block the GAME thread while the pause menu is open; return how long it waited."""
+        if self.pause_gate.is_set():
+            return 0.0
+        started = time.monotonic()
+        self.pause_gate.wait()
+        return time.monotonic() - started
+
+    def _open_pause_menu(self) -> None:
+        """Stop the game behind a menu of its own, showing how the player is doing.
+
+        What the menu shows is taken once, now: the game is frozen, so the
+        numbers on it are too.
+        """
+        self.pause_status = ui.status() or {}
+        # freeze the scene as it is - room, text bubble, map - blurred and dimmed
+        self._draw_scene()
+        backdrop = self._blurred(self.screen)
+        dim = pygame.Surface(backdrop.get_size(), pygame.SRCALPHA)
+        dim.fill((0, 0, 0, _PAUSE_DIM_ALPHA))
+        backdrop.blit(dim, (0, 0))
+        self.pause_backdrop = backdrop
+        self.pause_selected = 0
+        self.pause_view = "menu"
+        self._paused_at = time.monotonic()
+        self.paused = True
+        self.pause_gate.clear()  # the game thread stops at its next word or pause
+
+    def _close_pause_menu(self) -> None:
+        """Let the game carry on, with every clock set back by the time it stood still."""
+        if not self.paused:
+            return
+        waited = time.monotonic() - self._paused_at
+        self.paused = False
+        self.pause_backdrop = None
+        if self.deadline is not None:
+            self.deadline += waited  # a timed question gets back what the menu took
+        ui.hold_time(waited)  # and so do the time played and the boss timers
+        self.pause_gate.set()
+
+    def _blurred(self, surface: pygame.Surface) -> pygame.Surface:
+        """Return a gaussian-blurred copy of ``surface``: the frozen game behind the menu."""
+        radius = max(3, round(_PAUSE_BLUR_RADIUS * self.scale))
+        size = surface.get_size()
+        # blur a quarter-size copy: four times quicker, and a blur hides the lost detail anyway
+        small = pygame.transform.smoothscale(surface, (max(1, size[0] // 4), max(1, size[1] // 4)))
+        gaussian_blur = getattr(pygame.transform, "gaussian_blur", None)
+        if gaussian_blur is not None:  # pygame-ce, which run_game.bat installs
+            small = gaussian_blur(small, max(1, radius // 4))
+        else:
+            # plain pygame has no blur - shrinking further and growing back smears alike
+            tiny = pygame.transform.smoothscale(
+                small, (max(1, small.get_width() // 4), max(1, small.get_height() // 4))
+            )
+            small = pygame.transform.smoothscale(tiny, small.get_size())
+        return pygame.transform.smoothscale(small, size)
+
+    def _pause_items(self) -> list[str]:
+        """The labels on the pause menu, in order."""
+        speed = "instant" if ui.is_instant() else "typed out"
+        return ["Resume", "Scoreboard", f"Story text: {speed}"]
+
+    def _pause_menu_key(self, event: pygame.event.Event) -> None:
+        """Handle a key press while the pause menu is open."""
+        if self.pause_view == "scoreboard":
+            if event.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_BACKSPACE):
+                self.pause_view = "menu"
+            return
+        items = self._pause_items()
+        if event.key == pygame.K_ESCAPE:
+            self._close_pause_menu()
+        elif event.key in (pygame.K_UP, pygame.K_w):
+            self.pause_selected = (self.pause_selected - 1) % len(items)
+        elif event.key in (pygame.K_DOWN, pygame.K_s):
+            self.pause_selected = (self.pause_selected + 1) % len(items)
+        elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+            self._pause_choose(self.pause_selected)
+        elif event.unicode.isdigit() and 1 <= int(event.unicode) <= len(items):
+            self._pause_choose(int(event.unicode) - 1)
+
+    def _pause_choose(self, index: int) -> None:
+        """Do what the pause menu's item number ``index`` says."""
+        if index == 0:
+            self._close_pause_menu()
+        elif index == 1:
+            self.pause_scores = scoreboard.lines()
+            self.pause_view = "scoreboard"
+        elif index == 2:
+            ui.set_instant(not ui.is_instant())
+
     def start_game_thread(self) -> None:
         """Wire the fake stdout/stdin in, then start the real game in the background."""
         sys.stdout = _StreamToQueue(self.out_queue, self)
@@ -514,6 +630,7 @@ class TerminalWindow:
         # the only place this file changes game behaviour - see _make_dialogue_sleep,
         # and read_line_with_clock below for how answers are read
         ui.use_io(write=print, read=keyboard.read_answer, sleep=_make_dialogue_sleep(self))
+        ui.set_pause_menu(True)  # Escape opens the pause menu, so the game menu drops "Options"
 
         # ui.py's _type_line() has its OWN independent skip check that
         # peeks at the real console's keyboard buffer (msvcrt on Windows) -
@@ -675,11 +792,17 @@ class TerminalWindow:
             if event.type == pygame.QUIT:
                 self._quit()
             elif event.type == pygame.KEYDOWN:
+                if self.paused:
+                    self._pause_menu_key(event)
+                    continue
                 if self.game_over:
                     self._quit()
                     continue
                 if event.key == pygame.K_ESCAPE:
-                    self._quit()
+                    if ui.status() is not None and not self.quitting:
+                        self._open_pause_menu()  # a game is being played: stop it
+                    else:
+                        self._quit()  # nothing to pause yet, such as while typing the name
                     continue
                 if self.waiting_to_advance:
                     # a typed line just finished and the game thread is
@@ -713,6 +836,8 @@ class TerminalWindow:
     def _check_clock(self) -> None:
         """Press Enter for the player when a timed question runs out."""
         deadline = self.deadline
+        if self.paused:
+            return  # the clock is stopped while the pause menu is open
         if self.waiting_for_input and deadline is not None and time.monotonic() >= deadline:
             self._submit(_TIMED_OUT)
 
@@ -758,6 +883,7 @@ class TerminalWindow:
             return  # don't save twice if Escape gets pressed more than once
         self.quitting = True
         self._quit_requested_at = time.monotonic()
+        self._close_pause_menu()  # the menu must not hold the game back from saving
         if self.game_over:
             return
         # ui.py only has a pause handler once a game is being played - before
@@ -1323,8 +1449,63 @@ class TerminalWindow:
         surface = self._render_text(live_text, live_color)
         self.screen.blit(surface, (self._centered_x(surface), y))
 
-    def _draw(self) -> None:
-        """Redraw the whole window from scratch - Pygame has no "update just this line"."""
+    def _draw_pause_menu(self) -> None:
+        """Draw the pause menu over the blurred freeze-frame of the game.
+
+        How the player is doing sits around the edges: hearts top left, time
+        played top right, how much of the floor is explored along the bottom.
+        """
+        if self.pause_backdrop is not None:
+            self.screen.blit(self.pause_backdrop, (0, 0))
+        else:
+            self.screen.fill("black")
+
+        status = self.pause_status
+        corner = self.margin * 4
+        hearts = self._render_text(f"Hearts: {status.get('hearts', '')}", "white", True)
+        self.screen.blit(hearts, (corner, corner))
+        seconds = progress.format_duration(float(status.get("seconds", 0)))  # type: ignore[arg-type]
+        played = self._render_text(f"Time played  {seconds}", "white", True)
+        self.screen.blit(played, (self.width - corner - played.get_width(), corner))
+        explored = self._render_text(
+            f"{status.get('percent', 0)}% of the floor explored", "white", True
+        )
+        self.screen.blit(
+            explored,
+            (
+                (self.width - explored.get_width()) // 2,
+                self.height - corner - explored.get_height(),
+            ),
+        )
+
+        title = self.title_font.render("PAUSED", True, _PAUSE_ACCENT)
+        y = self.height // 8
+        self.screen.blit(title, ((self.width - title.get_width()) // 2, y))
+        y += title.get_height() + self.margin
+        name = self._render_text(str(status.get("name", "")), "gray", True)
+        self.screen.blit(name, ((self.width - name.get_width()) // 2, y))
+
+        if self.pause_view == "scoreboard":
+            rows = [(line, "white") for line in self.pause_scores]
+            hint = "Esc or Enter: back"
+        else:
+            rows = [
+                (f"> {label} <", "khaki")
+                if number == self.pause_selected
+                else (f"  {label}  ", "white")
+                for number, label in enumerate(self._pause_items())
+            ]
+            hint = "Up / Down and Enter, or Esc to resume"
+        y = int(self.height * 0.36)
+        for text, color in rows:
+            row = self._render_text(text, color, True)
+            self.screen.blit(row, ((self.width - row.get_width()) // 2, y))
+            y += int(row.get_height() * 1.6)
+        hint_row = self._render_text(hint, "gray")
+        self.screen.blit(hint_row, ((self.width - hint_row.get_width()) // 2, y + self.margin * 2))
+
+    def _draw_scene(self) -> None:
+        """Draw the game itself: the room, its text bubble and the map."""
         self.screen.fill("black")
         if self.room_image is not None:
             self.screen.blit(self.room_image, (0, 0))
@@ -1339,6 +1520,12 @@ class TerminalWindow:
 
         self._draw_map_overlay()
 
+    def _draw(self) -> None:
+        """Redraw the whole window from scratch - Pygame has no "update just this line"."""
+        if self.paused:
+            self._draw_pause_menu()  # the scene behind it stays frozen
+        else:
+            self._draw_scene()
         pygame.display.flip()  # nothing is visible until this swaps the frame onto the screen
 
     # after quitting, wait this long for the game to save and say goodbye

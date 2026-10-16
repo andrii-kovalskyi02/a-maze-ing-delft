@@ -22,12 +22,19 @@ if TYPE_CHECKING:
 TOP = 5
 
 
+def lines() -> list[str]:
+    """Return the scoreboard as lines of text, to print or to draw."""
+    players = persistence.top_scores(TOP)
+    result = [f"Scoreboard - top {TOP}"]
+    if not players:
+        result.append("Nobody is on the scoreboard yet.")
+    for place, (name, percent, seconds) in enumerate(players, start=1):
+        result.append(f"{place}. {name} - {percent}% - {progress.format_duration(seconds)}")
+    return result
+
+
 def show(game: Game | None = None) -> None:
     """Print the scoreboard. ``game`` is unused; it lets the menu call this."""
-    players = persistence.top_scores(TOP)
     ui.say()
-    ui.say(f"Scoreboard - top {TOP}")
-    if not players:
-        ui.say("Nobody is on the scoreboard yet.")
-    for place, (name, percent, seconds) in enumerate(players, start=1):
-        ui.say(f"{place}. {name} - {percent}% - {progress.format_duration(seconds)}")
+    for line in lines():
+        ui.say(line)
