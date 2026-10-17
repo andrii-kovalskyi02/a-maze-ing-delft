@@ -10,6 +10,8 @@ from __future__ import annotations
 import pytest
 
 import commands
+import persistence
+import rooms  # noqa: F401  (importing rooms registers them)
 import ui
 from game import Game
 
@@ -59,6 +61,62 @@ def test_status_says_how_the_player_is_doing(console) -> None:
     assert status["seconds"] >= 0
 
 
+def test_status_says_when_the_player_has_the_map(console) -> None:
+    game = Game()
+    assert game.status()["has_map"] is False
+    game.carrying.add("evacuation_plan")
+    assert game.status()["has_map"] is True
+
+
+def test_the_map_choice_leaves_the_game_menu_when_the_window_has_its_own_key(console) -> None:
+    game = Game()
+    game.carrying.add("evacuation_plan")
+    ui.set_pause_menu(True)
+    try:
+        assert "Look at the evacuation plan" not in [
+            item.label for item in commands.build_menu(game)
+        ]
+    finally:
+        ui.set_pause_menu(False)
+
+
 def test_there_is_no_status_between_games(console) -> None:
     ui.set_status_provider(None)
     assert ui.status() is None
+
+
+def test_save_writes_the_game_and_keeps_it_running(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(persistence, "DATABASE_NAME", str(tmp_path / "test.db"))
+    persistence.create_tables()
+    game = Game(player_name="Saver")
+
+    game.save()
+
+    assert persistence.load_game("Saver") is not None
+    assert game.running is True
+
+
+def test_pause_saves_and_stops_the_game(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(persistence, "DATABASE_NAME", str(tmp_path / "test.db"))
+    persistence.create_tables()
+    game = Game(player_name="Pauser")
+
+    game.pause()
+
+    assert persistence.load_game("Pauser") is not None
+    assert game.running is False
+
+
+def test_the_window_can_ask_for_a_save(console) -> None:
+    saved = []
+    ui.set_save_handler(lambda: saved.append(True))
+    try:
+        assert ui.save_game() is True
+        assert saved == [True]
+    finally:
+        ui.set_save_handler(None)
+
+
+def test_there_is_nothing_to_save_between_games(console) -> None:
+    ui.set_save_handler(None)
+    assert ui.save_game() is False

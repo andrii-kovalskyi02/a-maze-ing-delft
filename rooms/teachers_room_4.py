@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from models import Area, Room
+from models import Area, Room, Unless
 from world import register
 
 ROOM = Room(
@@ -16,8 +16,9 @@ ROOM = Room(
     ),
     look_around=(
         "Somebody's marking is still spread across the nearest desk.",
-        0.7,
-        "A fire extinguisher is clipped to the wall by the window.",
+        Unless(
+            "fire_extinguisher", (0.7, "A fire extinguisher is clipped to the wall by the window.")
+        ),
     ),
     exits=("corridor_blue",),
     requires="blue_card",

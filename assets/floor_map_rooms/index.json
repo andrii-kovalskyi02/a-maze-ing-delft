@@ -1,0 +1,74 @@
+{
+ "classroom_2015": [
+  148,
+  1938
+ ],
+ "classroom_2021": [
+  148,
+  1096
+ ],
+ "classroom_2031": [
+  148,
+  88
+ ],
+ "classroom_2035": [
+  1876,
+  88
+ ],
+ "corridor_blue": [
+  148,
+  376
+ ],
+ "corridor_red": [
+  1428,
+  664
+ ],
+ "front_desk_office": [
+  148,
+  2370
+ ],
+ "lab_2001": [
+  1428,
+  3687
+ ],
+ "lab_2003": [
+  148,
+  3687
+ ],
+ "lobby": [
+  148,
+  2658
+ ],
+ "project_room_1": [
+  2708,
+  3428
+ ],
+ "projectroom_2": [
+  2708,
+  3169
+ ],
+ "projectroom_3": [
+  2068,
+  1096
+ ],
+ "stair_exit": [
+  788,
+  664
+ ],
+ "storage": [
+  2068,
+  664
+ ],
+ "student_society": [
+  2068,
+  1578
+ ],
+ "teacher_rooms": [
+  2068,
+  1938
+ ],
+ "teachers_room_4": [
+  148,
+  664
+ ]
+}

@@ -12,7 +12,7 @@ ROOM = Room(
     description=(
         "A spacious open lobby at the heart of the yellow wing,",
         0.5,
-        "thick with drifting smoke.",
+        "the last of the smoke thinning where the fire was.",
     ),
     look_around=(
         "Yellow-accented signs and glass partitions define this central hub.",

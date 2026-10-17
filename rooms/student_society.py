@@ -14,6 +14,7 @@ ROOM = Room(
         0.5,
         "You don't remember when or where.",
     ),
+    return_description="The kicker table sits where it did, its ball frozen on the halfway line.",
     look_around=(
         "A kicker table stands in the middle of the room.",
         0.4,

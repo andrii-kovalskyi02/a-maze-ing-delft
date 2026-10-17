@@ -44,6 +44,7 @@ _clock: Callable[[], float] = time.monotonic
 #: What to do when the player types one of the words that work at any prompt
 #: (see :func:`ask`). None while no game is running - at the name prompt, say.
 _pause_handler: Callable[[], None] | None = None
+_page_handler: Callable[[], None] | None = None
 _quit_handler: Callable[[], bool] | None = None
 _scoreboard_handler: Callable[[], None] | None = None
 
@@ -51,6 +52,7 @@ _scoreboard_handler: Callable[[], None] | None = None
 #: it is open. The game registers both while it is being played.
 _status_provider: Callable[[], dict[str, object]] | None = None
 _time_hold_handler: Callable[[float], None] | None = None
+_save_handler: Callable[[], None] | None = None
 
 #: Seconds the game has spent paused, taken off :func:`now` so a timed question
 #: does not lose time to the pause menu.
@@ -81,6 +83,23 @@ def say(text: str = "") -> None:
     """
     for line in _wrap(text):
         _write(line)
+
+
+def new_page() -> None:
+    """Start what is printed next on a page of its own.
+
+    A terminal just keeps scrolling, so this does nothing there. A window that shows one
+    page of text at a time (the Pygame box) starts a fresh page. Use it to keep a moment,
+    like picking something up, from running into the text around it.
+    """
+    if _page_handler is not None:
+        _page_handler()
+
+
+def set_page_handler(handler: Callable[[], None] | None) -> None:
+    """Set the function that starts a new page, or None for a plain terminal."""
+    global _page_handler
+    _page_handler = handler
 
 
 def narrate(text: Text) -> None:
@@ -426,6 +445,20 @@ def hold_time(seconds: float) -> None:
     _held += seconds
     if _time_hold_handler is not None:
         _time_hold_handler(seconds)
+
+
+def set_save_handler(handler: Callable[[], None] | None) -> None:
+    """Set the function that saves the game and lets it carry on."""
+    global _save_handler
+    _save_handler = handler
+
+
+def save_game() -> bool:
+    """Save the game being played and carry on. Return False if there is no game to save."""
+    if _save_handler is None:
+        return False
+    _save_handler()
+    return True
 
 
 def set_pause_menu(available: bool) -> None:

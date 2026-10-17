@@ -71,7 +71,9 @@ def run(game: Game, boss: Boss) -> bool:
     ui.narrate(boss.win_text)
     if boss.reward is not None:
         item = game.carrying.add(boss.reward)
-        ui.say(f"You are now carrying the {item.name}.")
+        ui.new_page()  # picking something up is a moment of its own
+        ui.narrate(f"You are now carrying the {item.name}.")
+        ui.new_page()
     narrator.remark(game, "boss_won", who=boss.name)
     return True
 
@@ -150,13 +152,17 @@ def _hand_over_the_losing_items(game: Game, boss: Boss) -> None:
         return
 
     item = game.carrying.add(boss.lose_reward)
-    ui.say(f"You are now carrying the {item.name}.")
+    ui.new_page()  # picking something up is a moment of its own
+    ui.narrate(f"You are now carrying the {item.name}.")
+    ui.new_page()
     if boss.lose_reward_text is not None:
         ui.say()
         ui.narrate(boss.lose_reward_text)
         if boss.lose_reward_2 is not None:
             second_item = game.carrying.add(boss.lose_reward_2)
-            ui.say(f"You are now carrying the {second_item.name}.")
+            ui.new_page()
+            ui.narrate(f"You are now carrying the {second_item.name}.")
+            ui.new_page()
     if not _handed_over_the_backpack(boss):
         narrator.remark(game, "boss_lost", who=boss.name)
 

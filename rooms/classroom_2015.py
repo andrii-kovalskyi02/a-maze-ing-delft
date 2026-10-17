@@ -8,13 +8,14 @@ from world import register
 ROOM = Room(
     # room ID
     key="classroom_2015",
-    name="classroom.2015",
+    name="Classroom 2.015",
     area=Area.RED,
     description=(
         "This place feels odd.",
         0.5,
         "What kind of makeshift furniture tarp tent is that?",
     ),
+    return_description="The tent still stands. Woodsmoke and spilled beer, same as before.",
     look_around=(
         "The furniture-tent takes up most of the room.",
         0.4,

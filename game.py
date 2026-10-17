@@ -103,6 +103,10 @@ class Game:
         """The room the player is standing in."""
         return world.get(self.current)
 
+    def has_taken(self, key: str) -> bool:
+        """Return True if the player has picked up the item ``key``, here or anywhere."""
+        return key in self.carrying or any(item == key for _, item in self.taken)
+
     def items_here(self) -> tuple[Item, ...]:
         """Return the items still lying in this room, un-taken."""
         return tuple(
@@ -129,7 +133,10 @@ class Game:
 
         ui.say()
         ui.say(f"== {room.name} ==")
-        ui.narrate(room.description)
+        if first_time or room.return_description is None:
+            ui.narrate(room.description)
+        else:
+            ui.narrate(room.return_description)
         if not first_time:
             ui.say("You have been here before.")
             if not room.is_hallway:
@@ -153,18 +160,24 @@ class Game:
         self.started_at += seconds
 
     def status(self) -> dict[str, object]:
-        """Return what the pause menu shows: name, hearts, time played, and how much is explored."""
+        """Return what the window shows: name, progress and whether there is a map."""
         return {
             "name": self.name,
+            "has_map": "evacuation_plan" in self.carrying,
+            "room": self.current,
             "hearts": str(self.hearts),
             "seconds": self.time_played(),
             "percent": progress.percent_explored(self),
         }
 
-    def pause(self) -> None:
-        """Save the game and stop the current play session."""
+    def save(self) -> None:
+        """Write the game to the database and carry on playing."""
         self.update_elapsed_time()
         persistence.save_game(self)
+
+    def pause(self) -> None:
+        """Save the game and stop the current play session."""
+        self.save()
         self.running = False
 
     def finish(self) -> None:
@@ -216,6 +229,7 @@ class Game:
         ui.set_scoreboard_handler(scoreboard.show)
         ui.set_status_provider(self.status)
         ui.set_time_hold_handler(self.hold_time)
+        ui.set_save_handler(self.save)
 
         try:
             ui.say(HOW_TO_PLAY)
@@ -240,3 +254,4 @@ class Game:
             ui.set_scoreboard_handler(None)
             ui.set_status_provider(None)
             ui.set_time_hold_handler(None)
+            ui.set_save_handler(None)
