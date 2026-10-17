@@ -28,11 +28,11 @@ def test_without_text_look_around_still_offers_what_is_there(console, monkeypatc
         name="Stairs",
         area=Area.BLUE,
         description="x",
-        inspectables=(Inspectable(name="the poster", text="A fire evacuation poster."),),
+        inspectables=(Inspectable(name="the poster", text="A notice poster."),),
     )
     game = place(monkeypatch, room)
     assert "Look around" in [item.label for item in build_menu(game)]
 
     console.script("1", "0")
     do_look_around(game)
-    assert "fire evacuation poster" in console.output
+    assert "notice poster" in console.output

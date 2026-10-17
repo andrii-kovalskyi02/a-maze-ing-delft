@@ -23,7 +23,7 @@ if TYPE_CHECKING:  # pragma: no cover - import only needed for type checking
 class Unless:
     """A part of a text that is only told while an item has not been picked up.
 
-    Use it for a line like "A fire extinguisher is clipped to the wall": once the
+    Use it for a line like "A key card hangs on a hook by the window": once the
     player has taken it, the line is left out instead of describing what is gone.
 
     Args:
@@ -83,7 +83,7 @@ def resolve(text: Text, has_taken: Callable[[str], bool]) -> tuple[str | float, 
 class Area(StrEnum):
     """The three colour-coded parts of the 2nd floor.
 
-    Areas exist so the fire-gating enabler (issue #112) can block a whole wing
+    Areas exist so the key-card gating enabler (issue #112) can block a whole wing
     of the building at once.  Every room belongs to exactly one area.
     """
 
@@ -124,7 +124,7 @@ class Inspectable:
         name: What the player types after ``inspect``, e.g. ``"clock"``.
         text: What they read.
         gone_once_taken: The key of an item that, once the player has it, takes this
-            detail away - the evacuation plan is not on the wall any more.
+            detail away - the floor plan is not on the wall any more.
     """
 
     name: str

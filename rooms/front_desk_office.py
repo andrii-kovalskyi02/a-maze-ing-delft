@@ -45,7 +45,7 @@ ROOM = Room(
         ),
         Inspectable(
             name="the notice boards",
-            text="Pinned with departmental memos, opening hours, and strict fire evacuation rules.",
+            text="Pinned with departmental memos, opening hours, and strict building rules.",
         ),
     ),
     items=(),

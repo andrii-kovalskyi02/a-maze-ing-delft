@@ -21,7 +21,7 @@ ITEM_CATALOGUE: dict[str, Item] = {
     for item in (
         Item(
             key="evacuation_plan",
-            name="evacuation plan",
+            name="floor plan",
             description=(
                 "The plan of the 2nd floor, taken off the corridor wall. "
                 "It shows the blue passage, and names the red and yellow ones."
@@ -75,10 +75,14 @@ ITEM_CATALOGUE: dict[str, Item] = {
             description="A small brass key labeled 'Storage Room'.",
         ),
         Item(
-            key="fire_extinguisher",
-            name="fire extinguisher",
-            description="Heavy, red, and good for exactly one fire.",
-            single_use=True,
+            key="red_card",
+            name="red key card",
+            description="A staff key card with a red stripe. It opens the Red corridor.",
+        ),
+        Item(
+            key="yellow_card",
+            name="yellow key card",
+            description="A staff key card with a yellow stripe. It opens the door to the lobby.",
         ),
         Item(
             key="axe_key",

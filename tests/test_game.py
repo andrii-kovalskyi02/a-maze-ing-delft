@@ -129,12 +129,12 @@ def test_taking_the_evacuation_plan_unlocks_the_map_choice(console) -> None:
     """US1b: the map is not offered until the player has the plan."""
     game = start()
     game.move_to("corridor_blue")
-    assert "Look at the evacuation plan" not in labels(game)
+    assert "Look at the floor plan" not in labels(game)
 
     console.script(option(game, "Look around"), "2", "0")
     game.turn()
     assert "evacuation_plan" in game.carrying
-    assert "Look at the evacuation plan" in labels(game)
+    assert "Look at the floor plan" in labels(game)
 
 
 def test_revisiting_a_room_says_so(console) -> None:
@@ -182,7 +182,7 @@ def test_the_game_ends_cleanly_when_the_input_runs_out(console) -> None:
 
 
 def test_the_wake_up_scene_plays_once(console) -> None:
-    """US1a.3: the fire-alarm opening runs on arrival, and only the first time."""
+    """US1a.3: the wake-up opening runs on arrival, and only the first time."""
     game = start()
     assert "cheek is stuck to the desk" in console.output
 
