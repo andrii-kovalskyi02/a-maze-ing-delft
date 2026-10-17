@@ -7,7 +7,7 @@ from world import register
 
 ROOM = Room(
     key="classroom_2031",
-    name="Classroom 2031",
+    name="Classroom 2.031",
     area=Area.BLUE,
     description=(
         "You enter Classroom 2.031... A shiver runs down your spine.",

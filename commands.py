@@ -292,7 +292,11 @@ def _interactions(game: Game) -> tuple[MenuItem, ...]:
         MenuItem(f"Look at {thing.name}", _inspect(thing.name)) for thing in game.room.inspectables
     ]
     actions += [
-        MenuItem(f"Take the {item.name}", _take(item.key), ends_interaction=True)
+        MenuItem(
+            f"Take the {item.name.upper() if game.room.key == 'storage' else item.name}",
+            _take(item.key),
+            ends_interaction=True,
+        )
         for item in game.items_here()
     ]
 
@@ -321,7 +325,8 @@ def _take(key: str) -> Callable[[Game], None]:
     def action(game: Game) -> None:
         item = game.take(key)
         ui.say()
-        ui.say(f"You take the {item.name}.")
+        name = item.name.upper() if game.room.key == "storage" else item.name
+        ui.say(f"You take the {name}.")
 
     return action
 

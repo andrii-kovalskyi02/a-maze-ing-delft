@@ -12,7 +12,7 @@ from world import register
 
 ROOM = Room(
     key="lab_2003",
-    name="LAB2.003",
+    name="LAB 2.003",
     area=Area.YELLOW,
     description=(
         "You step into LAB2.003.",

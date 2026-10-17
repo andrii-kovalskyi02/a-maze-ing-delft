@@ -8,7 +8,7 @@ from world import register
 ROOM = Room(
     # room ID
     key="classroom_2015",
-    name="classroom.2015",
+    name="Classroom.2015",
     area=Area.RED,
     description=(
         "This place feels odd.",
