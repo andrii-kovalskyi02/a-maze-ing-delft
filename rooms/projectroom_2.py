@@ -78,6 +78,7 @@ ROOM = Room(
         "You enter Project Room 2. A supervisor is sitting at a desk, "
         "looking at you as if he has been waiting for you."
     ),
+    return_description="The supervisor looks up from his desk again, unsurprised.",
     look_around=("A desk stands in the middle of the room. A whiteboard hangs on the wall."),
     exits=("lobby",),
     inspectables=(

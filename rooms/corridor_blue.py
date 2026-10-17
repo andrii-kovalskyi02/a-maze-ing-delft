@@ -6,7 +6,7 @@ forced pickup on the first look around, and adds the fire gating.
 
 from __future__ import annotations
 
-from models import Area, Inspectable, Room
+from models import Area, Inspectable, Room, Unless
 from world import register
 
 ROOM = Room(
@@ -16,8 +16,7 @@ ROOM = Room(
     description=("A long corridor with glass walls, and far too many doors.",),
     look_around=(
         "Doors line both sides, each with a room number screwed to it.",
-        0.6,
-        "An evacuation plan hangs on the wall halfway down.",
+        Unless("evacuation_plan", (0.6, "An evacuation plan hangs on the wall halfway down.")),
     ),
     exits=("classroom_2035", "teachers_room_4", "corridor_red", "classroom_2031", "stair_exit"),
     is_hallway=True,
@@ -25,6 +24,7 @@ ROOM = Room(
         Inspectable(
             name="the evacuation plan",
             text="A plan of the 2nd floor. You could take it off the wall.",
+            gone_once_taken="evacuation_plan",
         ),
     ),
     items=("evacuation_plan",),

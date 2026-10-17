@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 import digits
 import encounters
 import floor_map
+import models
 import narrator
 import progress
 import scoreboard
@@ -55,8 +56,10 @@ class MenuItem:
 def do_look_around(game: Game) -> None:
     """Describe the room, if it has anything to describe, then offer what is in it."""
     if game.room.look_around is not None:
-        ui.say()
-        ui.narrate(game.room.look_around)
+        told = models.resolve(game.room.look_around, game.has_taken)
+        if told:
+            ui.say()
+            ui.narrate(told)
     _offer_interactions(game)
 
 
@@ -76,11 +79,13 @@ def do_go(game: Game) -> None:
         item = game.carrying.add(destination.approach_reward)
         # The story first, then the plain fact: the player reads what they
         # found before being told it is in their pocket.
+        ui.new_page()  # picking something up is a moment of its own
         if destination.approach_reward_text is not None:
             ui.say()
             ui.narrate(destination.approach_reward_text)
         ui.say()
-        ui.say(f"You are now carrying the {item.name}.")
+        ui.narrate(f"You are now carrying the {item.name}.")
+        ui.new_page()
 
     if destination.is_exit and not _code_opens_the_exit(game, destination):
         return
@@ -260,10 +265,13 @@ def build_menu(game: Game) -> tuple[MenuItem, ...]:
         items.append(MenuItem("Go through a door", do_go))
     if "backpack" in game.carrying:
         items.append(MenuItem("Open your backpack", do_backpack))
-    if "evacuation_plan" in game.carrying:
+    if "evacuation_plan" in game.carrying and not ui.has_pause_menu():
+        # the Pygame window opens the drawn map with the M key instead
         items.append(MenuItem("Look at the evacuation plan", do_map))
 
-    items.append(MenuItem("Options", do_options))
+    if not ui.has_pause_menu():
+        # the Pygame window keeps these in its Escape menu instead
+        items.append(MenuItem("Options", do_options))
     return tuple(items)
 
 
@@ -289,7 +297,9 @@ def _offer_interactions(game: Game) -> None:
 def _interactions(game: Game) -> tuple[MenuItem, ...]:
     """Return what is in this room right now: objects, items, and any boss."""
     actions = [
-        MenuItem(f"Look at {thing.name}", _inspect(thing.name)) for thing in game.room.inspectables
+        MenuItem(f"Look at {thing.name}", _inspect(thing.name))
+        for thing in game.room.inspectables
+        if thing.gone_once_taken is None or not game.has_taken(thing.gone_once_taken)
     ]
     actions += [
         MenuItem(f"Take the {item.name}", _take(item.key), ends_interaction=True)
@@ -319,9 +329,10 @@ def _take(key: str) -> Callable[[Game], None]:
     """Return an action that picks up the item called ``key``."""
 
     def action(game: Game) -> None:
-        item = game.take(key)
-        ui.say()
-        ui.say(f"You take the {item.name}.")
+        ui.new_page()  # picking something up is a moment of its own
+        ui.narrate(f"You take the {get_item(key).name}.")
+        game.take(key)  # the backpack may have something to say about it
+        ui.new_page()
 
     return action
 

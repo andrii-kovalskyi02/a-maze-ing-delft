@@ -9,10 +9,12 @@ Run it with:
 
     python main_pygame.py
 
-Type + Enter like a normal console. Any key skips typing/pauses. Escape
-(or closing the window) saves and quits, the same as typing "pause". A timed
-question shows its seconds counting down, and presses Enter for you when
-they run out.
+Type + Enter like a normal console. The story text moves on by itself a
+second after each line, and Space skips all of it. Escape
+opens the pause menu: the whole game stops behind it, timers included, and
+Escape again resumes. Closing the window saves and quits, the same as typing
+"pause". A timed question shows its seconds counting down, and presses Enter
+for you when they run out.
 
 Quick map of the file:
     _StreamToQueue                   -> the fake stdout - also where typed
@@ -30,8 +32,7 @@ Quick map of the file:
     TerminalWindow._draw             -> draws everything each frame
     TerminalWindow._draw_intro       -> the old full-screen layout, before the first room
     TerminalWindow._draw_dialogue_box -> draws the Undertale-style box, lower-center
-    TerminalWindow._draw_map_overlay -> draws the map in its own corner panel
-    TerminalWindow._render_map_line  -> renders one map line with the same shadow as the main text
+    TerminalWindow._draw_map_view    -> draws the drawn floor map, opened with the M key
     TerminalWindow._load_room_image  -> loads/scales a room's background image, if it has one
     TerminalWindow._load_static_image -> the shared loader behind that, and
                                           the intro screen's background
@@ -41,9 +42,11 @@ Quick map of the file:
 from __future__ import annotations
 
 import ctypes
+import json
 import math
 import os
 import queue
+import re
 import sys
 import threading
 import time
@@ -51,6 +54,8 @@ import traceback
 
 import pygame
 
+import progress
+import scoreboard
 import ui  # the real console ui.py - nothing here reimplements any of it
 from main import main as run_console_game
 
@@ -82,6 +87,15 @@ _EOF = object()
 # tells the game "the clock ran out" - sent by the window, never typed
 _TIMED_OUT = object()
 
+# what the window puts in the answer queue once the player has confirmed a quit
+# in the pause menu: the game stops at once instead of asking again
+_QUIT_NOW = object()
+
+# what the game thread puts in the output queue after a line of story text has had its second
+# on screen: the text box starts a fresh page (it has to go through the queue, so it lands
+# after that line has been filed on screen, in order)
+_PAGE_BREAK = object()
+
 FPS = 60
 
 # fonts with glyphs for the unusual Unicode some puzzle text uses - the main
@@ -92,7 +106,10 @@ _ASSETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
 # name - see TerminalWindow._load_main_font for why. Free, redistributable,
 # monospaced, and designed for exactly this (small, screen-rendered text) -
 # see assets/JetBrainsMono-OFL.txt for its license.
-_MAIN_FONT_FILE = "JetBrainsMono-Regular.ttf"
+_MAIN_FONT_FILE = "AmazeHand-Regular.ttf"
+# our own handwriting is a copy of JetBrains Mono with the 52 letters redrawn, so if
+# it is ever missing the game falls back to the plain JetBrains Mono beside it
+_BACKUP_FONT_FILE = "JetBrainsMono-Regular.ttf"
 
 _FALLBACK_FONT_FILES = ["unifont-subset.otf", "unifont-upper-subset.otf"]
 
@@ -103,7 +120,6 @@ _FALLBACK_FONT_FILES = ["unifont-subset.otf", "unifont-upper-subset.otf"]
 # 2880x1800 panel with Windows display scaling at 200%).
 _REFERENCE_HEIGHT = 900
 _REFERENCE_FONT_SIZE = 15
-_REFERENCE_MAP_FONT_SIZE = 12
 _REFERENCE_MARGIN = 10
 
 # the heart in "Hearts: ♥♥♥" (health.py) - the main font has no glyph for it
@@ -111,6 +127,62 @@ _REFERENCE_MARGIN = 10
 # font's size and spacing so it sits on the same line as the text around it
 _HEART = "♥"
 _HEART_FONT_FILE = "heart.otf"
+
+# the "no heart" icon: a skull, in the same font under a private-use code point
+# nothing else uses. Only the "Hearts: ..." lines get it, in place of the dot
+# the game prints for an empty heart (see _render_text)
+_SKULL = "\ue000"
+# both icons are drawn in this red, whatever colour the text around them is
+_ICON_COLOR = (235, 45, 45)
+
+# the dialogue box is your hand-drawn chat box (assets/chat_box.png). It is cut into pieces so
+# it can be stretched to any size without thinning its lines: the columns are the left leg, the
+# gap (stretched to fit the words below), the foot, a stretchy middle and the right end; the rows
+# are the top edge, a stretchy middle, and the bottom edge with its legs. The numbers are pixel
+# positions in the drawing, which is 450 x 248
+_CHAT_BOX_FILE = "chat_box.png"
+_CHAT_BOX_X_CUTS = (0, 75, 146, 200, 330, 450)
+_CHAT_BOX_Y_CUTS = (0, 45, 150, 248)
+_CHAT_BOX_FOOT_HEIGHT = 79  # how tall the leg and foot are: the words are sized to fit between them
+_CHAT_BOX_LINE_Y = 190  # where the bottom edge runs
+_CHAT_BOX_WORDS_Y = 208  # the middle of the leg and foot, where the words sit
+# When there is nothing to skip, the gap and the little brackets of the leg and foot are
+# erased from a copy of the drawing and its bottom edge is drawn right across, using a short,
+# straight piece of that same edge (x, y, width, height in the drawing) stretched out - so the
+# closed box looks like the rest of your drawing, not like a patch.
+_CHAT_BOX_EDGE_PIECE = (196, 181, 15, 17)
+_CHAT_BOX_EDGE_START_X = 22  # where the new edge begins: inside the left side of the drawing
+_CHAT_BOX_EDGE_END_X = 211  # ...and where it joins the drawing's own bottom edge again
+# what to erase (x, y, width, height in the drawing): the leg's hook below the line, then the
+# foot and everything between the leg and the foot
+_CHAT_BOX_ERASE = ((0, 198, 76, 50), (76, 150, 124, 98))
+# shown in the gap at the bottom left of the box while the story is being told
+_SKIP_HINT_TEXT = "SPACE to skip"
+
+# what the Controls screen of the pause menu lists: (the keys, what they do)
+_CONTROLS = [
+    ("Up / Down  or  W / S", "choose from a menu or a question"),
+    ("1, 2, 3 ...", "pick that choice by its number"),
+    ("Enter", "confirm your choice, or send what you typed"),
+    ("Space", "skip all of the story text"),
+    ("M", "open the floor map, once you have taken the plan from the wall"),
+    ("Esc", "open the pause menu, and close it again"),
+    ("Type + Enter", "answer a question in your own words"),
+    ("Backspace", "take back a letter"),
+]
+
+# the choices of a menu are drawn as plain text in a column of their own (no "1)" numbers),
+# the chosen one in khaki with a ">" beside it. _box_lines marks their rows with these
+# two names instead of a real colour, and _draw_dialogue_box turns them into the colours
+_OPTION = "option"
+_OPTION_SELECTED = "option_selected"
+_OPTION_COLORS = {_OPTION: "white", _OPTION_SELECTED: "khaki"}
+
+# the pause menu sits over a blurred, dimmed freeze-frame of the game, so it is
+# obvious the game is stopped, yet you can still see where you were
+_PAUSE_BLUR_RADIUS = 14  # at the reference screen height - scaled to the real one
+_PAUSE_DIM_ALPHA = 130  # how much the frozen scene is darkened: 0 = not at all, 255 = black
+_PAUSE_ACCENT = (240, 200, 80)
 
 # background image per room, keyed by the exact "== Room Name ==" header
 # text the game prints when you walk in (see TerminalWindow._is_room_header)
@@ -120,10 +192,10 @@ _HEART_FONT_FILE = "heart.otf"
 # hallways, both labs, both teachers' rooms and the front desk office, every
 # project room). The storage room is left without a photo on purpose.
 _ROOM_IMAGES = {
-    "== classroom.2015 ==": "classroom_2035.jpg",
-    "== Classroom 2021 ==": "classroom_2035.jpg",
+    "== Classroom 2.015 ==": "classroom_2035.jpg",
+    "== Classroom 2.021 ==": "classroom_2035.jpg",
     "== Classroom 2.035 ==": "classroom_2035.jpg",
-    "== Classroom 2031 ==": "classroom_2035.jpg",
+    "== Classroom 2.031 ==": "classroom_2035.jpg",
     "== The Blue corridor ==": "hallway.jpg",
     "== The Red corridor ==": "hallway.jpg",
     "== LAB2.003 ==": "lab.jpg",
@@ -162,29 +234,31 @@ _TEXT_SHADOW_COLOR = (40, 40, 40)
 _TEXT_SHADOW_OFFSET = 1  # pixels, down and to the right
 _TEXT_SHADOW_ALPHA = 190  # 0 = invisible, 255 = fully solid
 
-# a near-solid tint behind the whole map panel, on top of each line's own
-# shadow. This used to be lighter (110) so a room's background image showed
-# through - but the map's thin box-drawing lines are much easier to lose in
-# a busy photo than the dialogue box's prose is, so the map panel now needs
-# to be MORE opaque than the dialogue box (_BOX_PANEL_ALPHA), not less. At
-# this alpha the photo behind it is only a faint hint, and the map reads as
-# a solid HUD element regardless of what room it's drawn over.
-_MAP_PANEL_ALPHA = 235
+# the drawn map of the floor (assets/floor_map.png): shown over the blurred game, opened with M
+# once the evacuation plan has been taken, and sized to fill this much of the window
+_MAP_FILE = "floor_map.png"
+_MAP_SCREEN_FRACTION = 0.92
+# the white scribble drawn over the room you are in, one picture per room, and where each one
+# goes on the map (assets/floor_map_rooms/index.json: room key -> x, y in the map's pixels)
+_MAP_ROOMS_DIR = "floor_map_rooms"
+# the small map in the bottom right corner that says "press M": this tall, as part of the window
+_MENU_ICON_FILE = "settings_icon.png"  # the cog in the top left corner that says "press Esc"
+_MAP_ICON_FILE = "floor_map_icon.png"  # a messy doodle of a map, not the map itself
+_MAP_ICON_HEIGHT = 0.1
+_MAP_ICON_CHECK_SECONDS = 0.5  # how often to ask whether the plan has been taken yet
 
-# the ASCII conventions floor_map.py's PLAN is drawn with (see that file's
-# WALLS and HERE) - mirrored here rather than imported, the same way
-# _is_map_top_border/_is_map_last_line above pattern-match on plain printed
-# text instead of reaching into floor_map.py: this file only ever acts on
-# what the game actually printed, never on the game's own modules. Used by
-# TerminalWindow._crop_map_to_local_area to figure out, from the text
-# alone, which part of the map is "the room you're in and its doors".
-_MAP_WALL_CHARS = frozenset("+-|=X")
-_MAP_HERE_CHAR = ":"
-
-# extra rows/columns of margin kept around the cropped area, so the crop
-# lands just outside the outermost wall it keeps rather than slicing
-# straight through it
-_MAP_CROP_PADDING = 1
+# walking into a new room: the old room fades to black, stays black for a moment, and the new
+# room fades in out of the black. The game waits through all of it, so the new room's text
+# only starts once the picture is fully there
+_CONTROLS_KEY_COLOR = (
+    "khaki"  # the keys on the Controls screen, so they stand out from their meaning
+)
+_INTRO_ROW_SPACING = 1.9  # the first screen's rows are this many text heights apart
+_NAME_NOTICE_SECONDS = 2.5  # how long "Please enter a valid name." stays up
+_PICK_DELAY_SECONDS = 0.25  # a choice picked by its number stays lit up this long, then answers
+_FADE_TIMES = (0.45, 0.12, 0.65)  # seconds: fading out, staying black, fading in
+# the very first room, when a game begins: a long, slow fade in out of the dark
+_FIRST_FADE_TIMES = (1.0, 0.6, 3.5)
 
 # the little Undertale-style dialogue box, lower-center - height just grows
 # to fit whatever it's currently showing (capped at _BOX_MAX_ROWS so one
@@ -248,6 +322,7 @@ class _StreamToQueue:
         # lands here instead of a real screen
         if not text:
             return
+        self._window.wait_while_paused()  # the pause menu is open: the game stands still
         _debug_log(f"stdout.write() len={len(text)} text={text!r}")
         if text == "\n":
             was_typed = self._typing_current_line
@@ -264,6 +339,8 @@ class _StreamToQueue:
         # write() call - a lone character is the signature of the typed
         # path, a longer string is the signature of the instant one
         self._typing_current_line = len(text) == 1
+        if self._typing_current_line:
+            self._window.narrating = True  # the "SPACE to skip" tag shows while this goes on
         self._queue.put(text)
 
     def flush(self) -> None:
@@ -300,6 +377,8 @@ class _QueueToStream:
             raise EOFError
         if line is _TIMED_OUT:
             raise ui.TimedOut  # the same thing ui.py does in a real terminal
+        if line is _QUIT_NOW:
+            raise ui.QuitRequested  # what a confirmed "quit" does - game.py ends the run
         return line
 
     def readline(self) -> str:
@@ -307,7 +386,7 @@ class _QueueToStream:
         # stray input() should still work rather than crash
         try:
             return f"{self.read_answer('')}\n"
-        except (EOFError, ui.TimedOut):
+        except (EOFError, ui.TimedOut, ui.QuitRequested):
             return ""  # empty string = EOF, same as a real terminal
 
     def isatty(self) -> bool:
@@ -320,48 +399,31 @@ class _QueueToStream:
 
 
 def _make_dialogue_sleep(window: TerminalWindow):
-    """Swaps in for time.sleep() - a keypress fast-forwards through typing.
+    """Swaps in for time.sleep() - it is what makes the story text type out.
 
-    A keypress fast-forwards through the typing delay between characters,
-    finishing the current line instantly instead of waiting out the rest
-    of its real-time typing.
+    It waits out each delay between characters (and between the parts of a
+    text) in short slices, so that two things can cut it short: Space, which
+    sets ``window.skipping`` and makes every delay after it vanish until the
+    next question (see TerminalWindow._skip_narration), and the pause menu,
+    which stops this clock for as long as it is open.
 
-    The "stop and wait for a press before the next line can start" behaviour
-    does NOT live here - narrate()'s per-character writes give no sleep()
-    call between two on-screen LINES to hook (only between two authored
-    PARTS), so that's handled where the text actually is: _StreamToQueue.
-    write(), which watches the character stream itself and blocks the game
-    thread the instant a typed line finishes (see TerminalWindow.
-    wait_for_line_advance). This function's other job is fast-forwarding a
-    line that's still mid-typing (skip_event, below).
-
-    It also has a THIRD job: the press that unblocks wait_for_line_advance
-    also sets window.skip_pause_event, and the very next sleep() call after
-    that - whatever narrate() was about to wait on next, an explicit float
-    or the default PART_DELAY between two parts - is let through instantly
-    instead of actually waiting. Without this, the player presses to move
-    on, the box goes blank for the length of that pause, and only then does
-    the next part start appearing - a dead gap with nothing on screen and
-    nothing to do but wait, right after the player just asked to keep
-    going. It's consumed the first time it's checked (whatever sleep() call
-    that turns out to be - see the comment where it's set) so it can only
-    ever cancel the one pause a press was actually waiting on, not linger
-    and eat a later, unrelated one.
+    Waiting for the player to read a finished line is not done here: narrate()
+    gives no sleep() call between two on-screen lines to hook, so that is
+    handled where the text actually is, in _StreamToQueue.write(), which calls
+    TerminalWindow.wait_for_line_advance() the instant a typed line finishes.
 
     Passed into ui.use_io() as the sleep argument - the one official hook
     the game already has for this, so nothing in ui.py gets touched.
     """
 
     def _sleep(seconds: float) -> None:
-        if window.quitting:
-            return  # Escape was pressed - rush the game to its save, no waiting
-        if window.skip_pause_event.is_set():
-            window.skip_pause_event.clear()
-            return
+        if window.quitting or window.skipping:
+            return  # leaving, or Space was pressed: no waiting
         end = time.monotonic() + seconds
         while time.monotonic() < end:
-            if window.skip_event.is_set():
+            if window.skip_event.is_set() or window.skipping:
                 return
+            end += window.wait_while_paused()  # the pause menu is open: stop this clock too
             time.sleep(0.005)  # check often so a keypress feels instant
 
     return _sleep
@@ -372,6 +434,9 @@ class TerminalWindow:
 
     # printed after every answered prompt, to separate it from what comes next
     DIVIDER = "-" * 64
+
+    # how long a finished line of story text stays before the next one starts by itself
+    AUTO_ADVANCE_SECONDS = 1.0
 
     def __init__(self) -> None:
         """Set up the window itself, and all the state tracked between frames."""
@@ -397,14 +462,59 @@ class TerminalWindow:
         # fonts cover that, and _render_text() below picks whichever one
         # actually has each character instead of drawing a blank box for it
         self.fallback_fonts = self._load_fallback_fonts(font_size)
-        # smaller than the main text, so it reads as a HUD panel rather
-        # than taking over the screen
-        self.map_font = self._load_main_font(max(8, round(_REFERENCE_MAP_FONT_SIZE * self.scale)))
         # bigger than the main text - used just for the current question
         # (the prompt and its numbered choices) inside the dialogue box, so
         # what the player can actually act on stands out from narration -
         # see _box_lines/_render_text's `big` argument
         self.menu_font = self._load_main_font(int(font_size * 1.35))
+        # the word PAUSED on the pause menu
+        self.title_font = self._load_main_font(max(12, round(font_size * 2.6)))
+        # the hearts on the pause menu are drawn much bigger than the text around them
+        hearts_size = max(12, round(font_size * 3.0))
+        self.pause_hearts_size = hearts_size
+        self.pause_hearts_font = self._load_heart_font(hearts_size)
+        self.pause_hearts_text_font = self._load_main_font(hearts_size)
+        # the hand-drawn chat box, and the sizes it has been stretched to so far
+        chat_box_path = os.path.join(_ASSETS_DIR, _CHAT_BOX_FILE)
+        self.chat_box_art: pygame.Surface | None = (
+            pygame.image.load(chat_box_path).convert_alpha()
+            if os.path.exists(chat_box_path)
+            else None
+        )
+        self.chat_box_closed_art: pygame.Surface | None = (
+            self._make_closed_chat_box(self.chat_box_art) if self.chat_box_art else None
+        )
+        self._chat_box_cache: dict[tuple, pygame.Surface] = {}
+        # the drawn floor map, and the size it was last scaled to
+        map_path = os.path.join(_ASSETS_DIR, _MAP_FILE)
+        self.map_art: pygame.Surface | None = (
+            pygame.image.load(map_path).convert_alpha() if os.path.exists(map_path) else None
+        )
+        self._map_scaled: tuple[tuple[int, int], pygame.Surface] | None = None
+        self.map_rooms: dict[str, tuple[int, int]] = {}
+        rooms_index = os.path.join(_ASSETS_DIR, _MAP_ROOMS_DIR, "index.json")
+        if os.path.exists(rooms_index):
+            with open(rooms_index, encoding="utf-8") as handle:
+                self.map_rooms = {key: (xy[0], xy[1]) for key, xy in json.load(handle).items()}
+        self._map_room_scaled: dict[tuple, pygame.Surface] = {}
+        icon_path = os.path.join(_ASSETS_DIR, _MAP_ICON_FILE)
+        self.map_icon_art: pygame.Surface | None = (
+            pygame.image.load(icon_path).convert_alpha() if os.path.exists(icon_path) else None
+        )
+        self._map_icon: pygame.Surface | None = None
+        menu_icon_path = os.path.join(_ASSETS_DIR, _MENU_ICON_FILE)
+        self.menu_icon_art: pygame.Surface | None = (
+            pygame.image.load(menu_icon_path).convert_alpha()
+            if os.path.exists(menu_icon_path)
+            else None
+        )
+        self._menu_icon: pygame.Surface | None = None
+        self.fade_started: float | None = None  # when the room change began, if one is going on
+        self.fade_snapshot: pygame.Surface | None = None  # the old room, as it last looked
+        self._fade_times = _FADE_TIMES  # fade out, hold, fade in - this room change's own timings
+        self._fade_cover: pygame.Surface | None = None
+        self._has_map = False
+        self._has_map_checked_at = 0.0
         # the hearts, at both text sizes - see _HEART_FONT_FILE
         self.heart_font = self._load_heart_font(font_size)
         self.heart_menu_font = self._load_heart_font(int(font_size * 1.35))
@@ -422,22 +532,18 @@ class TerminalWindow:
         # this room's background image (see _ROOM_IMAGES), swapped in
         # _pump_output() the instant a new room header arrives - None if
         # this room has no image, which just means nothing gets drawn.
-        # Starts out holding the intro screen's own background (_INTRO_IMAGE)
-        # instead of None, since _draw() blits whatever's here regardless of
-        # room_header - the first real room header overwrites this the same
-        # way every later one does.
-        self.room_image: pygame.Surface | None = self._load_static_image(_INTRO_IMAGE)
-
-        # the last "Look at the evacuation plan" output, drawn in its own
-        # corner panel instead of the normal scrollback - see _pump_output
-        self.map_overlay: list[str] | None = None
-        self._capturing_map = False
-        self._map_capture_buffer: list[str] = []
+        # The intro screen is plain black for now (its photo is _INTRO_IMAGE, which
+        # _load_static_image can load again when it comes back) - the first real room
+        # header puts that room's picture here.
+        self.room_image: pygame.Surface | None = None
 
         self.game_over = False
         # True from the moment Escape is pressed - the game thread then stops
         # waiting for presses and sleeps, so it reaches its save straight away
         self.quitting = False
+        # True once the player has chosen to leave: the window closes the moment
+        # the game has saved (or not), without showing its goodbye message
+        self.exit_silently = False
         self._quit_requested_at = 0.0
 
         # True only while the game is blocked waiting on an answer, not while narrating
@@ -469,9 +575,11 @@ class TerminalWindow:
         # be pressed past - what actually unblocks the game thread (see
         # _StreamToQueue.write / wait_for_line_advance)
         self.advance_event = threading.Event()
-        # set alongside advance_event, by that same press - see
-        # _make_dialogue_sleep for what it's for
-        self.skip_pause_event = threading.Event()
+        # True once Space has been pressed: the story text then goes by without a single delay
+        # until the game next asks the player something (see _skip_narration, _wait_start)
+        self.skipping = False
+        # True while story text is being told, for the "SPACE to skip" tag
+        self.narrating = False
         # True only in that state - the game thread is genuinely blocked,
         # not just "the window happens to not be showing more yet"
         self.waiting_to_advance = False
@@ -480,7 +588,34 @@ class TerminalWindow:
         # answers a question (see _draw_dialogue_box / _handle_events)
         self.box_start = 0
 
+        # the pause menu (Escape) - see _open_pause_menu. The game thread waits on
+        # pause_gate (set = running), so the whole game stops behind the menu
+        self.paused = False
+        self.pause_gate = threading.Event()
+        self.pause_gate.set()
+        self._paused_at = 0.0
+        self.pause_selected = 0
+        self.pause_view = "menu"  # "menu", "scoreboard", "controls", "quit" or "map"
+        self.pause_status: dict[str, object] = {}
+        self.pause_scores: list[str] = []
+        # the blurred freeze-frame drawn behind the menu, made when it opens
+        self.pause_backdrop: pygame.Surface | None = None
+        # a short message on the menu, such as "Game saved." - and when it goes
+        self.pause_notice = ""
+        self._pause_notice_until = 0.0
+
+        # which numbered choice Up/Down has highlighted on the question being
+        # asked (an index into _menu_options), or None until an arrow key is
+        # pressed - so a stray Enter never answers a question by itself
+        self.menu_selected: int | None = None
+        # when a number key has been pressed on a menu: the moment its choice is answered
+        self._pending_pick: float | None = None
+        # until when to show "Please enter a valid name." under the name prompt
+        self._name_notice_until = 0.0
+
     def _wait_start(self) -> None:
+        self.skipping = False  # the story stops at a question, and so does skipping it
+        self.narrating = False
         self.waiting_for_input = True
         self._prompt_pending = True
 
@@ -488,22 +623,250 @@ class TerminalWindow:
         self.waiting_for_input = False
 
     def wait_for_line_advance(self) -> None:
-        """Block the game thread right where a typed line just finished.
+        """Hold the game thread for a second right where a typed line just finished.
 
-        Called from the GAME THREAD (see _StreamToQueue.write) the instant
-        a typed line finishes - blocks it right there until the player
-        presses something. This is what stops the game thread from racing
-        ahead typing the next line (or several) in the background while the
-        player is still reading the one before - only pausing the DISPLAY
-        wouldn't be enough, since the text would already be fully typed and
-        waiting by the time they caught up.
+        Called from the GAME THREAD (see _StreamToQueue.write) the instant a typed
+        line finishes. It stays for AUTO_ADVANCE_SECONDS so the player can read
+        it, then carries on by itself - or at once if Space has been pressed. This
+        is what stops the game thread racing ahead typing the next lines in the
+        background while the player is still reading the one before. The pause
+        menu stops the second from running down while it is open.
         """
         if self.quitting:
-            return  # Escape was pressed - don't make the player press through to the save
-        self.advance_event.clear()
-        self.waiting_to_advance = True
-        self.advance_event.wait()
+            return  # leaving: don't hold anything up on the way to the save
+        if not self.skipping:
+            self.advance_event.clear()
+            self.waiting_to_advance = True
+            deadline = time.monotonic() + self.AUTO_ADVANCE_SECONDS
+            while not self.advance_event.wait(0.02) and not self.quitting:
+                if self.paused:
+                    deadline = time.monotonic() + self.AUTO_ADVANCE_SECONDS  # held while paused
+                elif time.monotonic() >= deadline:
+                    break
+        self.out_queue.put(_PAGE_BREAK)  # the text box starts a fresh page for what comes next
         self.waiting_to_advance = False
+
+    def _start_fade(self) -> None:
+        """Begin fading out of the room on screen, and hold the game while it goes dark."""
+        if self.paused or self.quitting or self.fade_started is not None:
+            return
+        self.fade_snapshot = self.screen.copy()
+        # no room header yet means this is the first room of the game
+        self._fade_times = _FIRST_FADE_TIMES if self.room_header is None else _FADE_TIMES
+        self.fade_started = time.monotonic()
+        self.pause_gate.clear()  # the game thread stops at its next word, until the screen is black
+
+    def _end_fade(self) -> None:
+        """Stop any room change in progress and let the game carry on."""
+        self.fade_started = None
+        self.fade_snapshot = None
+        if not self.paused:
+            self.pause_gate.set()
+
+    def _draw_fade(self) -> None:
+        """Draw one frame of the room change: old room to black, then new room up from black."""
+        assert self.fade_started is not None
+        elapsed = time.monotonic() - self.fade_started
+        fade_out, hold, fade_in = self._fade_times
+        dark_at = fade_out
+        light_at = dark_at + hold
+        end_at = light_at + fade_in
+        if elapsed < dark_at and self.fade_snapshot is not None:
+            self.screen.blit(self.fade_snapshot, (0, 0))  # the room we are leaving
+            darkness = elapsed / dark_at
+        else:
+            if elapsed >= end_at:
+                self._end_fade()  # fully lit: now the new room's story may begin
+                self._draw_scene()
+                self._draw_map_hint()
+                self._draw_menu_hint()
+                return
+            self._draw_scene(box=False)  # the room we have come to, its text not started yet
+            darkness = 1.0 if elapsed < light_at else 1.0 - (elapsed - light_at) / fade_in
+        if self._fade_cover is None or self._fade_cover.get_size() != self.screen.get_size():
+            self._fade_cover = pygame.Surface(self.screen.get_size())
+            self._fade_cover.fill((0, 0, 0))
+        self._fade_cover.set_alpha(round(255 * max(0.0, min(1.0, darkness))))
+        self.screen.blit(self._fade_cover, (0, 0))
+
+    def wait_while_paused(self) -> float:
+        """Block the GAME thread while the pause menu is open; return how long it waited."""
+        if self.pause_gate.is_set():
+            return 0.0
+        started = time.monotonic()
+        self.pause_gate.wait()
+        return time.monotonic() - started
+
+    def _open_pause_menu(self) -> None:
+        """Stop the game behind a menu of its own, showing how the player is doing.
+
+        What the menu shows is taken once, now: the game is frozen, so the
+        numbers on it are too.
+        """
+        self._pending_pick = None  # a number pressed a moment ago is forgotten
+        self.fade_started = None  # a room change in progress is dropped: the menu holds the game
+        self.fade_snapshot = None
+        self.pause_status = ui.status() or {}
+        # freeze the scene as it is - room, text bubble, map - blurred and dimmed
+        self._draw_scene()
+        backdrop = self._blurred(self.screen)
+        dim = pygame.Surface(backdrop.get_size(), pygame.SRCALPHA)
+        dim.fill((0, 0, 0, _PAUSE_DIM_ALPHA))
+        backdrop.blit(dim, (0, 0))
+        self.pause_backdrop = backdrop
+        self.pause_selected = 0
+        self.pause_view = "menu"
+        self._paused_at = time.monotonic()
+        self.paused = True
+        self.pause_gate.clear()  # the game thread stops at its next word or pause
+
+    def _can_open_map(self) -> bool:
+        """True once the evacuation plan has been taken, unless a typed answer is being written."""
+        status = ui.status()
+        if self.map_art is None or self.quitting or not status or not status.get("has_map"):
+            return False
+        typing = self.waiting_for_input and not self.waiting_to_advance and not self._menu_options()
+        return not typing  # while typing, M is just a letter
+
+    def _open_map(self) -> None:
+        """Stop the game behind the drawn map, like the pause menu does."""
+        self._open_pause_menu()
+        self.pause_view = "map"
+
+    def _close_pause_menu(self) -> None:
+        """Let the game carry on, with every clock set back by the time it stood still."""
+        if not self.paused:
+            return
+        self._settle_pause_clock()  # the time played and every timer get back what the menu took
+        self.paused = False
+        self.pause_backdrop = None
+        self.pause_gate.set()
+
+    def _settle_pause_clock(self) -> None:
+        """Count the time the menu has been open so far as paused, then start counting afresh.
+
+        Done when the menu closes - and before saving, so the saved time played
+        leaves out the time spent sitting in the menu.
+        """
+        now = time.monotonic()
+        waited = now - self._paused_at
+        self._paused_at = now
+        if self.deadline is not None:
+            self.deadline += waited  # a timed question gets back what the menu took
+        ui.hold_time(waited)  # and so do the time played and the boss timers
+
+    def _blurred(self, surface: pygame.Surface) -> pygame.Surface:
+        """Return a gaussian-blurred copy of ``surface``: the frozen game behind the menu."""
+        radius = max(3, round(_PAUSE_BLUR_RADIUS * self.scale))
+        size = surface.get_size()
+        # blur a quarter-size copy: four times quicker, and a blur hides the lost detail anyway
+        small = pygame.transform.smoothscale(surface, (max(1, size[0] // 4), max(1, size[1] // 4)))
+        gaussian_blur = getattr(pygame.transform, "gaussian_blur", None)
+        if gaussian_blur is not None:  # pygame-ce, which run_game.bat installs
+            small = gaussian_blur(small, max(1, radius // 4))
+        else:
+            # plain pygame has no blur - shrinking further and growing back smears alike
+            tiny = pygame.transform.smoothscale(
+                small, (max(1, small.get_width() // 4), max(1, small.get_height() // 4))
+            )
+            small = pygame.transform.smoothscale(tiny, small.get_size())
+        return pygame.transform.smoothscale(small, size)
+
+    def _pause_items(self) -> list[str]:
+        """The labels on the pause menu, in order."""
+        speed = "instant" if ui.is_instant() else "typed out"
+        return [
+            "Resume",
+            "Scoreboard",
+            "Controls",
+            f"Story text: {speed}",
+            "Save and continue",
+            "Save and quit",
+            "Quit the game",
+        ]
+
+    def _pause_menu_key(self, event: pygame.event.Event) -> None:
+        """Handle a key press while the pause menu is open."""
+        if self.pause_view == "map":
+            if event.key in (
+                pygame.K_ESCAPE,
+                pygame.K_m,
+                pygame.K_RETURN,
+                pygame.K_KP_ENTER,
+                pygame.K_SPACE,
+                pygame.K_BACKSPACE,
+            ):
+                self._close_pause_menu()
+            return
+        if self.pause_view in ("scoreboard", "controls"):
+            if event.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_BACKSPACE):
+                self.pause_view = "menu"
+            return
+        if self.pause_view == "quit":
+            self._quit_menu_key(event)
+            return
+        items = self._pause_items()
+        if event.key == pygame.K_ESCAPE:
+            self._close_pause_menu()
+        elif event.key in (pygame.K_UP, pygame.K_w):
+            self.pause_selected = (self.pause_selected - 1) % len(items)
+        elif event.key in (pygame.K_DOWN, pygame.K_s):
+            self.pause_selected = (self.pause_selected + 1) % len(items)
+        elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+            self._pause_choose(self.pause_selected)
+        elif event.unicode.isdigit() and 1 <= int(event.unicode) <= len(items):
+            self._pause_choose(int(event.unicode) - 1)
+
+    def _quit_items(self) -> list[str]:
+        """The two answers to "Are you sure you want to quit?", in order."""
+        return ["Quit the game", "Keep playing"]
+
+    def _quit_menu_key(self, event: pygame.event.Event) -> None:
+        """Handle a key press while the pause menu is asking "Are you sure you want to quit?"."""
+        if event.key == pygame.K_ESCAPE:
+            self._quit_choose(1)  # backing out is the same as keeping on playing
+        elif event.key in (pygame.K_UP, pygame.K_w, pygame.K_DOWN, pygame.K_s):
+            self.pause_selected = 1 - self.pause_selected
+        elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+            self._quit_choose(self.pause_selected)
+        elif event.unicode in ("1", "2"):
+            self._quit_choose(int(event.unicode) - 1)
+
+    def _quit_choose(self, index: int) -> None:
+        """Quit for good (0), or go back to the pause menu (1)."""
+        if index == 0:
+            self._quit(save=False)  # the game stops at once, saving nothing, and the window closes
+        else:
+            self.pause_view = "menu"
+            self.pause_selected = 6  # back on "Quit the game"
+
+    def _pause_choose(self, index: int) -> None:
+        """Do what the pause menu's item number ``index`` says."""
+        if index == 0:
+            self._close_pause_menu()
+        elif index == 1:
+            self.pause_scores = scoreboard.lines()
+            self.pause_view = "scoreboard"
+        elif index == 2:
+            self.pause_view = "controls"
+        elif index == 3:
+            ui.set_instant(not ui.is_instant())
+        elif index == 4:
+            self._settle_pause_clock()  # so the saved time played leaves out this pause
+            try:
+                saved = ui.save_game()
+            except Exception:  # a locked or missing database must not take the game down
+                traceback.print_exc()
+                self.pause_notice = "Could not save the game."
+            else:
+                self.pause_notice = "Game saved." if saved else "There is nothing to save yet."
+            self._pause_notice_until = time.monotonic() + 3.0
+        elif index == 5:
+            self._quit()  # saves and ends the game, the same as closing the window
+        elif index == 6:
+            # ask "Are you sure?" right here on the pause screen, on "Keep playing" to start with
+            self.pause_view = "quit"
+            self.pause_selected = 1
 
     def start_game_thread(self) -> None:
         """Wire the fake stdout/stdin in, then start the real game in the background."""
@@ -514,6 +877,8 @@ class TerminalWindow:
         # the only place this file changes game behaviour - see _make_dialogue_sleep,
         # and read_line_with_clock below for how answers are read
         ui.use_io(write=print, read=keyboard.read_answer, sleep=_make_dialogue_sleep(self))
+        ui.set_pause_menu(True)  # Escape opens the pause menu, so the game menu drops "Options"
+        ui.set_page_handler(lambda: self.out_queue.put(_PAGE_BREAK))  # a pickup gets its own page
 
         # ui.py's _type_line() has its OWN independent skip check that
         # peeks at the real console's keyboard buffer (msvcrt on Windows) -
@@ -575,20 +940,6 @@ class TerminalWindow:
         return line.startswith("== ") and line.endswith(" ==") and len(line) > 6
 
     @staticmethod
-    def _is_map_top_border(line: str) -> bool:
-        # floor_map.py's plan always starts with a wall row like this
-        # ("+" and "-" only) - nothing else in the game prints one, so
-        # seeing this line means "Look at the evacuation plan" was chosen
-        stripped = line.strip()
-        is_wall_row = len(stripped) > 2 and stripped[0] == "+" and stripped[-1] == "+"
-        return is_wall_row and set(stripped) <= set("+-")
-
-    @staticmethod
-    def _is_map_last_line(line: str) -> bool:
-        # floor_map.py's render() always ends with exactly this sentence
-        return line.startswith(" You are in ")
-
-    @staticmethod
     def _option_label(typed: str, block: list[tuple[str, str]]) -> str | None:
         # finds "1) Look around" for typed="1" and returns "Look around"
         prefix = f"{typed}) "
@@ -597,10 +948,6 @@ class TerminalWindow:
             if stripped.startswith(prefix):
                 return stripped[len(prefix) :]
         return None
-
-    # if a map capture somehow never reaches its last line, give up after
-    # this many lines rather than swallowing the rest of the game's output
-    _MAX_MAP_CAPTURE_LINES = 200
 
     def _pump_output(self) -> None:
         """Read what the game has printed since last frame, turn it into screen lines.
@@ -614,40 +961,17 @@ class TerminalWindow:
         try:
             while True:
                 chunk = self.out_queue.get_nowait()
+                if chunk is _PAGE_BREAK:
+                    self.box_start = len(self.lines)  # the line before it is filed: a fresh page
+                    continue
                 for character in chunk:
                     if character == "\n":
-                        if self._capturing_map:
-                            self._map_capture_buffer.append(self.current_line)
-                            if self._is_map_last_line(self.current_line):
-                                # the whole map arrived - crop it down to
-                                # the current room and its doors (see
-                                # _crop_map_to_local_area) and show that in
-                                # its own corner instead of the normal
-                                # scrollback
-                                self.map_overlay = self._crop_map_to_local_area(
-                                    self._map_capture_buffer
-                                )
-                                self._map_capture_buffer = []
-                                self._capturing_map = False
-                            elif len(self._map_capture_buffer) > self._MAX_MAP_CAPTURE_LINES:
-                                # never found the end - something's off, so
-                                # don't lose this text, just show it plainly
-                                self.lines.extend(
-                                    (line, "white") for line in self._map_capture_buffer
-                                )
-                                self._map_capture_buffer = []
-                                self._capturing_map = False
-                        elif self._is_map_top_border(self.current_line):
-                            # the map's first line - capture it and everything
-                            # after it instead of adding it to self.lines
-                            self._capturing_map = True
-                            self._map_capture_buffer = [self.current_line]
-                        elif self._is_room_header(self.current_line):
+                        if self._is_room_header(self.current_line):
                             # new room = clean screen, but keep the header pinned up top
+                            self._start_fade()
                             self.room_header = self.current_line
                             self.room_image = self._load_room_image(self.current_line)
                             self.lines = []
-                            self.map_overlay = None
                             self._prompt_start = None
                             self._last_blank_index = None
                             self.box_start = 0
@@ -669,50 +993,120 @@ class TerminalWindow:
             # a new question just started - remember where it began, to collapse it later
             self._prompt_start = self._last_blank_index if self._last_blank_index is not None else 0
             self._prompt_pending = False
+            # an untimed menu starts on its first choice, so Enter alone answers it. A timed
+            # boss question starts with nothing chosen, so a stray Enter can't answer it
+            self.menu_selected = 0 if self._menu_options() and self.deadline is None else None
 
     def _handle_events(self) -> None:
+        # file whatever the game has printed first: a key pressed in the very frame a question
+        # starts would otherwise be handled before the question's choices are on screen, and
+        # taken for an answer to a question that has no choices
+        self._pump_output()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self._quit()
             elif event.type == pygame.KEYDOWN:
+                if self.paused:
+                    self._pause_menu_key(event)
+                    continue
                 if self.game_over:
                     self._quit()
                     continue
                 if event.key == pygame.K_ESCAPE:
-                    self._quit()
+                    if ui.status() is not None and not self.quitting:
+                        self._open_pause_menu()  # a game is being played: stop it
+                    else:
+                        self._quit()  # nothing to pause yet, such as while typing the name
                     continue
-                if self.waiting_to_advance:
-                    # a typed line just finished and the game thread is
-                    # genuinely blocked on it (see wait_for_line_advance) -
-                    # this press is what unblocks it. Takes priority over
-                    # everything else below in case waiting_for_input is
-                    # somehow also true (shouldn't happen while blocked, but
-                    # this is the state that matters if it ever does)
-                    self.box_start = len(self.lines)
-                    self.advance_event.set()
-                    # this press is what the player experiences as "moving
-                    # things along" - whatever narrate() does next (the
-                    # pause between this part and the next, either an
-                    # explicit float or the default PART_DELAY) is dead time
-                    # they didn't ask for, only the typing animation is
-                    # worth keeping. See _make_dialogue_sleep.
-                    self.skip_pause_event.set()
+                if event.key == pygame.K_m and self._can_open_map():
+                    self._open_map()
                     continue
-                if not self.waiting_for_input:
-                    # game is busy narrating, not asking anything - this
-                    # press just finishes the current line's typing instantly
-                    self.skip_event.set()
+                if self.waiting_to_advance or not self.waiting_for_input:
+                    # the story is being told: Space skips all of it, and no other key does
+                    # anything (the text moves on by itself - see wait_for_line_advance)
+                    if event.key == pygame.K_SPACE:
+                        self._skip_narration()
+                    continue
+                options = self._menu_options()
+                if options:
+                    # a numbered menu: the arrows (or W and S) pick, Enter answers, a number key
+                    # picks that choice and answers a moment later, and nothing is typed
+                    if self._pending_pick is not None:
+                        continue  # a choice is already lit up, waiting to be answered
+                    numbers = [number for number, _row in options]
+                    if event.unicode in numbers:
+                        self.menu_selected = numbers.index(event.unicode)
+                        self.typed = ""
+                        self._pending_pick = time.monotonic() + _PICK_DELAY_SECONDS
+                    elif event.key in (pygame.K_UP, pygame.K_w, pygame.K_DOWN, pygame.K_s):
+                        self._move_menu_selection(down=event.key in (pygame.K_DOWN, pygame.K_s))
+                    elif event.key == pygame.K_RETURN and self.menu_selected is not None:
+                        self.typed = options[self.menu_selected % len(options)][0]
+                        self._submit(self.typed)
                     continue
                 if event.key == pygame.K_RETURN:
-                    self._submit(self.typed)
+                    if self.room_header is None and ui.status() is None and not self.typed.strip():
+                        # the name prompt: an empty name is not sent, it is only pointed out
+                        self._name_notice_until = time.monotonic() + _NAME_NOTICE_SECONDS
+                    else:
+                        self._submit(self.typed)
                 elif event.key == pygame.K_BACKSPACE:
                     self.typed = self.typed[:-1]
                 elif event.unicode and event.unicode.isprintable():
                     self.typed += event.unicode
 
+    def _skip_narration(self) -> None:
+        """Skip the rest of the story text: no typing, no pauses, until the next question."""
+        self.skipping = True
+        self.skip_event.set()
+        self.advance_event.set()  # a line that is waiting for its second carries on now
+
+    def _menu_options(self) -> list[tuple[str, int]]:
+        """Return the numbered choices of the question being asked, in order.
+
+        Each is (the number to answer with, its index in self.lines), found by
+        reading the "  1) Look around" lines the game printed - the same way
+        _option_label does - so every menu and every multiple-choice boss
+        question works without the rooms or the game knowing about it.
+        """
+        if self._prompt_start is None:
+            return []
+        options = []
+        for index in range(self._prompt_start, len(self.lines)):
+            match = re.match(r"(\d+)\) ", self.lines[index][0].strip())
+            if match:
+                options.append((match.group(1), index))
+        return options if len(options) >= 2 else []
+
+    def _move_menu_selection(self, down: bool) -> None:
+        """Move the highlight to the next or previous choice, wrapping round."""
+        options = self._menu_options()
+        if not options:
+            return
+        if self.menu_selected is None:
+            self.menu_selected = 0 if down else len(options) - 1
+        else:
+            self.menu_selected = (self.menu_selected + (1 if down else -1)) % len(options)
+        self.typed = ""  # the arrows take over from half a typed number
+
     def _check_clock(self) -> None:
         """Press Enter for the player when a timed question runs out."""
         deadline = self.deadline
+        if self.paused:
+            return  # the clock is stopped while the pause menu is open
+        if self._pending_pick is not None:
+            # a number was pressed: answer with that choice once it has been lit up for a moment,
+            # even if the clock of a timed question ran out meanwhile - it was pressed in time
+            options = self._menu_options()
+            if not self.waiting_for_input or not options or self.menu_selected is None:
+                self._pending_pick = None
+            elif time.monotonic() >= self._pending_pick:
+                self._pending_pick = None
+                self.typed = options[self.menu_selected % len(options)][0]
+                self._submit(self.typed)
+                return
+            else:
+                return
         if self.waiting_for_input and deadline is not None and time.monotonic() >= deadline:
             self._submit(_TIMED_OUT)
 
@@ -747,24 +1141,33 @@ class TerminalWindow:
         # second Enter (or the clock) in the next frame can't answer twice
         self.waiting_for_input = False
         self.deadline = None
+        self.menu_selected = None
         self.in_queue.put(answer)
         # start the box fresh for whatever comes next, instead
         # of leaving the answered question sitting in it
         self.box_start = len(self.lines)
 
-    def _quit(self) -> None:
-        """Save and quit, the same as typing "pause" - or just quit if there is nothing to save."""
+    def _quit(self, save: bool = True) -> None:
+        """Leave the game and close the window, saving first unless ``save`` is False.
+
+        Saving is the same as typing "pause"; there is nothing to save before a
+        game has started (typing your name). The game's goodbye message is not
+        shown: the window just closes once the game has finished up.
+        """
         if self.quitting:
             return  # don't save twice if Escape gets pressed more than once
         self.quitting = True
+        self.exit_silently = True
         self._quit_requested_at = time.monotonic()
+        self._close_pause_menu()  # the menu must not hold the game back from saving
+        self._end_fade()  # nor must a room change
         if self.game_over:
             return
         # ui.py only has a pause handler once a game is being played - before
         # that (typing your name) there is nothing to save yet
         if ui._pause_handler is not None:
             self.typed = ""
-            self.in_queue.put("pause")
+            self.in_queue.put("pause" if save else _QUIT_NOW)
         else:
             self.in_queue.put(_EOF)
         # the game thread might be genuinely blocked in wait_for_line_advance
@@ -812,10 +1215,11 @@ class TerminalWindow:
         # person's setup, just this never having been guaranteed to be the
         # same font twice. Loading the bundled file guarantees everyone
         # sees the same one, chosen specifically for small on-screen text.
-        path = os.path.join(_ASSETS_DIR, _MAIN_FONT_FILE)
-        if os.path.exists(path):
-            return pygame.font.Font(path, size)
-        return pygame.font.SysFont("consolas", size)  # asset missing - better than crashing
+        for filename in (_MAIN_FONT_FILE, _BACKUP_FONT_FILE):
+            path = os.path.join(_ASSETS_DIR, filename)
+            if os.path.exists(path):
+                return pygame.font.Font(path, size)
+        return pygame.font.SysFont("consolas", size)  # assets missing - better than crashing
 
     @staticmethod
     def _load_heart_font(size: int) -> pygame.font.Font | None:
@@ -842,7 +1246,7 @@ class TerminalWindow:
         # same as before any of this existed - covers ascii and accented
         # letters, all of it. The heart is the exception: its own font, at
         # the same size the text around it is drawn in
-        if character == _HEART and self.heart_font is not None:
+        if character in (_HEART, _SKULL) and self.heart_font is not None:
             return self.heart_menu_font if big else self.heart_font
         if character not in _NEEDS_FALLBACK_FONT or not self.fallback_fonts:
             return self.menu_font if big else self.font
@@ -865,6 +1269,8 @@ class TerminalWindow:
         # question's prompt and numbered choices (see _box_lines)
         if not text:
             text = " "
+        if text.startswith("Hearts:"):
+            text = text.replace("\u00b7", _SKULL)  # an empty heart is drawn as a skull
 
         runs: list[tuple[pygame.font.Font, str]] = []
         current_font = self._font_for(text[0], big)
@@ -879,7 +1285,7 @@ class TerminalWindow:
                 current_text = character
         runs.append((current_font, current_text))
 
-        foreground = self._render_runs(runs, color)
+        foreground = self._render_runs(runs, color, tint_icons=True)
 
         # a soft gray shadow sits just behind the real text, offset a
         # couple pixels - keeps every line readable over a busy background
@@ -894,12 +1300,17 @@ class TerminalWindow:
         combined.blit(foreground, (0, 0))
         return combined
 
-    @staticmethod
-    def _render_runs(runs: list[tuple[pygame.font.Font, str]], color) -> pygame.Surface:
+    def _render_runs(
+        self, runs: list[tuple[pygame.font.Font, str]], color, tint_icons: bool = False
+    ) -> pygame.Surface:
         # renders a list of (font, text) runs side by side as one surface -
         # split out of _render_text() so the same run list can be rendered
         # twice: once for the shadow, once for the real text on top of it
-        pieces = [font.render(run_text, True, color) for font, run_text in runs]
+        icon_fonts = (self.heart_font, self.heart_menu_font)
+        pieces = [
+            font.render(run_text, True, _ICON_COLOR if tint_icons and font in icon_fonts else color)
+            for font, run_text in runs
+        ]
         if len(pieces) == 1:
             return pieces[0]  # common case - skip building a combined surface
         total_width = sum(piece.get_width() for piece in pieces)
@@ -910,237 +1321,6 @@ class TerminalWindow:
             combined.blit(piece, (x, 0))
             x += piece.get_width()
         return combined
-
-    @staticmethod
-    def _split_map_grid_and_footer(lines: list[str]) -> tuple[list[str], list[str]]:
-        """Split a captured map into its ascii grid and the text under it.
-
-        floor_map.py's render() always puts a genuinely blank line between
-        the grid and the legend/status lines under it - and no row of the
-        grid itself is ever blank, every one has at least the plan's own
-        left/right border on it. So the first blank line marks exactly
-        where the grid ends and the small print (the legend, "You are in
-        ...", any "not on the plan yet" notice) begins. That footer is
-        left untouched by cropping below - it's a couple of short
-        sentences, not part of the picture being cropped.
-        """
-        for index, line in enumerate(lines):
-            if not line.strip():
-                return lines[:index], lines[index:]
-        return lines, []
-
-    @staticmethod
-    def _flood_fill_map(sheet: list[list[str]], start: tuple[int, int]) -> set[tuple[int, int]]:
-        """Return every square reachable from start without crossing a wall.
-
-        The same flood fill floor_map.py's own _inside() does to find the
-        shape of a room to shade it - reimplemented here, on the captured
-        text rather than imported (see _MAP_WALL_CHARS), so it can also
-        walk the room on the other side of a doorway, which _inside()
-        never needs to do.
-        """
-        seen = {start}
-        pending = [start]
-        while pending:
-            row, col = pending.pop()
-            for d_row, d_col in ((0, 1), (0, -1), (1, 0), (-1, 0)):
-                spot = (row + d_row, col + d_col)
-                if spot in seen or not 0 <= spot[0] < len(sheet):
-                    continue
-                line = sheet[spot[0]]
-                if not 0 <= spot[1] < len(line) or line[spot[1]] in _MAP_WALL_CHARS:
-                    continue
-                seen.add(spot)
-                pending.append(spot)
-        return seen
-
-    @staticmethod
-    def _doorways_around(
-        sheet: list[list[str]], cells: set[tuple[int, int]]
-    ) -> set[tuple[int, int]]:
-        """Return every doorway ("X") directly touching any square in cells."""
-        doorways = set()
-        for row, col in cells:
-            for d_row, d_col in ((0, 1), (0, -1), (1, 0), (-1, 0)):
-                spot_row, spot_col = row + d_row, col + d_col
-                if not 0 <= spot_row < len(sheet):
-                    continue
-                line = sheet[spot_row]
-                if 0 <= spot_col < len(line) and line[spot_col] == "X":
-                    doorways.add((spot_row, spot_col))
-        return doorways
-
-    @staticmethod
-    def _room_through_doorway(
-        sheet: list[list[str]], doorway: tuple[int, int], home: set[tuple[int, int]]
-    ) -> set[tuple[int, int]]:
-        """Return the room on the far side of doorway from home.
-
-        Checks every square touching the doorway; whichever is not a wall
-        and is not already part of home is the far side, so flood-filling
-        from there finds that neighbour room's own shape.
-        """
-        row, col = doorway
-        far_side: set[tuple[int, int]] = set()
-        for d_row, d_col in ((0, 1), (0, -1), (1, 0), (-1, 0)):
-            spot = (row + d_row, col + d_col)
-            if not 0 <= spot[0] < len(sheet):
-                continue
-            line = sheet[spot[0]]
-            if not 0 <= spot[1] < len(line) or line[spot[1]] in _MAP_WALL_CHARS or spot in home:
-                continue
-            far_side |= TerminalWindow._flood_fill_map(sheet, spot)
-        return far_side
-
-    @staticmethod
-    def _crop_map_to_local_area(captured: list[str]) -> list[str]:
-        """Crop a freshly-captured map down to the current room and its doors.
-
-        floor_map.py already shades the room the player is standing in
-        (with _MAP_HERE_CHAR) before this file ever sees the text - this
-        finds those shaded squares, flood-fills out through every doorway
-        touching them to find whatever room is directly on the other side
-        (one hop through a door, not the whole building), and keeps only
-        that area. A room with a lot of doors - a corridor, mainly - ends
-        up with a bigger crop because it genuinely connects to more of the
-        building; that's a real reflection of the map, not a bug in the
-        cropping.
-
-        This does NOT just slice out the rectangle of rows/columns that
-        bounds the connected area - that was tried first and was wrong.
-        The floor plan isn't a grid of independent boxes; corridors are
-        long strips, and the bounding rectangle around "your room plus a
-        corridor" can span much more of the building than the two of them
-        actually occupy, sweeping in whatever unrelated room happens to
-        sit in the gap (a real bug a teammate caught: standing near a
-        corridor pulled in "Storage" purely because its room happened to
-        fall inside that rectangle, with no door or flood-fill path
-        connecting it to anything actually included). Instead, every
-        character is masked: kept only if it's part of the connected area
-        itself, or a wall character immediately touching it (so a room or
-        corridor still looks like an intact box, corners included) -
-        everything else in the crop's rectangle is blanked out rather than
-        shown. A stray doorway on the very edge, leading further away, can
-        still peek in - that's honest ("there's a door here") rather than
-        a leak of the room behind it, since that room's own letters are
-        always more than one cell further out and never get pulled in.
-
-        Falls back to the whole thing, uncropped, if nothing is shaded (the
-        current room isn't drawn on the plan at all yet) - better an
-        oversized map than a guess at what to show instead.
-        """
-        grid, footer = TerminalWindow._split_map_grid_and_footer(captured)
-        sheet = [list(line) for line in grid]
-        here = {
-            (row, col)
-            for row, line in enumerate(sheet)
-            for col, char in enumerate(line)
-            if char == _MAP_HERE_CHAR
-        }
-        if not here:
-            return captured
-
-        included = set(here)
-        for doorway in TerminalWindow._doorways_around(sheet, here):
-            included.add(doorway)
-            included |= TerminalWindow._room_through_doorway(sheet, doorway, here)
-
-        # dilate by one cell in every direction (including diagonals, to
-        # catch "+" corners) so each included room/corridor's own border
-        # survives, without reaching far enough to touch anything that
-        # isn't actually connected
-        keep = set(included)
-        for row, col in included:
-            for d_row in (-1, 0, 1):
-                for d_col in (-1, 0, 1):
-                    spot = (row + d_row, col + d_col)
-                    if 0 <= spot[0] < len(sheet) and 0 <= spot[1] < len(sheet[spot[0]]):
-                        keep.add(spot)
-
-        rows = [row for row, _ in keep]
-        cols = [col for _, col in keep]
-        top = max(0, min(rows) - _MAP_CROP_PADDING)
-        bottom = min(len(grid) - 1, max(rows) + _MAP_CROP_PADDING)
-        left = max(0, min(cols) - _MAP_CROP_PADDING)
-        right = max(cols) + _MAP_CROP_PADDING
-
-        cropped_grid = []
-        for row in range(top, bottom + 1):
-            line = grid[row]
-            chars = [
-                line[col] if col < len(line) and (row, col) in keep else " "
-                for col in range(left, right + 1)
-            ]
-            cropped_grid.append("".join(chars).rstrip())
-
-        # the padding row above/below usually lands on a wall - but when
-        # the nearest connected cell is right at the very edge of the
-        # crop, that padding row can land past it, on a row where nothing
-        # in this column range was kept at all (masked to nothing but
-        # spaces). A fully blank row like that isn't useful margin, it's
-        # just noise, so trim it rather than show an empty line before
-        # the map even starts.
-        while cropped_grid and not cropped_grid[0]:
-            cropped_grid.pop(0)
-        while cropped_grid and not cropped_grid[-1]:
-            cropped_grid.pop()
-
-        return cropped_grid + footer
-
-    def _render_map_line(self, text: str, color: str) -> pygame.Surface:
-        # same soft-shadow treatment as _render_text(), just using
-        # map_font instead of the main font - the map's lines are plain
-        # ascii/box-drawing, so there's no need for _font_for()'s
-        # per-character fallback-font switching here
-        foreground = self.map_font.render(text, True, color)
-        shadow = self.map_font.render(text, True, _TEXT_SHADOW_COLOR)
-        shadow.set_alpha(_TEXT_SHADOW_ALPHA)
-
-        combined_width = foreground.get_width() + _TEXT_SHADOW_OFFSET
-        combined_height = foreground.get_height() + _TEXT_SHADOW_OFFSET
-        combined = pygame.Surface((combined_width, combined_height), pygame.SRCALPHA)
-        combined.blit(shadow, (_TEXT_SHADOW_OFFSET, _TEXT_SHADOW_OFFSET))
-        combined.blit(foreground, (0, 0))
-        return combined
-
-    def _draw_map_overlay(self) -> None:
-        # draws the map as its own panel in the corner, like a HUD, instead
-        # of mixed into the normal scrolling text
-        if self.map_overlay is None:
-            return
-        # Every row uses the SAME font at the SAME size, on purpose: this
-        # is monospaced ascii art, where a wall's "|" has to land in
-        # exactly the same column on every row for the boxes to look like
-        # boxes at all. A smaller font for some rows was tried here and
-        # reverted - a smaller point size is also narrower per character,
-        # so those rows' walls drifted out of column with the rows above
-        # and below them and the whole map looked broken instead of
-        # smaller. Shrinking this panel has to either shrink every row
-        # equally (map_font itself) or show fewer rows - never some rows
-        # more than others.
-        row_height = self.map_font.get_height() + max(1, round(self.scale))
-        surfaces = [self._render_map_line(line, "white") for line in self.map_overlay]
-        panel_width = max((s.get_width() for s in surfaces), default=0) + self.margin * 2
-        panel_height = len(surfaces) * row_height + self.margin * 2
-
-        # a near-opaque tint behind the whole panel - see _MAP_PANEL_ALPHA
-        panel = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
-        panel.fill((20, 20, 20, _MAP_PANEL_ALPHA))
-
-        # the border gets the same shadow treatment as the text - a dim
-        # offset copy behind a solid line, so it stays visible without
-        # needing the panel to be tinted. Khaki (matching the room header
-        # text) and a 2px width instead of white/1px, so the panel reads
-        # unmistakably as its own HUD element sitting on top of the scene,
-        # not just an edge blending into whatever's behind it
-        shadow_rect = (_TEXT_SHADOW_OFFSET, _TEXT_SHADOW_OFFSET, panel_width, panel_height)
-        pygame.draw.rect(panel, (*_TEXT_SHADOW_COLOR, _TEXT_SHADOW_ALPHA), shadow_rect, 2)
-        pygame.draw.rect(panel, "khaki", panel.get_rect(), 2)
-        for row, surface in enumerate(surfaces):
-            panel.blit(surface, (self.margin, self.margin + row * row_height))
-
-        x = self.width - panel_width - self.margin
-        self.screen.blit(panel, (x, self.margin))
 
     def _box_lines(self) -> list[tuple[str, str, bool]]:
         """What the dialogue box should show right now.
@@ -1166,7 +1346,25 @@ class TerminalWindow:
         margin and a fresh border every page, so it doesn't need the
         terminal's own spacing convention reproduced inside it.
         """
-        shown = [(text, color, True) for text, color in self.lines[self.box_start :] if text != ""]
+        options = self._menu_options()
+        highlighted = (
+            options[self.menu_selected % len(options)][1]
+            if self.menu_selected is not None and options
+            else None
+        )
+        shown = []
+        option_rows = {row for _number, row in options}
+        for index in range(self.box_start, len(self.lines)):
+            text, color = self.lines[index]
+            if text == "":
+                continue
+            if index in option_rows:
+                # a choice: its number and its words - how it is laid out and marked is up to
+                # _draw_dialogue_box
+                label = re.sub(r"^\s*(\d+)\)\s*", r"\1. ", text)
+                shown.append((label, _OPTION_SELECTED if index == highlighted else _OPTION, True))
+                continue
+            shown.append((text, color, True))
         if self.waiting_to_advance:
             # the game thread is genuinely blocked right now (see
             # wait_for_line_advance) - nothing more can arrive until the
@@ -1177,12 +1375,13 @@ class TerminalWindow:
             if self.current_line:
                 shown.append((self.current_line, "white", True))
             return shown
-        cursor = "_" if (pygame.time.get_ticks() // 500) % 2 == 0 else " "
-        if self.game_over:
-            live_text, live_color = self.current_line, "gray"
-        else:
-            live_text, live_color = self.current_line + self.typed + cursor, "lightgreen"
-        shown.append((live_text, live_color, True))
+        if not (self.waiting_for_input and self._menu_options()):  # a menu has no typing line
+            cursor = "_" if (pygame.time.get_ticks() // 500) % 2 == 0 else " "
+            if self.game_over:
+                live_text, live_color = self.current_line, "gray"
+            else:
+                live_text, live_color = self.current_line + self.typed + cursor, "lightgreen"
+            shown.append((live_text, live_color, True))
         if (
             self._seconds_left() is not None
             and self.hearts_line is not None
@@ -1222,18 +1421,134 @@ class TerminalWindow:
         lines.append(current)
         return lines
 
-    def _draw_dialogue_box(self) -> None:
-        """Draw the little Undertale-style box, lower-center.
+    @staticmethod
+    def _make_closed_chat_box(art: pygame.Surface) -> pygame.Surface:
+        """A copy of the drawing with the gap and brackets erased and the edge run across."""
+        closed = art.copy()
+        for rect in _CHAT_BOX_ERASE:
+            closed.fill((0, 0, 0, 0), rect)
+        x, y, width, height = _CHAT_BOX_EDGE_PIECE
+        edge = pygame.transform.smoothscale(
+            art.subsurface((x, y, width, height)),
+            (_CHAT_BOX_EDGE_END_X - _CHAT_BOX_EDGE_START_X, height),
+        )
+        closed.blit(edge, (_CHAT_BOX_EDGE_START_X, y))
+        return closed
 
-        Shows only _box_lines(), same shadowed-panel look as the map overlay.
+    def _chat_box_inside(
+        self, width: int, height: int, gap: int, scale: float, closed: bool
+    ) -> pygame.Surface:
+        """The dark tint for everything inside the drawn lines, following their wobbly shape.
+
+        Found by flooding the outside of the outline: whatever the flood cannot reach is
+        inside, so no small gap is left between the tint and the lines. With the gap open (not
+        ``closed``) a line is shut across the bottom of the gap, level with the bottom of the
+        leg, so the gap counts as inside too.
+        """
+        key = ("inside", width, height, gap, round(scale, 3), closed)
+        inside = self._chat_box_cache.get(key)
+        if inside is None:
+            outline = self._chat_box_outline(width, height, gap, scale, closed)
+            lines = pygame.mask.from_surface(outline, 100)
+            xs = _CHAT_BOX_X_CUTS
+            left_cap, foot_cap = round((xs[1] - xs[0]) * scale), round((xs[3] - xs[2]) * scale)
+            leg = pygame.Mask((left_cap, height))
+            leg.draw(lines, (0, 0))
+            shut_row = max(rect.bottom for rect in leg.get_bounding_rects()) - 1
+            shut_end = left_cap + gap + foot_cap
+            if not closed:  # shut the bottom of the gap, along the lowest point of the leg
+                for x in range(shut_end):
+                    lines.set_at((x, shut_row), 1)
+            lines.invert()  # now the empty pixels are set...
+            outside = lines.connected_component((0, 0))  # ...and this is the ones the flood reaches
+            outside.invert()
+            # stop at the lines instead of running under them, so nothing shows past their edge
+            outside.erase(pygame.mask.from_surface(outline, 20), (0, 0))
+            if not closed:
+                for x in range(shut_end):
+                    outside.set_at((x, shut_row), 0)
+            inside = outside.to_surface(
+                setcolor=(10, 10, 10, _BOX_PANEL_ALPHA), unsetcolor=(0, 0, 0, 0)
+            )
+            self._chat_box_cache[key] = inside
+        return inside
+
+    def _chat_box_outline(
+        self, width: int, height: int, gap: int, scale: float, closed: bool = False
+    ) -> pygame.Surface:
+        """Your drawn chat box, stretched to width x height without thinning its lines.
+
+        The drawing is cut into 5 columns by 3 rows (see _CHAT_BOX_X_CUTS). The leg, the
+        foot, the right end and the top and bottom edges keep their size (all scaled by
+        ``scale``); the gap is stretched to ``gap`` pixels and the stretchy middle takes
+        up the rest. Only straight lines are ever stretched, so they stay as thick as drawn.
+        With ``closed`` it uses the copy of the drawing that has no gap or brackets (see
+        _make_closed_chat_box), for when there are no words to put there.
+        """
+        key = (width, height, gap, round(scale, 3), closed)
+        outline = self._chat_box_cache.get(key)
+        if outline is not None:
+            return outline
+        art = self.chat_box_closed_art if closed else self.chat_box_art
+        xs, ys = _CHAT_BOX_X_CUTS, _CHAT_BOX_Y_CUTS
+        natural = [round((xs[i + 1] - xs[i]) * scale) for i in range(5)]
+        columns = [
+            natural[0],
+            gap,
+            natural[2],
+            max(1, width - natural[0] - gap - natural[2] - natural[4]),
+            natural[4],
+        ]
+        top, bottom = round((ys[1] - ys[0]) * scale), round((ys[3] - ys[2]) * scale)
+        rows = [top, max(1, height - top - bottom), bottom]
+        outline = pygame.Surface((width, height), pygame.SRCALPHA)
+        x = 0
+        for column, column_width in enumerate(columns):
+            y = 0
+            for row, row_height in enumerate(rows):
+                piece = art.subsurface(
+                    (xs[column], ys[row], xs[column + 1] - xs[column], ys[row + 1] - ys[row])
+                )
+                outline.blit(
+                    pygame.transform.smoothscale(piece, (max(1, column_width), max(1, row_height))),
+                    (x, y),
+                )
+                y += row_height
+            x += column_width
+        if len(self._chat_box_cache) > 80:
+            self._chat_box_cache.clear()
+        self._chat_box_cache[key] = outline
+        return outline
+
+    def _draw_dialogue_box(self) -> None:
+        """Draw the dialogue box, lower-centre: your hand-drawn chat box with the text in it.
+
+        Shows only _box_lines(). While the story is being told, "SPACE to skip" is written
+        in the gap at the bottom left of the box.
         """
         max_box_width = int(self.width * _BOX_WIDTH_FRACTION)
         min_box_width = int(self.width * _BOX_MIN_WIDTH_FRACTION)
+
+        # the drawing is scaled so the words fit between its leg and foot
+        hint = self._render_text(_SKIP_HINT_TEXT, "white", True)
+        scale = hint.get_height() * 1.5 / _CHAT_BOX_FOOT_HEIGHT
+        xs, ys = _CHAT_BOX_X_CUTS, _CHAT_BOX_Y_CUTS
+        left_cap = round((xs[1] - xs[0]) * scale)
+        foot_cap = round((xs[3] - xs[2]) * scale)
+        right_cap = round((xs[5] - xs[4]) * scale)
+        top_cap = round((ys[1] - ys[0]) * scale)
+        bottom_cap = round((ys[3] - ys[2]) * scale)
+        gap = hint.get_width() + round(24 * scale)
+        # room for the lines of the drawing around the text
+        left_pad = round(42 * scale) + self.margin // 2
+        right_pad = round(20 * scale) + self.margin // 2
+        top_pad = max(top_cap, round(40 * scale)) + self.margin // 2
+
         # wrap against the MAX width regardless of how wide the box ends up
         # drawn - a long paragraph should still wrap at the same column it
         # always has, not reflow just because a short line elsewhere would
         # let the box shrink
-        inner_width = max_box_width - self.margin * 2
+        inner_width = max_box_width - left_pad - right_pad
 
         wrapped: list[tuple[str, str, bool]] = []
         for text, color, big in self._box_lines():
@@ -1257,14 +1572,27 @@ class TerminalWindow:
                 wrapped = wrapped[-_BOX_MAX_ROWS:]
                 countdown = None
 
-        surfaces = [self._render_text(text, color, big) for text, color, big in wrapped]
+        surfaces = [
+            self._render_text(text, _OPTION_COLORS.get(color, color), big)
+            for text, color, big in wrapped
+        ]
+        # the choices share one column, centred in the box: the same left edge for every
+        # one of them, with the ">" in a gutter beside it so the words never shift
+        option_rows = [
+            row for row, (_text, color, _big) in enumerate(wrapped) if color in _OPTION_COLORS
+        ]
+        gutter = self.menu_font.size("> ")[0]
+        column_width = max((surfaces[row].get_width() for row in option_rows), default=0)
+        marker = self._render_text(">", "khaki", True)
+        closing_marker = self._render_text("<", "khaki", True)
+        tail = self.menu_font.size(" <")[0]  # room for the "<" after the longest choice
         countdown_surface = None
         countdown_x = 0
         if countdown is not None and hearts_row is not None:
             countdown_surface = self._render_text(countdown, "orange", True)
             countdown_x = surfaces[hearts_row].get_width() + self.menu_font.size("  ")[0]
         row_heights = [surface.get_height() + self.row_gap for surface in surfaces]
-        box_height = sum(row_heights, self.margin * 2)
+        box_height = top_pad + sum(row_heights) + bottom_cap
 
         # now that we know how wide the actual (already-wrapped) lines are,
         # hug the box to the widest one instead of always drawing it at the
@@ -1273,19 +1601,64 @@ class TerminalWindow:
         content_width = max((surface.get_width() for surface in surfaces), default=0)
         if countdown_surface is not None:
             content_width = max(content_width, countdown_x + countdown_surface.get_width())
-        box_width = min(max_box_width, max(min_box_width, content_width + self.margin * 2))
+        if option_rows:
+            content_width = max(content_width, gutter + column_width + tail)
+        # ...and never narrower than the drawing's own pieces: leg, gap, foot and right end
+        drawing_width = left_cap + gap + foot_cap + right_cap + round(20 * scale)
+        box_width = min(max_box_width, max(min_box_width, content_width + left_pad + right_pad))
+        box_width = max(box_width, drawing_width)
 
         box = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
-        box.fill((10, 10, 10, _BOX_PANEL_ALPHA))
-        shadow_rect = (_TEXT_SHADOW_OFFSET, _TEXT_SHADOW_OFFSET, box_width, box_height)
-        pygame.draw.rect(box, (*_TEXT_SHADOW_COLOR, _TEXT_SHADOW_ALPHA), shadow_rect, 1)
-        pygame.draw.rect(box, "white", box.get_rect(), 1)
-        y = self.margin
+        panel = (*(10, 10, 10), _BOX_PANEL_ALPHA)
+        # words in the gap only while the story is being told - otherwise the gap is closed
+        showing_hint = (
+            self.chat_box_art is not None
+            and self.narrating
+            and not (self.skipping or self.game_over or self.quitting)
+        )
+        if self.chat_box_art is not None:
+            # a dark panel right up to the drawn lines - and under the words in the gap
+            inside = self._chat_box_inside(box_width, box_height, gap, scale, not showing_hint)
+            box.blit(inside, (0, 0))
+            outline = self._chat_box_outline(
+                box_width, box_height, gap, scale, closed=not showing_hint
+            )
+            box.blit(outline, (0, 0))
+        else:  # the drawing is missing: a plain box, as before
+            box.fill(panel)
+            pygame.draw.rect(box, "white", box.get_rect(), 1)
+
+        y = top_pad
         for row, (surface, row_height) in enumerate(zip(surfaces, row_heights, strict=True)):
-            box.blit(surface, (self.margin, y))
+            if row in option_rows:
+                # a little left of centre: the column starts 20% of the way along the free space
+                free = box_width - left_pad - right_pad - gutter - column_width - tail
+                block_x = left_pad + max(0, int(free * 0.2))
+                if wrapped[row][1] == _OPTION_SELECTED:
+                    box.blit(marker, (block_x, y))
+                    box.blit(
+                        closing_marker,
+                        (
+                            block_x
+                            + gutter
+                            + surface.get_width()
+                            + tail
+                            - closing_marker.get_width(),
+                            y,
+                        ),
+                    )
+                box.blit(surface, (block_x + gutter, y))
+            else:
+                box.blit(surface, (left_pad, y))
             if countdown_surface is not None and row == hearts_row:
-                box.blit(countdown_surface, (self.margin + countdown_x, y))
+                box.blit(countdown_surface, (left_pad + countdown_x, y))
             y += row_height
+
+        if showing_hint:
+            words_y = box_height - bottom_cap + round((_CHAT_BOX_WORDS_Y - ys[2]) * scale)
+            box.blit(
+                hint, (left_cap + (gap - hint.get_width()) // 2, words_y - hint.get_height() // 2)
+            )
 
         x = (self.width - box_width) // 2
         y = self.height - box_height - self.margin * 3
@@ -1301,13 +1674,15 @@ class TerminalWindow:
         "where it originally was". Pacing (typed lines still needing a
         press) is unchanged; only where it's drawn is different.
         """
-        top = self.margin
-        visible_rows = max(1, (self.height - top - self.margin) // self.line_height - 1)
+        # airy rather than packed: a good gap between every row, and some room above the banner
+        step = round(self.line_height * _INTRO_ROW_SPACING)
+        top = self.margin * 3
+        visible_rows = max(1, (self.height - top - self.margin) // step - 1)
         for row, (line, color) in enumerate(self.lines[-visible_rows:]):
             surface = self._render_text(line, color)
-            self.screen.blit(surface, (self._centered_x(surface), top + row * self.line_height))
+            self.screen.blit(surface, (self._centered_x(surface), top + row * step))
 
-        y = top + min(len(self.lines), visible_rows) * self.line_height
+        y = top + min(len(self.lines), visible_rows) * step
         if self.waiting_to_advance:
             # game thread is blocked - current_line may still hold this
             # line's own text for a moment until _pump_output catches up
@@ -1322,9 +1697,228 @@ class TerminalWindow:
         live_color = "gray" if self.game_over else "lightgreen"
         surface = self._render_text(live_text, live_color)
         self.screen.blit(surface, (self._centered_x(surface), y))
+        if time.monotonic() < self._name_notice_until:
+            notice = self._render_text("Please enter a valid name.", "khaki")
+            self.screen.blit(notice, (self._centered_x(notice), y + step))
 
-    def _draw(self) -> None:
-        """Redraw the whole window from scratch - Pygame has no "update just this line"."""
+    def _render_pause_hearts(self, hearts: str) -> pygame.Surface:
+        """The "Hearts: ..." row of the pause menu, with the hearts big and red."""
+        icon_font, bracket_font = self.pause_hearts_font, self.pause_hearts_text_font
+        if icon_font is None:  # no heart font: the normal row
+            return self._render_text(f"Hearts: {hearts}", "white", True)
+        label = self._render_text("Hearts:", "white", True)
+        pieces = []
+        for character in hearts.replace("\u00b7", _SKULL):  # an empty heart is a skull
+            icon = character in (_HEART, _SKULL)
+            font = icon_font if icon else bracket_font
+            pieces.append(font.render(character, True, _ICON_COLOR if icon else (245, 245, 245)))
+        gap = self.menu_font.size(" ")[0]
+        surface = pygame.Surface(
+            (label.get_width() + gap + sum(p.get_width() for p in pieces), icon_font.get_height()),
+            pygame.SRCALPHA,
+        )
+        # the small label is centred on the hearts: the middle of its capital letters level
+        # with the middle of a heart (a heart is drawn from 90 to 610 units above the line,
+        # so its middle is 350 up, and a capital of this font is about 956 tall)
+        heart_middle = icon_font.get_ascent() - 0.35 * self.pause_hearts_size
+        label_baseline = heart_middle + 0.5 * 0.956 * self.menu_font.get_height() / 1.32
+        surface.blit(label, (0, round(label_baseline - self.menu_font.get_ascent())))
+        x = label.get_width() + gap
+        for piece in pieces:
+            surface.blit(piece, (x, 0))
+            x += piece.get_width()
+        return surface
+
+    def _draw_pause_menu(self) -> None:
+        """Draw the pause menu over the blurred freeze-frame of the game.
+
+        How the player is doing sits around the edges: hearts top left, time
+        played top right, how much of the floor is explored along the bottom.
+        """
+        if self.pause_backdrop is not None:
+            self.screen.blit(self.pause_backdrop, (0, 0))
+        else:
+            self.screen.fill("black")
+        if self.pause_view == "map":
+            self._draw_map_view()
+            return
+
+        status = self.pause_status
+        corner = self.margin * 4
+        hearts = self._render_pause_hearts(str(status.get("hearts", "")))
+        self.screen.blit(hearts, (corner, corner))
+        seconds = progress.format_duration(float(status.get("seconds", 0)))  # type: ignore[arg-type]
+        played = self._render_text(f"Time played  {seconds}", "white", True)
+        self.screen.blit(played, (self.width - corner - played.get_width(), corner))
+        explored = self._render_text(
+            f"{status.get('percent', 0)}% of the floor explored", "white", True
+        )
+        self.screen.blit(
+            explored,
+            (
+                (self.width - explored.get_width()) // 2,
+                self.height - corner - explored.get_height(),
+            ),
+        )
+
+        title = self.title_font.render("PAUSED", True, _PAUSE_ACCENT)
+        y = self.height // 8
+        self.screen.blit(title, ((self.width - title.get_width()) // 2, y))
+        y += title.get_height() + self.margin
+        name = self._render_text(str(status.get("name", "")), "gray", True)
+        self.screen.blit(name, ((self.width - name.get_width()) // 2, y))
+
+        if self.pause_view == "scoreboard":
+            rows = [(line, "white") for line in self.pause_scores]
+            hint = "Esc or Enter: back"
+        elif self.pause_view == "controls":
+            rows = [(f"{keys}  -  {what}", "white") for keys, what in _CONTROLS]
+            key_names = [keys for keys, _what in _CONTROLS]  # drawn in their own colour below
+            hint = "Esc or Enter: back"
+        elif self.pause_view == "quit":
+            rows = [
+                ("Are you sure you want to quit?", "white"),
+                ("Any progress from this run will be lost.", "gray"),
+                ("", "white"),
+            ] + [
+                (f"> {label} <", "khaki")
+                if number == self.pause_selected
+                else (f"  {label}  ", "white")
+                for number, label in enumerate(self._quit_items())
+            ]
+            hint = "Up / Down and Enter, or Esc to keep playing"
+        else:
+            rows = [
+                (f"> {label} <", "khaki")
+                if number == self.pause_selected
+                else (f"  {label}  ", "white")
+                for number, label in enumerate(self._pause_items())
+            ]
+            hint = "Up / Down and Enter, or Esc to resume"
+        y = int(self.height * 0.36)
+        for number, (text, color) in enumerate(rows):
+            if self.pause_view == "controls":
+                row = self._controls_row(key_names[number], text[len(key_names[number]) :])
+            else:
+                row = self._render_text(text, color, True)
+            self.screen.blit(row, ((self.width - row.get_width()) // 2, y))
+            y += int(row.get_height() * 1.6)
+        hint_row = self._render_text(hint, "gray")
+        self.screen.blit(hint_row, ((self.width - hint_row.get_width()) // 2, y + self.margin * 2))
+        if self.pause_notice and time.monotonic() < self._pause_notice_until:
+            note = self._render_text(self.pause_notice, "khaki", True)
+            self.screen.blit(note, ((self.width - note.get_width()) // 2, y + self.margin * 5))
+
+    def _controls_row(self, keys: str, rest: str) -> pygame.Surface:
+        """One line of the Controls screen: the keys in khaki, then what they do in white."""
+        left = self._render_text(keys, _CONTROLS_KEY_COLOR, True)
+        right = self._render_text(rest, "white", True)
+        row = pygame.Surface(
+            (left.get_width() + right.get_width(), left.get_height()), pygame.SRCALPHA
+        )
+        row.blit(left, (0, 0))
+        row.blit(right, (left.get_width(), 0))
+        return row
+
+    def _draw_map_view(self) -> None:
+        """Draw the floor map as big as the window allows, with how to close it underneath."""
+        hint = self._render_text("M or Esc: close the map", "gray")
+        room_below = hint.get_height() + self.margin * 3
+        if self.map_art is not None:
+            art_w, art_h = self.map_art.get_size()
+            scale = min(
+                self.width * _MAP_SCREEN_FRACTION / art_w,
+                (self.height * _MAP_SCREEN_FRACTION - room_below) / art_h,
+            )
+            size = (max(1, round(art_w * scale)), max(1, round(art_h * scale)))
+            if self._map_scaled is None or self._map_scaled[0] != size:
+                self._map_scaled = (size, pygame.transform.smoothscale(self.map_art, size))
+            picture = self._map_scaled[1]
+            x = (self.width - size[0]) // 2
+            y = (self.height - room_below - size[1]) // 2 + self.margin
+            self.screen.blit(picture, (x, y))
+            here = self._map_room_picture(str(self.pause_status.get("room", "")), size[0] / art_w)
+            if here is not None:  # the scribble over the room you are in
+                offset_x, offset_y = self.map_rooms[str(self.pause_status.get("room", ""))]
+                self.screen.blit(here, (x + round(offset_x * scale), y + round(offset_y * scale)))
+        self.screen.blit(
+            hint,
+            (
+                (self.width - hint.get_width()) // 2,
+                self.height - hint.get_height() - self.margin * 2,
+            ),
+        )
+
+    def _map_room_picture(self, room: str, scale: float) -> pygame.Surface | None:
+        """The scribble for ``room``, scaled like the map is, or None if the room is not on it."""
+        if room not in self.map_rooms:
+            return None
+        key = (room, round(scale, 4))
+        picture = self._map_room_scaled.get(key)
+        if picture is None:
+            path = os.path.join(_ASSETS_DIR, _MAP_ROOMS_DIR, room + ".png")
+            if not os.path.exists(path):
+                return None
+            original = pygame.image.load(path).convert_alpha()
+            size = (
+                max(1, round(original.get_width() * scale)),
+                max(1, round(original.get_height() * scale)),
+            )
+            picture = pygame.transform.smoothscale(original, size)
+            self._map_room_scaled[key] = picture
+        return picture
+
+    def _draw_menu_hint(self) -> None:
+        """Draw a cog over "ESC" in the top left corner, once a game is on, to open the menu."""
+        if (
+            self.menu_icon_art is None
+            or self.room_header is None
+            or self.game_over
+            or self.quitting
+        ):
+            return
+        if self._menu_icon is None:
+            height = max(8, round(self.height * _MAP_ICON_HEIGHT * 0.65))
+            width = max(
+                8, round(self.menu_icon_art.get_width() * height / self.menu_icon_art.get_height())
+            )
+            self._menu_icon = pygame.transform.smoothscale(self.menu_icon_art, (width, height))
+        key = self._render_text("ESC", "white", True)
+        icon = self._menu_icon
+        column = max(icon.get_width(), key.get_width())
+        left = self.margin * 2
+        top = self.margin * 2
+        self.screen.blit(icon, (left + (column - icon.get_width()) // 2, top))
+        self.screen.blit(
+            key,
+            (left + (column - key.get_width()) // 2, top + icon.get_height() + self.margin // 2),
+        )
+
+    def _draw_map_hint(self) -> None:
+        """Draw a tiny map over an "M" in the bottom right corner, once there is a map to open."""
+        now = time.monotonic()
+        if now - self._has_map_checked_at > _MAP_ICON_CHECK_SECONDS:
+            self._has_map_checked_at = now
+            status = ui.status()
+            self._has_map = bool(status and status.get("has_map"))
+        if not self._has_map or self.map_art is None or self.game_over or self.quitting:
+            return
+        if self._map_icon is None:
+            height = max(8, round(self.height * _MAP_ICON_HEIGHT))
+            art = self.map_icon_art or self.map_art
+            width = max(8, round(art.get_width() * height / art.get_height()))
+            self._map_icon = pygame.transform.smoothscale(art, (width, height))
+        key = self._render_text("M", "white", True)
+        icon = self._map_icon
+        column = max(icon.get_width(), key.get_width())
+        right = self.width - self.margin * 2
+        key_y = self.height - self.margin * 2 - key.get_height()
+        icon_y = key_y - icon.get_height() - self.margin // 2
+        self.screen.blit(icon, (right - (column + icon.get_width()) // 2, icon_y))
+        self.screen.blit(key, (right - (column + key.get_width()) // 2, key_y))
+
+    def _draw_scene(self, box: bool = True) -> None:
+        """Draw the game itself: the room and its text bubble (left out while a room fades in)."""
         self.screen.fill("black")
         if self.room_image is not None:
             self.screen.blit(self.room_image, (0, 0))
@@ -1335,10 +1929,19 @@ class TerminalWindow:
         else:
             surface = self._render_text(self.room_header, "khaki")
             self.screen.blit(surface, (self._centered_x(surface), self.margin))
-            self._draw_dialogue_box()
+            if box:
+                self._draw_dialogue_box()
 
-        self._draw_map_overlay()
-
+    def _draw(self) -> None:
+        """Redraw the whole window from scratch - Pygame has no "update just this line"."""
+        if self.paused:
+            self._draw_pause_menu()  # the scene behind it stays frozen
+        elif self.fade_started is not None:
+            self._draw_fade()
+        else:
+            self._draw_scene()
+            self._draw_map_hint()  # drawn after the scene, so the pause blur never has it in it
+            self._draw_menu_hint()
         pygame.display.flip()  # nothing is visible until this swaps the frame onto the screen
 
     # after quitting, wait this long for the game to save and say goodbye
@@ -1351,17 +1954,21 @@ class TerminalWindow:
         while True:
             self._handle_events()
             self._check_clock()
-            self._pump_output()
-            self._draw()
+            if (
+                not self.exit_silently
+            ):  # leaving: nothing more to show, just wait for the game to finish
+                self._pump_output()
+                self._draw()
             if self.quitting and (
                 self.game_over
                 or time.monotonic() - self._quit_requested_at > self.QUIT_GRACE_PERIOD
             ):
                 break
             clock.tick(FPS)  # caps the loop at 60fps instead of spinning as fast as possible
-        # one more pass so the game's very last message doesn't get cut off
-        self._pump_output()
-        self._draw()
+        if not self.exit_silently:
+            # one more pass so the game's very last message doesn't get cut off
+            self._pump_output()
+            self._draw()
         pygame.quit()
 
 

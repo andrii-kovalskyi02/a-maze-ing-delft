@@ -7,7 +7,7 @@ resets, so the player can walk back up to him and try again.
 
 from __future__ import annotations
 
-from models import Area, Boss, Inspectable, Question, Room
+from models import Area, Boss, Inspectable, Question, Room, Unless
 from world import register
 
 ROOM = Room(
@@ -25,16 +25,22 @@ ROOM = Room(
         0.4,
         "He holds a heavy brass key.",
     ),
+    return_description="The monitors still glow blue, every one showing the bitten apple.",
     look_around=(
         "Rows of monitors glow blue in the dark.",
         0.4,
         "Every one of them shows the same bitten-apple logo.",
         0.6,
         "The air hums with fans.",
-        0.6,
-        "At the front desk, the ghost of Steve Jobs waits in a black turtleneck.",
-        0.4,
-        "He's turning the brass key over in his fingers.",
+        Unless(
+            "brass_key",
+            (
+                0.6,
+                "At the front desk, the ghost of Steve Jobs waits in a black turtleneck.",
+                0.4,
+                "He's turning the brass key over in his fingers.",
+            ),
+        ),
     ),
     exits=("lobby",),
     inspectables=(
@@ -45,6 +51,7 @@ ROOM = Room(
         Inspectable(
             name="the brass key",
             text="Old and heavy. A paper tag on it reads 'Project Room 3'.",
+            gone_once_taken="brass_key",
         ),
     ),
     boss=Boss(

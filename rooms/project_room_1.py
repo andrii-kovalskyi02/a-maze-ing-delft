@@ -5,7 +5,7 @@ An unlocked project room in the yellow wing containing the LAB 2.001 key.
 
 from __future__ import annotations
 
-from models import Area, Inspectable, Room
+from models import Area, Inspectable, Room, Unless
 from world import register
 
 ROOM = Room(
@@ -18,8 +18,12 @@ ROOM = Room(
         "with large glass windows overlooking the lobby.",
     ),
     look_around=(
-        "Whiteboards full of diagrams and architectural sketches cover the walls. "
-        "On a table near the back, a shiny key rests next to an open notebook.",
+        "Whiteboards full of diagrams and architectural sketches cover the walls.",
+        Unless(
+            "lab_2001_key",
+            ("On a table near the back, a shiny key rests next to an open notebook.",),
+            after=("An open notebook lies on a table near the back.",),
+        ),
     ),
     exits=("lobby",),
     inspectables=(
