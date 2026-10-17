@@ -33,6 +33,7 @@ def wake_up(game: Game) -> None:
     ui.narrate("Your cheek is stuck to the desk. The fire alarm is screaming.")
     ui.narrate("Everyone else is gone. Their chairs are pushed back at odd angles.")
     ui.narrate("Somewhere below you, something is burning.")
+    ui.narrate("You have to get out.")
 
 
 ROOM = Room(

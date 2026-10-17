@@ -242,6 +242,7 @@ _MAP_SCREEN_FRACTION = 0.92
 # goes on the map (assets/floor_map_rooms/index.json: room key -> x, y in the map's pixels)
 _MAP_ROOMS_DIR = "floor_map_rooms"
 # the small map in the bottom right corner that says "press M": this tall, as part of the window
+_MENU_ICON_FILE = "settings_icon.png"  # the cog in the top left corner that says "press Esc"
 _MAP_ICON_FILE = "floor_map_icon.png"  # a messy doodle of a map, not the map itself
 _MAP_ICON_HEIGHT = 0.1
 _MAP_ICON_CHECK_SECONDS = 0.5  # how often to ask whether the plan has been taken yet
@@ -255,9 +256,9 @@ _CONTROLS_KEY_COLOR = (
 _INTRO_ROW_SPACING = 1.9  # the first screen's rows are this many text heights apart
 _NAME_NOTICE_SECONDS = 2.5  # how long "Please enter a valid name." stays up
 _PICK_DELAY_SECONDS = 0.25  # a choice picked by its number stays lit up this long, then answers
-_FADE_OUT_SECONDS = 0.45
-_FADE_HOLD_SECONDS = 0.12
-_FADE_IN_SECONDS = 0.65
+_FADE_TIMES = (0.45, 0.12, 0.65)  # seconds: fading out, staying black, fading in
+# the very first room, when a game begins: a long, slow fade in out of the dark
+_FIRST_FADE_TIMES = (1.0, 0.6, 3.5)
 
 # the little Undertale-style dialogue box, lower-center - height just grows
 # to fit whatever it's currently showing (capped at _BOX_MAX_ROWS so one
@@ -501,8 +502,16 @@ class TerminalWindow:
             pygame.image.load(icon_path).convert_alpha() if os.path.exists(icon_path) else None
         )
         self._map_icon: pygame.Surface | None = None
+        menu_icon_path = os.path.join(_ASSETS_DIR, _MENU_ICON_FILE)
+        self.menu_icon_art: pygame.Surface | None = (
+            pygame.image.load(menu_icon_path).convert_alpha()
+            if os.path.exists(menu_icon_path)
+            else None
+        )
+        self._menu_icon: pygame.Surface | None = None
         self.fade_started: float | None = None  # when the room change began, if one is going on
         self.fade_snapshot: pygame.Surface | None = None  # the old room, as it last looked
+        self._fade_times = _FADE_TIMES  # fade out, hold, fade in - this room change's own timings
         self._fade_cover: pygame.Surface | None = None
         self._has_map = False
         self._has_map_checked_at = 0.0
@@ -642,6 +651,8 @@ class TerminalWindow:
         if self.paused or self.quitting or self.fade_started is not None:
             return
         self.fade_snapshot = self.screen.copy()
+        # no room header yet means this is the first room of the game
+        self._fade_times = _FIRST_FADE_TIMES if self.room_header is None else _FADE_TIMES
         self.fade_started = time.monotonic()
         self.pause_gate.clear()  # the game thread stops at its next word, until the screen is black
 
@@ -656,9 +667,10 @@ class TerminalWindow:
         """Draw one frame of the room change: old room to black, then new room up from black."""
         assert self.fade_started is not None
         elapsed = time.monotonic() - self.fade_started
-        dark_at = _FADE_OUT_SECONDS
-        light_at = dark_at + _FADE_HOLD_SECONDS
-        end_at = light_at + _FADE_IN_SECONDS
+        fade_out, hold, fade_in = self._fade_times
+        dark_at = fade_out
+        light_at = dark_at + hold
+        end_at = light_at + fade_in
         if elapsed < dark_at and self.fade_snapshot is not None:
             self.screen.blit(self.fade_snapshot, (0, 0))  # the room we are leaving
             darkness = elapsed / dark_at
@@ -667,9 +679,10 @@ class TerminalWindow:
                 self._end_fade()  # fully lit: now the new room's story may begin
                 self._draw_scene()
                 self._draw_map_hint()
+                self._draw_menu_hint()
                 return
             self._draw_scene(box=False)  # the room we have come to, its text not started yet
-            darkness = 1.0 if elapsed < light_at else 1.0 - (elapsed - light_at) / _FADE_IN_SECONDS
+            darkness = 1.0 if elapsed < light_at else 1.0 - (elapsed - light_at) / fade_in
         if self._fade_cover is None or self._fade_cover.get_size() != self.screen.get_size():
             self._fade_cover = pygame.Surface(self.screen.get_size())
             self._fade_cover.fill((0, 0, 0))
@@ -1855,6 +1868,32 @@ class TerminalWindow:
             self._map_room_scaled[key] = picture
         return picture
 
+    def _draw_menu_hint(self) -> None:
+        """Draw a cog over "ESC" in the top left corner, once a game is on, to open the menu."""
+        if (
+            self.menu_icon_art is None
+            or self.room_header is None
+            or self.game_over
+            or self.quitting
+        ):
+            return
+        if self._menu_icon is None:
+            height = max(8, round(self.height * _MAP_ICON_HEIGHT * 0.65))
+            width = max(
+                8, round(self.menu_icon_art.get_width() * height / self.menu_icon_art.get_height())
+            )
+            self._menu_icon = pygame.transform.smoothscale(self.menu_icon_art, (width, height))
+        key = self._render_text("ESC", "white", True)
+        icon = self._menu_icon
+        column = max(icon.get_width(), key.get_width())
+        left = self.margin * 2
+        top = self.margin * 2
+        self.screen.blit(icon, (left + (column - icon.get_width()) // 2, top))
+        self.screen.blit(
+            key,
+            (left + (column - key.get_width()) // 2, top + icon.get_height() + self.margin // 2),
+        )
+
     def _draw_map_hint(self) -> None:
         """Draw a tiny map over an "M" in the bottom right corner, once there is a map to open."""
         now = time.monotonic()
@@ -1902,6 +1941,7 @@ class TerminalWindow:
         else:
             self._draw_scene()
             self._draw_map_hint()  # drawn after the scene, so the pause blur never has it in it
+            self._draw_menu_hint()
         pygame.display.flip()  # nothing is visible until this swaps the frame onto the screen
 
     # after quitting, wait this long for the game to save and say goodbye
