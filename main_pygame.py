@@ -106,17 +106,23 @@ _HEART_FONT_FILE = "heart.otf"
 # text the game prints when you walk in (see TerminalWindow._is_room_header)
 # - a room with no entry here just shows a plain black background, same as
 # every room did before this existed. Photos are reused across rooms that
-# are the same kind of real-world space (two ordinary classrooms, two plain
-# hallways) - rooms written as something stranger than the real room they're
-# based on (classroom_2015's furniture-tent, lab_2001's forest) are left
-# without a photo on purpose, since a straight photo of the real room would
-# fight the text instead of matching it.
+# are the same kind of real-world space (every classroom, both plain
+# hallways, both labs, both teachers' rooms and the front desk office, every
+# project room). The storage room is left without a photo on purpose.
 _ROOM_IMAGES = {
+    "== classroom.2015 ==": "classroom_2035.jpg",
+    "== Classroom 2021 ==": "classroom_2035.jpg",
     "== Classroom 2.035 ==": "classroom_2035.jpg",
     "== Classroom 2031 ==": "classroom_2035.jpg",
     "== The Blue corridor ==": "hallway.jpg",
     "== The Red corridor ==": "hallway.jpg",
-    "== LAB2.003 ==": "computer_lab.jpg",
+    "== LAB2.003 ==": "lab.jpg",
+    "== Forest room ==": "lab.jpg",  # lab_2001
+    "== Teachers room ==": "teacher_room.jpg",
+    "== Teachers room 4 ==": "teacher_room.jpg",
+    "== Front Desk Office ==": "teacher_room.jpg",
+    "== Project room 1 ==": "project_room.jpg",
+    "== Project Room 2 ==": "project_room.jpg",
     "== Student society ==": "student_society.jpg",
     "== Project Room 3 ==": "project_room.jpg",
 }
@@ -181,7 +187,7 @@ _MAP_CROP_PADDING = 1
 # as a full paragraph, with empty space padding out both sides.
 _BOX_WIDTH_FRACTION = 0.7
 _BOX_MIN_WIDTH_FRACTION = 0.28
-_BOX_MAX_ROWS = 10
+_BOX_MAX_ROWS = 15
 _BOX_PANEL_ALPHA = 150
 
 # set AMAZE_PYGAME_DEBUG=1 to print every fake-stdout write to the real terminal
