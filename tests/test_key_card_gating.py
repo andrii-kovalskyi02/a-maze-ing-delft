@@ -1,10 +1,10 @@
-"""Tests for fire-area gating and fire extinguishers (issue #112).
+"""Tests for key-card gating of the red corridor and the lobby (issue #112).
 
 Acceptance criteria:
-- Each wall of fire blocks go to every room in the area behind it, with a clear message.
-- Using an extinguisher consumes it permanently and opens exactly one wall.
+- A locked door blocks every room in the area behind it, with a clear message.
+- A key card opens exactly one door, and stays in the backpack afterwards.
 - The corridor's go destination list grows as areas open.
-- The player cannot soft-lock: an extinguisher for the next wall is always reachable in the
+- The player cannot soft-lock: the key card for the next door is always reachable in the
   current area.
 """
 
@@ -41,8 +41,8 @@ def door_option(game: Game, door_key: str) -> str:
     raise AssertionError(f"No door with key {door_key!r} found in exits of {game.room.key}")
 
 
-def test_fire_wall_blocks_red_corridor_without_extinguisher(console) -> None:
-    """Entering the red corridor without an extinguisher is blocked with a fire message."""
+def test_red_corridor_is_locked_without_the_red_card(console) -> None:
+    """Entering the red corridor without the red key card is blocked with a clear message."""
     game = start()
     game.move_to("corridor_blue")
 
@@ -51,14 +51,12 @@ def test_fire_wall_blocks_red_corridor_without_extinguisher(console) -> None:
     game.turn()
 
     assert game.current == "corridor_blue"
-    assert "fire" in console.output.lower()
-    assert "extinguisher" in console.output.lower()
+    assert "red key card" in console.output.lower()
 
 
-def test_fire_wall_blocks_lobby_without_extinguisher(console) -> None:
-    """Entering the lobby (yellow area) from red corridor without an extinguisher is blocked."""
+def test_lobby_is_locked_without_the_yellow_card(console) -> None:
+    """Entering the lobby from the red corridor without the yellow key card is blocked."""
     game = start()
-    # Unlock red corridor directly in game state for this test
     game.unlocked.add("corridor_red")
     game.move_to("corridor_red")
 
@@ -67,63 +65,55 @@ def test_fire_wall_blocks_lobby_without_extinguisher(console) -> None:
     game.turn()
 
     assert game.current == "corridor_red"
-    assert "fire" in console.output.lower()
-    assert "extinguisher" in console.output.lower()
+    assert "yellow key card" in console.output.lower()
 
 
-def test_extinguisher_is_consumed_and_unlocks_one_wall(console) -> None:
-    """Using an extinguisher consumes it and unlocks exactly the target wall."""
+def test_the_red_card_opens_exactly_one_door_and_is_kept(console) -> None:
+    """The red key card opens the red corridor, stays in the backpack, and opens no other door."""
     game = start()
     game.move_to("corridor_blue")
-    game.carrying.add("fire_extinguisher")
-    assert "fire_extinguisher" in game.carrying
+    game.carrying.add("red_card")
 
     console.lines.clear()
     console.script(option(game, "Go through a door"), door_option(game, "corridor_red"))
     game.turn()
 
     assert game.current == "corridor_red"
-    # Extinguisher is consumed permanently
-    assert "fire_extinguisher" not in game.carrying
+    assert "red_card" in game.carrying
     assert "corridor_red" in game.unlocked
-    assert "spray the fire extinguisher" in console.output.lower()
+    assert "red key card up to the reader" in console.output.lower()
 
-    # Player can walk back to blue and return to red without needing another extinguisher
+    # The door stays open: back to blue and into red again
     game.move_to("corridor_blue")
     console.lines.clear()
     console.script(option(game, "Go through a door"), door_option(game, "corridor_red"))
     game.turn()
     assert game.current == "corridor_red"
 
-    # Exactly one wall was unlocked: lobby is still locked by fire!
+    # The red card does not open the lobby
     assert "lobby" not in game.unlocked
     console.lines.clear()
     console.script(option(game, "Go through a door"), door_option(game, "lobby"))
     game.turn()
     assert game.current == "corridor_red"
-    assert "fire" in console.output.lower()
+    assert "yellow key card" in console.output.lower()
 
 
-def test_second_extinguisher_opens_yellow_area(console) -> None:
-    """A second extinguisher found in the red area opens the yellow area (lobby)."""
+def test_the_yellow_card_opens_the_lobby(console) -> None:
+    """The yellow key card, found in the red area, opens the lobby."""
     game = start()
     game.unlocked.add("corridor_red")
     game.move_to("corridor_red")
-
-    # Give player second extinguisher
-    game.carrying.add("fire_extinguisher")
-    assert "fire_extinguisher" in game.carrying
+    game.carrying.add("yellow_card")
 
     console.lines.clear()
     console.script(option(game, "Go through a door"), door_option(game, "lobby"))
     game.turn()
 
     assert game.current == "lobby"
-    assert "fire_extinguisher" not in game.carrying
     assert "lobby" in game.unlocked
-    assert "spray the fire extinguisher" in console.output.lower()
+    assert "yellow key card up to the reader" in console.output.lower()
 
-    # Can return to corridor_red and back to lobby without extinguisher
     game.move_to("corridor_red")
     console.lines.clear()
     console.script(option(game, "Go through a door"), door_option(game, "lobby"))
@@ -131,40 +121,32 @@ def test_second_extinguisher_opens_yellow_area(console) -> None:
     assert game.current == "lobby"
 
 
-def test_extinguishers_are_only_in_teachers_room_4_and_storage() -> None:
-    """In the whole game, exactly 2 fire extinguishers exist: in teachers room 4 and storage."""
-    rooms_with_extinguisher = sorted(
-        room.key for room in world.all_rooms() if "fire_extinguisher" in room.items
-    )
-    assert rooms_with_extinguisher == ["storage", "teachers_room_4"]
+def test_each_card_is_in_exactly_one_room() -> None:
+    """The red card is in teachers room 4 (blue area), the yellow card in storage (red area)."""
+    assert [r.key for r in world.all_rooms() if "red_card" in r.items] == ["teachers_room_4"]
+    assert [r.key for r in world.all_rooms() if "yellow_card" in r.items] == ["storage"]
+    assert world.get("teachers_room_4").area == Area.BLUE
+    assert world.get("storage").area == Area.RED
 
-    # Blue area check
+
+def test_no_soft_lock_blue_area_has_the_red_card() -> None:
+    """Blue area provides the red card without requiring access to Red or Yellow."""
     staff_room = world.get("teachers_room_4")
+    assert "red_card" in staff_room.items
     assert staff_room.area == Area.BLUE
-
-    # Red area check
-    storage_room = world.get("storage")
-    assert storage_room.area == Area.RED
-
-
-def test_no_soft_lock_blue_area_has_reachable_extinguisher() -> None:
-    """Blue area provides an extinguisher without requiring access to Red or Yellow."""
-    staff_room = world.get("teachers_room_4")
-    assert "fire_extinguisher" in staff_room.items
-    assert staff_room.area == Area.BLUE
-    # Blue card is in classroom_2031 in blue area
+    # The blue card is in classroom_2031 in the blue area
     bp_room = world.get("classroom_2031")
     assert bp_room.area == Area.BLUE
     assert bp_room.boss is not None
     assert bp_room.boss.lose_reward_2 == "blue_card"
 
 
-def test_no_soft_lock_red_area_has_reachable_extinguisher() -> None:
-    """Red area provides an extinguisher without requiring access to Yellow."""
+def test_no_soft_lock_red_area_has_the_yellow_card() -> None:
+    """Red area provides the yellow card without requiring access to Yellow."""
     storage_room = world.get("storage")
-    assert "fire_extinguisher" in storage_room.items
+    assert "yellow_card" in storage_room.items
     assert storage_room.area == Area.RED
-    # Storage key is in front_desk_office in red area
+    # The storage key is in front_desk_office in the red area
     office_room = world.get("front_desk_office")
     assert office_room.area == Area.RED
     assert office_room.boss is not None

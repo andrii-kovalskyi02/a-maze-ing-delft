@@ -21,19 +21,19 @@ def look(game: Game, console) -> str:
 
 def test_the_evacuation_plan_is_left_out_once_it_is_taken(console) -> None:
     game = Game(current="corridor_blue")
-    assert "evacuation plan hangs" in look(game, console)
-    assert "Look at the evacuation plan" in [a.label for a in _interactions(game)]
+    assert "floor plan hangs" in look(game, console)
+    assert "Look at the floor plan" in [a.label for a in _interactions(game)]
 
     game.take("evacuation_plan")
-    assert "evacuation plan hangs" not in look(game, console)
-    assert "Look at the evacuation plan" not in [a.label for a in _interactions(game)]
+    assert "floor plan hangs" not in look(game, console)
+    assert "Look at the floor plan" not in [a.label for a in _interactions(game)]
 
 
-def test_the_extinguisher_in_teachers_room_4_is_left_out_once_it_is_taken(console) -> None:
+def test_the_key_card_in_teachers_room_4_is_left_out_once_it_is_taken(console) -> None:
     game = Game(current="teachers_room_4")
-    assert "fire extinguisher" in look(game, console)
-    game.take("fire_extinguisher")
-    assert "fire extinguisher" not in look(game, console)
+    assert "red key card" in look(game, console)
+    game.take("red_card")
+    assert "red key card" not in look(game, console)
 
 
 def test_a_reward_counts_as_taken_too(console) -> None:

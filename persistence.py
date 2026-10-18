@@ -179,8 +179,11 @@ def load_game(player_name: str) -> Game | None:
         elapsed_time=elapsed_time,
     )
 
+    from inventory import ITEM_CATALOGUE
+
     for item_key in json.loads(inventory_json):
-        game.carrying.add(item_key)
+        if item_key in ITEM_CATALOGUE:  # an item that no longer exists (an old save) is dropped
+            game.carrying.add(item_key)
 
     return game
 

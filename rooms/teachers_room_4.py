@@ -1,4 +1,4 @@
-"""US1d - Room: Teachers room 4 (fire extinguisher) Issue #19."""
+"""US1d - Room: Teachers room 4 (the red key card) Issue #19."""
 
 from __future__ import annotations
 
@@ -16,14 +16,12 @@ ROOM = Room(
     ),
     look_around=(
         "Somebody's marking is still spread across the nearest desk.",
-        Unless(
-            "fire_extinguisher", (0.7, "A fire extinguisher is clipped to the wall by the window.")
-        ),
+        Unless("red_card", (0.7, "A red key card hangs on a hook by the window.")),
     ),
     exits=("corridor_blue",),
     requires="blue_card",
     locked_text="The reader by the door blinks red. Staff only - you need a key card.",
-    items=("fire_extinguisher",),
+    items=("red_card",),
 )
 
 register(ROOM)

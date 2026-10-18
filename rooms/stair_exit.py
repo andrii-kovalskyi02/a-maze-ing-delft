@@ -13,9 +13,7 @@ ROOM = Room(
     exits=("corridor_blue",),
     is_exit=True,
     locked_text="The exit is locked. A 4 digit pin is needed to unlock.",
-    inspectables=(
-        Inspectable(name="poster", text="A fire evacuation poster, curling at the corners."),
-    ),
+    inspectables=(Inspectable(name="poster", text="A notice poster, curling at the corners."),),
     items=(),
     boss=None,
     approach_reward_text=(
