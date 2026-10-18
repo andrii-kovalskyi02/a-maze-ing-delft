@@ -11,7 +11,7 @@ import contextlib
 import sys
 import textwrap
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover - import only needed for type checking
@@ -25,6 +25,35 @@ WIDTH = 80
 #: what makes the text look like it is being typed rather than dumped.
 CHAR_DELAY = 0.02
 
+#: The typing speeds the player can pick (Options / the pause menu): a name, and the wait after
+#: each character in seconds. "Instant" shows the story all at once. Normal is the default.
+SPEEDS: tuple[tuple[str, float], ...] = (
+    ("Slow", 0.0417),
+    ("Normal", 0.0167),
+    ("Fast", 0.0058),
+    ("Instant", 0.0),
+)
+
+#: How the mood of whoever is speaking changes their pace: the wait after each letter is
+#: multiplied by this, so under 1 is quicker and over 1 slower than the player's typing speed.
+MOOD_PACE: dict[str, float] = {"speaking": 1.0, "smiling": 1.4, "upset": 0.65}
+
+#: Speakers whose pace never changes with their mood: the backpack always talks at the pace it
+#: greets the player with when they load a saved game (the normal pace).
+FIXED_PACE: dict[str, float] = {"backpack": 1.0}
+_pace = 1.0
+
+
+def pace_for(who: str | None, mood: str) -> float:
+    """How fast ``who`` talks in ``mood``: 1 is the player's typing speed, under 1 is quicker."""
+    if who in FIXED_PACE:
+        return FIXED_PACE[who]
+    return MOOD_PACE.get(mood, 1.0)
+
+
+_NORMAL_SPEED = 1
+_speed_index = _NORMAL_SPEED
+
 #: How long :func:`narrate` waits between two parts of a text, in seconds, when
 #: the room does not ask for a pause of its own.
 PART_DELAY = 0.5
@@ -33,6 +62,9 @@ PART_DELAY = 0.5
 #: typed. Set by the Options menu, and by pressing a key during a narration -
 #: see :func:`narrate` (issue #151).
 _instant = False
+
+#: True while the window paces the story line by line itself - see :func:`set_flowing`.
+_flowing = False
 
 #: Swapped out by the tests. Do not call these directly; use say/narrate/ask.
 _write: Callable[[str], None] = print
@@ -45,6 +77,7 @@ _clock: Callable[[], float] = time.monotonic
 #: (see :func:`ask`). None while no game is running - at the name prompt, say.
 _pause_handler: Callable[[], None] | None = None
 _page_handler: Callable[[], None] | None = None
+_speaker_handler: Callable[[str | None, str], None] | None = None
 _quit_handler: Callable[[], bool] | None = None
 _scoreboard_handler: Callable[[], None] | None = None
 
@@ -102,6 +135,34 @@ def set_page_handler(handler: Callable[[], None] | None) -> None:
     _page_handler = handler
 
 
+def set_speaker_handler(handler: Callable[[str | None, str], None] | None) -> None:
+    """Set the function told who starts and stops speaking, or None for a plain terminal."""
+    global _speaker_handler
+    _speaker_handler = handler
+
+
+@contextlib.contextmanager
+def speaking(who: str | None, mood: str = "speaking") -> Iterator[None]:
+    """Say, while the text inside is told, that ``who`` is the one talking.
+
+    A terminal ignores this. The window shows that character's face in a cloud beside the
+    dialogue box, in the given mood, for as long as the block runs. ``who`` can be None
+    for text nobody in particular speaks.
+    """
+    global _pace
+    if who is not None and _speaker_handler is not None:
+        _speaker_handler(who, mood)
+    before = _pace
+    if who is not None:
+        _pace = pace_for(who, mood)  # an upset speaker rattles on, a smiling one lingers
+    try:
+        yield
+    finally:
+        _pace = before
+        if who is not None and _speaker_handler is not None:
+            _speaker_handler(None, "")
+
+
 def narrate(text: Text) -> None:
     """Type ``text`` out to the player a character at a time.
 
@@ -119,17 +180,19 @@ def narrate(text: Text) -> None:
     being typed: the rest of the text appears at once, pauses included. The
     Options menu turns the typing off for good - see :func:`set_instant`.
     """
-    parts = (text,) if isinstance(text, str) else text
+    parts: list = []
+    for part in (text,) if isinstance(text, str) else text:
+        parts.extend(part.parts if hasattr(part, "parts") else (part,))  # a Says is plain text here
     skipped = False
     previous_was_text = False
     with _keys_not_echoed():
         for part in parts:
             if isinstance(part, int | float):
-                if not (skipped or _instant):
+                if not (skipped or _instant or _flowing):
                     _sleep(part)
                 previous_was_text = False
                 continue
-            if previous_was_text and not (skipped or _instant):
+            if previous_was_text and not (skipped or _instant or _flowing):
                 _sleep(PART_DELAY)
             for line in _wrap(part):
                 if skipped or _instant:
@@ -168,7 +231,7 @@ def _type_line(line: str) -> bool:
             return True
         sys.stdout.write(character)
         sys.stdout.flush()
-        _sleep(CHAR_DELAY)
+        _sleep(CHAR_DELAY * _pace)
     sys.stdout.write("\n")
     return False
 
@@ -270,14 +333,47 @@ def is_instant() -> bool:
     return _instant
 
 
+def set_flowing(flowing: bool) -> None:
+    """Say that the window paces the story itself, line by line.
+
+    The Pygame window holds each finished line on screen for a moment, then starts the next
+    one. With this on, :func:`narrate` adds no pause of its own between two lines, so the
+    next line starts the instant the last one has gone, instead of waiting a second time.
+    """
+    global _flowing
+    _flowing = flowing
+
+
+def text_speed() -> str:
+    """Return the name of the typing speed in use: "Slow", "Normal", "Fast" or "Instant"."""
+    return SPEEDS[_speed_index][0]
+
+
+def cycle_text_speed() -> str:
+    """Move on to the next typing speed (and back to the first after the last); return its name."""
+    _use_speed((_speed_index + 1) % len(SPEEDS))
+    return text_speed()
+
+
+def _use_speed(index: int) -> None:
+    """Start using the typing speed number ``index`` of :data:`SPEEDS`."""
+    global CHAR_DELAY, _instant, _speed_index
+    _speed_index = index
+    name, delay = SPEEDS[index]
+    _instant = name == "Instant"
+    CHAR_DELAY = delay if delay else SPEEDS[_NORMAL_SPEED][1]
+
+
 def set_instant(instant: bool) -> None:
     """Show the story instantly from now on, or go back to typing it out.
 
     Offered in the Options menu for the player on their second or third run,
     who has read every word already (issue #151).
     """
-    global _instant
-    _instant = instant
+    if instant:
+        _use_speed(len(SPEEDS) - 1)
+    elif _instant:
+        _use_speed(_NORMAL_SPEED)  # back to typing it out, at the normal speed
 
 
 def ask(prompt: str = "> ", timeout: float | None = None) -> str:
@@ -400,7 +496,13 @@ def now() -> float:
 
 
 def pause(seconds: float) -> None:
-    """Wait ``seconds`` before continuing. Uses the same clock as narrate."""
+    """Wait ``seconds`` before continuing. Uses the same clock as narrate.
+
+    Not in a window that paces the story itself (see :func:`set_flowing`): it already holds
+    every line of dialogue, and a wait before a menu would only leave an empty box on screen.
+    """
+    if _flowing:
+        return
     _sleep(seconds)
 
 
@@ -521,7 +623,9 @@ def use_io(
     clock: Callable[[], float] = time.monotonic,
 ) -> None:
     """Replace the input, output, waiting and timing functions. Tests only."""
-    global _write, _read, _sleep, _clock, _held, _instant
+    global _write, _read, _sleep, _clock, _held, _flowing, _pace
     _write, _read, _sleep, _clock = write, read, sleep, clock
     _held = 0.0
-    _instant = False
+    _use_speed(_NORMAL_SPEED)
+    _flowing = False
+    _pace = 1.0

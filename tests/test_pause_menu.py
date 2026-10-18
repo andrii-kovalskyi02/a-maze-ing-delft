@@ -120,3 +120,10 @@ def test_the_window_can_ask_for_a_save(console) -> None:
 def test_there_is_nothing_to_save_between_games(console) -> None:
     ui.set_save_handler(None)
     assert ui.save_game() is False
+
+
+def test_status_lists_the_rooms_that_have_been_unlocked(console) -> None:
+    game = Game()
+    assert game.status()["unlocked"] == []
+    game.unlocked.add("corridor_red")
+    assert game.status()["unlocked"] == ["corridor_red"]

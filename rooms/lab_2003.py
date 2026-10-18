@@ -7,7 +7,7 @@ resets, so the player can walk back up to him and try again.
 
 from __future__ import annotations
 
-from models import Area, Boss, Inspectable, Question, Room, Unless
+from models import Area, Boss, Inspectable, Question, Room, Unless, says
 from world import register
 
 ROOM = Room(
@@ -56,11 +56,14 @@ ROOM = Room(
     ),
     boss=Boss(
         name="Steve Jobs",
+        speaker="steve_jobs",
         intro=(
             "The ghost looks up at you.",
             1.0,
-            "'To get this key to Project Room 3, you must prove you know your history.'",
-            "'Let's begin.'",
+            says(
+                "'To get this key to Project Room 3, you must prove you know your history.'",
+                "'Let's begin.'",
+            ),
         ),
         questions=(
             Question(
@@ -104,14 +107,14 @@ ROOM = Room(
         win_text=(
             "Steve smiles and nods slowly.",
             0.8,
-            "'Stay hungry. Stay foolish.'",
+            says("'Stay hungry. Stay foolish.'"),
             0.5,
             "He places the brass key in your hand and fades into the glow of the screens.",
         ),
         lose_text=(
             "Steve shakes his head.",
             0.8,
-            "'Not quite. Come back when you have done your homework.'",
+            says("'Not quite. Come back when you have done your homework.'"),
             0.5,
             "The screens flicker, and he waits at the desk again as if nothing happened.",
         ),

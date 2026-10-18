@@ -1,7 +1,7 @@
 """Project Room 3 and its Memory Keeper encounter."""
 
 import memories
-from models import Area, Boss, Inspectable, Question, Room, Unless
+from models import Area, Boss, Inspectable, Question, Room, Unless, says
 from world import register
 
 QUESTIONS = (
@@ -76,6 +76,7 @@ ROOM = Room(
     ),
     boss=Boss(
         name="the Memory Keeper",
+        speaker="memory_keeper",
         intro=(
             "The Memory Keeper steps forward",
             0.6,
@@ -83,13 +84,15 @@ ROOM = Room(
         ),
         questions=QUESTIONS,
         win_text=(
-            "Correct. Now you remember.",
-            0.5,
-            "You were sitting at the desk, working on your project.",
-            0.4,
-            "You were looking at the clock...",
-            0.5,
-            "And then you fell asleep.",
+            says(
+                "Correct. Now you remember.",
+                0.5,
+                "You were sitting at the desk, working on your project.",
+                0.4,
+                "You were looking at the clock...",
+                0.5,
+                "And then you fell asleep.",
+            ),
         ),
         lose_text="The Memory Keeper shakes its head. You cannot remember enough.",
         reward="digit_4",

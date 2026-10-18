@@ -49,6 +49,7 @@ def main() -> None:
         ui.say()
         ui.say(f"Welcome back, {player_name}!")
         ui.say("Saved game found. Resuming your game.")
+        game.resumed = True
 
     game.run()
 

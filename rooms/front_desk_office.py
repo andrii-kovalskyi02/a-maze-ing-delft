@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from models import Area, Boss, Inspectable, Question, Room
+from models import Area, Boss, Inspectable, Question, Room, says
 from world import register
 
 ROOM = Room(
@@ -51,8 +51,9 @@ ROOM = Room(
     items=(),
     boss=Boss(
         name="the Check-In Terminal",
+        speaker="terminal",
         intro=(
-            "State your business.",
+            says("State your business."),
             0.8,
             "A mechanical whir rises from the desk.",
             0.4,
@@ -119,7 +120,7 @@ ROOM = Room(
             ),
         ),
         win_text=(
-            '"Access granted. You may pass."',
+            says('"Access granted. You may pass."'),
             0.8,
             "The red lights switch to a steady green.",
             0.4,
@@ -128,7 +129,7 @@ ROOM = Room(
             "A small metallic key ejects onto the counter.",
         ),
         lose_text=(
-            '"Access denied. Please consult the regulations and try again."',
+            says('"Access denied. Please consult the regulations and try again."'),
             0.6,
             "The terminal flashes red and powers down its tray.",
         ),

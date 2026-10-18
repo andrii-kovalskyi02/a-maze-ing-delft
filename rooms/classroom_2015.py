@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from models import Area, Boss, Inspectable, Question, Room
+from models import Area, Boss, Inspectable, Question, Room, says
 from world import register
 
 ROOM = Room(
@@ -77,6 +77,7 @@ ROOM = Room(
     #
     boss=Boss(
         name="The drunk german",
+        speaker="german",
         intro=(
             "Inspecting the furniture-pile, you hear a rustle.",
             0.5,
@@ -90,7 +91,7 @@ ROOM = Room(
             0.6,
             "He squints at you, then grins.",
             0.5,
-            "You want the digit? Answer me about my culture first.",
+            says("You want the digit? Answer me about my culture first."),
         ),
         questions=(
             Question(
@@ -141,8 +142,8 @@ ROOM = Room(
                 seconds=15,
             ),
         ),
-        win_text="Gut gemacht, here your digit. Bis später",
-        lose_text="nein, nein, nein, you have to stay ",
+        win_text=(says("Gut gemacht, here your digit. Bis später"),),
+        lose_text=(says("nein, nein, nein, you have to stay "),),
         reward="digit_2",
     ),
 )

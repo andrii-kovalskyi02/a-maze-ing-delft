@@ -37,7 +37,7 @@ from typing import TYPE_CHECKING
 import health
 import narrator
 import ui
-from models import Boss, Question
+from models import Boss, Question, Says, Text
 
 if TYPE_CHECKING:  # pragma: no cover - import only needed for type checking
     from game import Game
@@ -53,7 +53,7 @@ def run(game: Game, boss: Boss) -> bool:
         True if the player answered every question correctly.
     """
     ui.say()
-    ui.narrate(boss.intro)
+    _tell(boss, boss.intro, "speaking")
     ui.say()
     ui.say(f"Hearts: {game.hearts}")
 
@@ -62,13 +62,13 @@ def run(game: Game, boss: Boss) -> bool:
             continue
         _hurt(game, boss)
         ui.say()
-        ui.narrate(boss.lose_text)
+        _tell(boss, boss.lose_text, "smiling")
         _hand_over_the_losing_items(game, boss)
         return False
 
     _heal(game, boss)
     ui.say()
-    ui.narrate(boss.win_text)
+    _tell(boss, boss.win_text, "upset")
     if boss.reward is not None:
         item = game.carrying.add(boss.reward)
         ui.new_page()  # picking something up is a moment of its own
@@ -76,6 +76,37 @@ def run(game: Game, boss: Boss) -> bool:
         ui.new_page()
     narrator.remark(game, "boss_won", who=boss.name)
     return True
+
+
+def _tell(boss: Boss, text: Text, mood: str) -> None:
+    """Tell a boss's text: its own words in its voice (with its face), the rest as narration.
+
+    Only the parts marked with ``says(...)`` are the boss speaking. Everything else is typed
+    with the narrator's soft sound, so "The table shudders to life" is not said in the
+    machine's voice. A pause number stays with the part before it.
+    """
+    runs: list[tuple[bool, list[str | float]]] = []
+    for part in (text,) if isinstance(text, str) else text:
+        if isinstance(part, Says):
+            runs.append((True, list(part.parts)))
+        elif isinstance(part, str):
+            if runs and not runs[-1][0]:
+                runs[-1][1].append(part)
+            else:
+                runs.append((False, [part]))
+        elif runs:  # a pause belongs to the part before it
+            runs[-1][1].append(part)
+    for spoken, parts in runs:
+        if spoken and boss.speaker is not None:
+            with ui.speaking(boss.speaker, _mood(boss, mood)):
+                ui.narrate(tuple(parts))
+        else:
+            ui.narrate(tuple(parts))
+
+
+def _mood(boss: Boss, mood: str) -> str:
+    """The mood a boss speaks in. Only the backpack has a face to show it, so only it changes."""
+    return mood if boss.speaker == narrator.BACKPACK else "speaking"
 
 
 def _ask_question(number: int, total: int, question: Question) -> bool:
@@ -157,7 +188,7 @@ def _hand_over_the_losing_items(game: Game, boss: Boss) -> None:
     ui.new_page()
     if boss.lose_reward_text is not None:
         ui.say()
-        ui.narrate(boss.lose_reward_text)
+        _tell(boss, boss.lose_reward_text, "smiling")
         if boss.lose_reward_2 is not None:
             second_item = game.carrying.add(boss.lose_reward_2)
             ui.new_page()

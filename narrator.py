@@ -60,16 +60,19 @@ class Remark:
             filled in from whatever the engine reports.
         every: Say something on every n-th time this happens. 1 is every
             time; 3 means it keeps quiet twice and speaks on the third.
+        mood: The face it makes while saying it: "speaking", "smiling" or "upset".
     """
 
     lines: tuple[str, ...]
     every: int = 1
+    mood: str = "speaking"
 
 
 #: Everything the backpack says, and how often it says it.
 REMARKS: dict[str, Remark] = {
     "took": Remark(
         every=3,
+        mood="upset",
         lines=(
             '"Oh, wonderful. The {what}. I\'ll carry that, shall I. As usual."',
             '"Another thing for me to hold. You know I have a bad back?"',
@@ -78,12 +81,14 @@ REMARKS: dict[str, Remark] = {
     ),
     "left_behind": Remark(
         every=2,
+        mood="upset",
         lines=(
             '"You\'re just going to leave that lying there? Fine. Not my building."',
             '"Something back there is still on the floor. I\'m not going back for it."',
         ),
     ),
     "locked_again": Remark(
+        mood="smiling",
         lines=(
             '"Still locked. Shocking. Try it a third time, that usually works."',
             '"That door and I have something in common: neither of us is impressed."',
@@ -98,18 +103,21 @@ REMARKS: dict[str, Remark] = {
         ),
     ),
     "hurt": Remark(
+        mood="smiling",
         lines=(
             '"Ooh. That looked like it hurt. My questions were harder, you know."',
             '"{who} got you. To be fair, I\'d have got you faster."',
         ),
     ),
     "boss_won": Remark(
+        mood="upset",
         lines=(
             '"Fine. You beat {who}. {who} was not me, though. Remember that."',
             '"Lucky. My questions would have finished you, and don\'t you forget it."',
         ),
     ),
     "boss_lost": Remark(
+        mood="smiling",
         lines=(
             '"Beaten by {who}. And you thought MY questions were hard."',
             '"I would say better luck next time, but I\'ve met you."',
@@ -159,4 +167,5 @@ def remark(game: Game, event: str, **about: str) -> None:
     spoken = times // remark_for_event.every - 1
     line = remark_for_event.lines[spoken % len(remark_for_event.lines)]
     ui.say()
-    ui.narrate(line.format(**about))
+    with ui.speaking(BACKPACK, remark_for_event.mood):
+        ui.narrate(line.format(**about))

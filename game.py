@@ -90,6 +90,12 @@ class Game:
     #: mid-game cannot make it run backwards.
     started_at: float = field(default_factory=time.monotonic)
     percent_explored: float = 0
+    #: True for the first arrival of a game that was loaded from a save. The backpack,
+    #: if the player has it, greets them instead of the room describing itself again.
+    resumed: bool = False
+    #: True once the player has looked around in the room they are in. The next "Look around"
+    #: becomes "Interact" and skips the telling. It starts again in every room they walk into.
+    looked_around: bool = False
 
     def __post_init__(self) -> None:
         """Use the name the player logged in with, and hand them their starting items."""
@@ -123,6 +129,7 @@ class Game:
     def move_to(self, key: str) -> None:
         """Walk into the room ``key`` and let it introduce itself."""
         self.current = key
+        self.looked_around = False
         self.enter()
 
     def enter(self) -> None:
@@ -133,6 +140,11 @@ class Game:
 
         ui.say()
         ui.say(f"== {room.name} ==")
+        if self.resumed:
+            self.resumed = False
+            if narrator.BACKPACK in self.carrying:
+                self._greet_back(room)
+                return
         if first_time or room.return_description is None:
             ui.narrate(room.description)
         else:
@@ -144,6 +156,14 @@ class Game:
 
         if first_time and room.on_first_enter is not None:
             room.on_first_enter(self)
+
+    def _greet_back(self, room: Room) -> None:
+        """The backpack welcomes the player back to the room they saved in."""
+        place = room.name
+        if place.startswith("The "):
+            place = "the " + place[4:]  # "in the Blue corridor", not "in The Blue corridor"
+        with ui.speaking(narrator.BACKPACK, "speaking"):
+            ui.narrate(f'"Right where you left off... in {place}."')
 
     def update_elapsed_time(self) -> None:
         """Add the current session duration to the total play time."""
@@ -165,6 +185,7 @@ class Game:
             "name": self.name,
             "has_map": "evacuation_plan" in self.carrying,
             "room": self.current,
+            "unlocked": sorted(self.unlocked),
             "hearts": str(self.hearts),
             "seconds": self.time_played(),
             "percent": progress.percent_explored(self),
