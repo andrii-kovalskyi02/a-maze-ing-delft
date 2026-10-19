@@ -19,6 +19,7 @@ import narrator
 import persistence
 import rooms  # noqa: F401  (importing rooms registers them)
 import ui
+from leaderboard import online
 
 
 @pytest.fixture(autouse=True)
@@ -31,6 +32,12 @@ def own_database(tmp_path, monkeypatch) -> None:
     """
     monkeypatch.setattr(persistence, "DATABASE_NAME", str(tmp_path / "test.db"))
     persistence.create_tables()
+
+
+@pytest.fixture(autouse=True)
+def no_shared_scoreboard(monkeypatch) -> None:
+    """Keep every test off the internet: the shared scoreboard is off unless a test turns it on."""
+    monkeypatch.setattr(online, "SUPABASE_URL", "")
 
 
 @pytest.fixture(autouse=True)

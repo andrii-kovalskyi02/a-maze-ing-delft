@@ -64,6 +64,17 @@ ORDER BY percent DESC, seconds ASC
 LIMIT 5
 ```
 
+### The shared scoreboard (`leaderboard/online.py`)
+
+Optional. When `SUPABASE_URL` and `SUPABASE_KEY` are filled in at the top of `leaderboard/online.py`, finished
+runs are also uploaded to a `scores` table on Supabase (create it with `leaderboard/scores_online.sql`), and
+the scoreboard shows everyone's best five. Two more local tables back this up:
+
+| Table | What it holds |
+|---|---|
+| `pending_scores` | Finished runs not uploaded yet (no connection); sent the next time the server answers |
+| `online_top` | The last top list seen, shown when the server cannot be reached |
+
 ## Two copies of the game at once
 
 Each function opens the file, does one thing, commits and closes. SQLite lets
