@@ -109,6 +109,13 @@ class _SpeakerChange:
         self.mood = mood
 
 
+class _Cue:
+    """Put in the output queue where a sound cue is to be played (see ui.cue)."""
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+
 FPS = 60
 
 # fonts with glyphs for the unusual Unicode some puzzle text uses - the main
@@ -1002,6 +1009,58 @@ class TerminalWindow:
             ),
         )
 
+    @staticmethod
+    def _load_sound(name: str, volume: float = 1.0) -> pygame.mixer.Sound | None:
+        """Load a sound from assets/, or None if there is no file or no sound on this computer."""
+        path = os.path.join(_ASSETS_DIR, name)
+        if not os.path.exists(path):
+            return None
+        try:
+            if not pygame.mixer.get_init():
+                pygame.mixer.init()
+            sound = pygame.mixer.Sound(path)
+            sound.set_volume(volume)
+            return sound
+        except pygame.error:  # no audio device: the game just stays quiet
+            return None
+
+    @staticmethod
+    def _load_move_sound() -> pygame.mixer.Sound | None:
+        """Load the menu tick (its volume is set each time it plays)."""
+        return TerminalWindow._load_sound(_MOVE_SOUND_FILE)
+
+    def _play_cue(self, name: str) -> None:
+        """Handle a cue: switch the boss music on or off, or play its sound and dip the music."""
+        if name == "boss_music_on":
+            self.boss_music = True
+            return
+        if name == "boss_music_off":
+            self.boss_music = False
+            return
+        sound = self.cue_sounds.get(name)
+        if sound is not None:
+            sound.play()
+            self.music.duck(max(0.8, sound.get_length()))
+
+    def _tick(self) -> None:
+        """Play the little sound for moving the highlight to another choice."""
+        volume = _MOVE_SOUND_LEVELS[self.move_level][1]
+        if self.move_sound is not None and volume > 0:
+            self.move_sound.set_volume(volume)
+            self.move_sound.play()
+
+    def _update_music(self) -> None:
+        """Pick the music for where the player is, and move it on a frame."""
+        if self.quitting:
+            self.music.want_track(None)  # leaving: let it fade out
+        elif self.boss_music:
+            self.music.want_track("boss", instant=True)  # a boss: it starts at once, no fades
+        else:
+            # the intro loop until the first room, the exploring loop from then on
+            self.music.want_track("explore" if self.room_header is not None else "intro")
+        self.music.set_paused(self.paused)
+        self.music.update()
+
     def _start_fade(self) -> None:
         """Begin fading out of the room on screen, and hold the game while it goes dark."""
         if self.paused or self.quitting or self.fade_started is not None:
@@ -1336,6 +1395,9 @@ class TerminalWindow:
                 if isinstance(chunk, _SpeakerChange):
                     self._speaker_changed(chunk)
                     continue
+                if isinstance(chunk, _Cue):
+                    self._play_cue(chunk.name)
+                    continue
                 for character in chunk:
                     if character == "\n":
                         if self._is_room_header(self.current_line):
@@ -1361,6 +1423,7 @@ class TerminalWindow:
                         self.current_line += character
                         if len(chunk) == 1:  # one letter at a time means it is being typed out
                             self._blip(character)
+                            self.music.typing()
         except queue.Empty:
             pass
 
