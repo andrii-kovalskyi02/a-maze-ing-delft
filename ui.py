@@ -44,8 +44,23 @@ _clock: Callable[[], float] = time.monotonic
 #: What to do when the player types one of the words that work at any prompt
 #: (see :func:`ask`). None while no game is running - at the name prompt, say.
 _pause_handler: Callable[[], None] | None = None
+_page_handler: Callable[[], None] | None = None
 _quit_handler: Callable[[], bool] | None = None
 _scoreboard_handler: Callable[[], None] | None = None
+
+#: What the Pygame window's pause menu shows, and how it stops the clocks while
+#: it is open. The game registers both while it is being played.
+_status_provider: Callable[[], dict[str, object]] | None = None
+_time_hold_handler: Callable[[float], None] | None = None
+_save_handler: Callable[[], None] | None = None
+
+#: Seconds the game has spent paused, taken off :func:`now` so a timed question
+#: does not lose time to the pause menu.
+_held = 0.0
+
+#: True when the window has its own pause menu, so the game menu does not
+#: need an "Options" entry.
+_pause_menu = False
 
 
 class PauseRequested(Exception):
@@ -68,6 +83,23 @@ def say(text: str = "") -> None:
     """
     for line in _wrap(text):
         _write(line)
+
+
+def new_page() -> None:
+    """Start what is printed next on a page of its own.
+
+    A terminal just keeps scrolling, so this does nothing there. A window that shows one
+    page of text at a time (the Pygame box) starts a fresh page. Use it to keep a moment,
+    like picking something up, from running into the text around it.
+    """
+    if _page_handler is not None:
+        _page_handler()
+
+
+def set_page_handler(handler: Callable[[], None] | None) -> None:
+    """Set the function that starts a new page, or None for a plain terminal."""
+    global _page_handler
+    _page_handler = handler
 
 
 def narrate(text: Text) -> None:
@@ -364,7 +396,7 @@ def now() -> float:
     everything that prints goes through :func:`say`: a test can hand the game
     a clock it controls, and time a question without waiting for one.
     """
-    return _clock()
+    return _clock() - _held
 
 
 def pause(seconds: float) -> None:
@@ -388,6 +420,56 @@ def set_scoreboard_handler(handler: Callable[[], None] | None) -> None:
     """Set the function called when the player types ``scoreboard``."""
     global _scoreboard_handler
     _scoreboard_handler = handler
+
+
+def set_status_provider(provider: Callable[[], dict[str, object]] | None) -> None:
+    """Set the function that says how the player is doing, for the pause menu."""
+    global _status_provider
+    _status_provider = provider
+
+
+def status() -> dict[str, object] | None:
+    """Return the player's name, hearts, time played and progress, or None between games."""
+    return None if _status_provider is None else _status_provider()
+
+
+def set_time_hold_handler(handler: Callable[[float], None] | None) -> None:
+    """Set the function that takes paused time off the time played."""
+    global _time_hold_handler
+    _time_hold_handler = handler
+
+
+def hold_time(seconds: float) -> None:
+    """Stop the clocks for ``seconds``: the game was paused for that long."""
+    global _held
+    _held += seconds
+    if _time_hold_handler is not None:
+        _time_hold_handler(seconds)
+
+
+def set_save_handler(handler: Callable[[], None] | None) -> None:
+    """Set the function that saves the game and lets it carry on."""
+    global _save_handler
+    _save_handler = handler
+
+
+def save_game() -> bool:
+    """Save the game being played and carry on. Return False if there is no game to save."""
+    if _save_handler is None:
+        return False
+    _save_handler()
+    return True
+
+
+def set_pause_menu(available: bool) -> None:
+    """Say whether the window has a pause menu of its own (the Escape menu)."""
+    global _pause_menu
+    _pause_menu = available
+
+
+def has_pause_menu() -> bool:
+    """Return True if the window has a pause menu, so the game menu skips "Options"."""
+    return _pause_menu
 
 
 def choose(
@@ -439,6 +521,7 @@ def use_io(
     clock: Callable[[], float] = time.monotonic,
 ) -> None:
     """Replace the input, output, waiting and timing functions. Tests only."""
-    global _write, _read, _sleep, _clock, _instant
+    global _write, _read, _sleep, _clock, _held, _instant
     _write, _read, _sleep, _clock = write, read, sleep, clock
+    _held = 0.0
     _instant = False

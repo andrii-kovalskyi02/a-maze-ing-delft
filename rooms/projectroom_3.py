@@ -1,6 +1,7 @@
 """Project Room 3 and its Memory Keeper encounter."""
 
-from models import Area, Boss, Inspectable, Question, Room
+import memories
+from models import Area, Boss, Inspectable, Question, Room, Unless
 from world import register
 
 QUESTIONS = (
@@ -67,14 +68,14 @@ ROOM = Room(
     area=Area.RED,
     requires="brass_key",
     description="The room feels strangely familiar, though you can't say why.",
+    return_description="The clock, the whiteboard, the laptop: all as you remember them.",
     look_around=(
         "A clock on the wall shows 23:17.",
         0.6,
         'A whiteboard displays the word "REMEMBER".',
         0.6,
         "A laptop sits on a nearby desk, and the desk feels familiar.",
-        0.6,
-        "The Memory Keeper watches you silently.",
+        Unless("digit_4", (0.6, "The Memory Keeper watches you silently.")),
     ),
     exits=("corridor_red",),
     inspectables=(

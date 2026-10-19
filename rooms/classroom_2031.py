@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from models import Area, Boss, Question, Room
+from models import Area, Boss, Question, Room, Unless
 from world import register
 
 ROOM = Room(
@@ -14,12 +14,14 @@ ROOM = Room(
         0.6,
         "You decide to enter regardless.",
     ),
+    return_description="The empty classroom, just as you left it.",
     look_around=(
         "You see an unusually empty classroom as you look around. ",
         0.6,
         "Unlike Classroom 2.035 there's nothing on the desks... Something feels off",
-        0.6,
-        "Theres a backpack on one of desk, your curiosity is eating at you",
+        Unless(
+            "backpack", (0.6, "Theres a backpack on one of desk, your curiosity is eating at you")
+        ),
     ),
     exits=("corridor_blue",),
     requires=None,

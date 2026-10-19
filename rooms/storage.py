@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from models import Area, Inspectable, Room
+from models import Area, Inspectable, Room, Unless
 from world import register
 
 ROOM = Room(
@@ -12,10 +12,16 @@ ROOM = Room(
     description="A cramped, windowless storage room that smells of cedar, oil, and cardboard.",
     look_around=(
         "Metal shelves line the walls, packed with cleaning supplies and spare parts.",
-        0.6,
-        "On a sturdy workbench near the back rests a heavy fire axe.",
-        0.4,
-        "It looks sharp and ready for emergencies.",
+        Unless(
+            "axe_key",
+            (
+                0.6,
+                "On a sturdy workbench near the back rests a heavy axe.",
+                0.4,
+                "It looks sharp and ready for emergencies.",
+            ),
+        ),
+        Unless("yellow_card", (0.4, "A yellow key card lies on a shelf beside the door.")),
     ),
     exits=("corridor_red",),
     requires="storage_key",
@@ -57,7 +63,7 @@ ROOM = Room(
             ),
         ),
     ),
-    items=("axe_key", "fire_extinguisher"),
+    items=("axe_key", "yellow_card"),
 )
 
 register(ROOM)

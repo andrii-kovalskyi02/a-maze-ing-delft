@@ -19,9 +19,29 @@ if TYPE_CHECKING:  # pragma: no cover - import only needed for type checking
     from game import Game
 
 
+@dataclass(frozen=True, slots=True)
+class Unless:
+    """A part of a text that is only told while an item has not been picked up.
+
+    Use it for a line like "A key card hangs on a hook by the window": once the
+    player has taken it, the line is left out instead of describing what is gone.
+
+    Args:
+        item: The key of the item the line is about.
+        parts: What is told while the player has not got the item: strings, and
+            numbers for pauses, like any other text.
+        after: What is told instead once they have it, if anything.
+    """
+
+    item: str
+    parts: tuple[str | float, ...]
+    after: tuple[str | float, ...] = ()
+
+
 #: Story text: one string, or a tuple of parts typed out one after another.
-#: A number in the tuple is a pause, in seconds - see ``ui.narrate``.
-type Text = str | tuple[str | float, ...]
+#: A number in the tuple is a pause, in seconds - see ``ui.narrate``. A part can also
+#: be an :class:`Unless`, told only while an item is still lying there.
+type Text = str | tuple[str | float | Unless, ...]
 
 
 def plain(text: Text | None) -> str:
@@ -30,13 +50,40 @@ def plain(text: Text | None) -> str:
         return ""
     if isinstance(text, str):
         return text
-    return " ".join(part for part in text if isinstance(part, str))
+    words: list[str] = []
+    for part in text:
+        if isinstance(part, Unless):
+            words += [piece for piece in part.parts + part.after if isinstance(piece, str)]
+        elif isinstance(part, str):
+            words.append(part)
+    return " ".join(words)
+
+
+def resolve(text: Text, has_taken: Callable[[str], bool]) -> tuple[str | float, ...]:
+    """Return ``text`` as it should be told now, given which items the player has taken.
+
+    Args:
+        text: The story text, which may hold :class:`Unless` parts.
+        has_taken: Says whether the player has picked up an item, by key.
+
+    Returns:
+        Only strings and pauses, ready for ``ui.narrate``.
+    """
+    if isinstance(text, str):
+        return (text,)
+    told: list[str | float] = []
+    for part in text:
+        if isinstance(part, Unless):
+            told += part.after if has_taken(part.item) else part.parts
+        else:
+            told.append(part)
+    return tuple(told)
 
 
 class Area(StrEnum):
     """The three colour-coded parts of the 2nd floor.
 
-    Areas exist so the fire-gating enabler (issue #112) can block a whole wing
+    Areas exist so the key-card gating enabler (issue #112) can block a whole wing
     of the building at once.  Every room belongs to exactly one area.
     """
 
@@ -76,10 +123,13 @@ class Inspectable:
     Args:
         name: What the player types after ``inspect``, e.g. ``"clock"``.
         text: What they read.
+        gone_once_taken: The key of an item that, once the player has it, takes this
+            detail away - the floor plan is not on the wall any more.
     """
 
     name: str
     text: Text
+    gone_once_taken: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -188,6 +238,8 @@ class Room:
         name: How the room is shown on screen, e.g. ``"Classroom 2.035"``.
         area: Which colour-coded part of the floor the room is in.
         description: The short line printed when the player walks in.
+        return_description: What is printed instead on every later visit, if the room
+            would sound wrong told as a first arrival. None repeats ``description``.
         look_around: The longer text printed for ``look around``, or None for a
             place with nothing to describe, like a staircase you only pass
             through. The "Look around" choice is then only offered if there
@@ -220,6 +272,7 @@ class Room:
     name: str
     area: Area
     description: Text
+    return_description: Text | None = None
     look_around: Text | None = None
     exits: tuple[str, ...] = ()
     requires: str | None = None

@@ -10,9 +10,23 @@ from persistence import create_tables, load_game
 BANNER = """
 ****************************************************************************
 *                       A-maze-ing Delft - THUAS Delft                     *
-*         The fire alarm is screaming. Find the code. Get out alive.       *
+*           Something is wrong in here. Find the code. Get out.            *
 ****************************************************************************
 """.strip()
+
+
+def ask_name() -> str:
+    """Ask for the player's name until they give one: it cannot be empty.
+
+    Spaces on their own count as empty, and spaces round a name are dropped, so
+    "  Kru " and "Kru" are the same player to the saved games.
+    """
+    while True:
+        name = ui.ask("Enter your name: ").strip()
+        if name:
+            return name
+        ui.say()
+        ui.say("Please enter a valid name.")
 
 
 def main() -> None:
@@ -22,7 +36,7 @@ def main() -> None:
     ui.say(BANNER)
     ui.say()
 
-    player_name = ui.ask("Enter your name: ")
+    player_name = ask_name()
 
     game = load_game(player_name)
 

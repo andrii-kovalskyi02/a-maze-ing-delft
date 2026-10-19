@@ -12,13 +12,13 @@ ROOM = Room(
     description=(
         "A spacious open lobby at the heart of the yellow wing,",
         0.5,
-        "thick with drifting smoke.",
+        "the air still and cold.",
     ),
     look_around=(
         "Yellow-accented signs and glass partitions define this central hub.",
         0.6,
         "Doors lead to the computer labs, but the main central staircase down "
-        "to the ground floor is blocked by heavy smoke and fallen debris.",
+        "to the ground floor is blocked by a pulled-down security shutter.",
     ),
     exits=(
         "corridor_red",
@@ -27,10 +27,9 @@ ROOM = Room(
         "project_room_1",
         "projectroom_2",
     ),
-    requires="fire_extinguisher",
+    requires="yellow_card",
     locked_text=(
-        "A wall of raging fire and thick smoke blocks the way into the lobby. "
-        "You need a fire extinguisher to get through."
+        "The reader beside the door blinks amber. You need a yellow key card to get into the lobby."
     ),
     is_hallway=True,
 )

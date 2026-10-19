@@ -3,7 +3,7 @@
 A text-based adventure/maze game set on the 2nd floor of THUAS Delft (ICT/ACS section),
 built for the Applied Computer Science Q1 project by **Team ACS**.
 
-The player wakes up in classroom 2.035 to a fire alarm, has to explore the building,
+The player wakes up alone in classroom 2.035 in a strangely silent building, has to explore it,
 defeat the bosses guarding each area, collect four colour-coded digits and enter them
 at the exit door to escape.
 
