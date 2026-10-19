@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
+import os
+import tempfile
+
 import persistence
 import profiles
 import rooms  # noqa: F401  (importing rooms registers them)
 import ui
+import world
 from game import Game
+from leaderboard import online
+
+#: Set this to a room key (e.g. ``lab_2001``) to start straight in that room, to try it out.
+START_ROOM_VARIABLE = "AMAZE_START_ROOM"
 
 BANNER = """
 ****************************************************************************
@@ -74,6 +82,32 @@ def pick_player() -> Game:
     return new_player()
 
 
+def developer_start() -> Game | None:
+    """Start in the room named by ``AMAZE_START_ROOM``, for trying a room out; None if it is unset.
+
+    The practice run uses a scratch database that is emptied each time, and the shared leaderboard
+    is switched off, so nothing it does can touch anybody's saves or scores.
+    """
+    key = os.environ.get(START_ROOM_VARIABLE, "").strip()
+    if not key:
+        return None
+    try:
+        world.get(key)
+    except KeyError:
+        keys = ", ".join(room.key for room in world.all_rooms())
+        ui.say(f"{START_ROOM_VARIABLE}={key!r} is not a room. The rooms are: {keys}")
+        ui.say()
+        return None
+    persistence.DATABASE_NAME = os.path.join(tempfile.gettempdir(), "amaze_developer.db")
+    if os.path.exists(persistence.DATABASE_NAME):
+        os.remove(persistence.DATABASE_NAME)
+    persistence.create_tables()
+    online.SUPABASE_URL = ""
+    ui.say(f"Developer start in {key}. Nothing from this run is saved or put on the leaderboard.")
+    ui.say()
+    return Game(player_name="Developer", current=key)
+
+
 def main() -> None:
     """Start a new game or resume an existing saved game."""
     persistence.create_tables()
@@ -81,7 +115,10 @@ def main() -> None:
     ui.say(BANNER)
     ui.say()
 
-    pick_player().run()
+    game = developer_start()
+    if game is None:
+        game = pick_player()
+    game.run()
 
 
 if __name__ == "__main__":
