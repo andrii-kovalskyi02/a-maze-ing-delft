@@ -1,6 +1,5 @@
 """Project Room 3 and its Memory Keeper encounter."""
 
-import memories
 from models import Area, Boss, Inspectable, Question, Room, Unless
 from world import register
 
