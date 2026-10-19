@@ -25,10 +25,10 @@ import floor_map
 import models
 import narrator
 import progress
-import scoreboard
 import ui
 import world
 from inventory import get_item
+from leaderboard import scoreboard
 
 if TYPE_CHECKING:  # pragma: no cover - import only needed for type checking
     from game import Game
@@ -163,7 +163,7 @@ def options_menu(game: Game) -> tuple[MenuItem, ...]:
     """
     return (
         MenuItem("Status", do_status),
-        MenuItem("Scoreboard", scoreboard.show),
+        MenuItem("Leaderboard", scoreboard.show),
         MenuItem(_text_speed_label(), do_text_speed),
         MenuItem("Save and continue later", _save_and_continue),
         MenuItem("Quit the game", do_quit),
@@ -302,7 +302,11 @@ def _interactions(game: Game) -> tuple[MenuItem, ...]:
         if thing.gone_once_taken is None or not game.has_taken(thing.gone_once_taken)
     ]
     actions += [
-        MenuItem(f"Take the {item.name}", _take(item.key), ends_interaction=True)
+        MenuItem(
+            f"Take the {item.name.upper() if game.room.key == 'storage' else item.name}",
+            _take(item.key),
+            ends_interaction=True,
+        )
         for item in game.items_here()
     ]
 
@@ -329,6 +333,10 @@ def _take(key: str) -> Callable[[Game], None]:
     """Return an action that picks up the item called ``key``."""
 
     def action(game: Game) -> None:
+        item = game.take(key)
+        ui.say()
+        name = item.name.upper() if game.room.key == "storage" else item.name
+        ui.say(f"You take the {name}.")
         ui.new_page()  # picking something up is a moment of its own
         ui.narrate(f"You take the {get_item(key).name}.")
         game.take(key)  # the backpack may have something to say about it

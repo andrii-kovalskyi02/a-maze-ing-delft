@@ -55,9 +55,10 @@ import traceback
 import pygame
 
 import progress
-import scoreboard
 import ui  # the real console ui.py - nothing here reimplements any of it
+from leaderboard import scoreboard
 from main import main as run_console_game
+from music import Music
 
 # an exe built with `pyinstaller --windowed` has no console at all, so
 # Windows hands it fake stdout/stderr that crash on the first write instead
@@ -96,10 +97,34 @@ _QUIT_NOW = object()
 # after that line has been filed on screen, in order)
 _PAGE_BREAK = object()
 
+
+class _Cue:
+    """Put in the output queue where a sound cue is to be played (see ui.cue)."""
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+
 FPS = 60
 
 # fonts with glyphs for the unusual Unicode some puzzle text uses - the main
 # font alone can't draw these, so they live next to this file as small files
+# the background music: the intro loop on the first screen (while the name is typed), the
+# exploring loop once the game has started (see TerminalWindow._update_music)
+_MUSIC_FILES = {
+    "intro": "music_intro.wav",
+    "explore": "music_explore.wav",
+    "boss": "music_boss.wav",
+}
+# one-off sounds for moments in the game, played where ui.cue(name) is called: the file, and how
+# loud it is (0 to 1). "combat" is heard as a boss's questions begin
+_CUE_SOUNDS = {"combat": ("combat_start.wav", 0.32), "victory": ("boss_defeated.wav", 0.32)}
+# the small tick heard when the highlight moves from one choice to the next, in any menu
+_MOVE_SOUND_FILE = "ui_move.wav"
+# its volumes (a name and a share of full volume): the player picks one in the pause menu, and it
+# starts on Low
+_MOVE_SOUND_LEVELS = (("Off", 0.0), ("Low", 0.2), ("Normal", 0.3))
+_MOVE_SOUND_START = 1
 _ASSETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
 
 # the game's main font, bundled as an actual file rather than asked for by
@@ -192,6 +217,8 @@ _PAUSE_ACCENT = (240, 200, 80)
 # hallways, both labs, both teachers' rooms and the front desk office, every
 # project room). The storage room is left without a photo on purpose.
 _ROOM_IMAGES = {
+    "== classroom.2015 ==": "classroom_2035.jpg",
+    "== Classroom 2021 ==": "classroom_2035.jpg",
     "== Classroom 2.015 ==": "classroom_2035.jpg",
     "== Classroom 2.021 ==": "classroom_2035.jpg",
     "== Classroom 2.035 ==": "classroom_2035.jpg",
@@ -273,7 +300,7 @@ _FIRST_FADE_TIMES = (1.0, 0.6, 3.5)
 # as a full paragraph, with empty space padding out both sides.
 _BOX_WIDTH_FRACTION = 0.7
 _BOX_MIN_WIDTH_FRACTION = 0.28
-_BOX_MAX_ROWS = 10
+_BOX_MAX_ROWS = 15
 _BOX_PANEL_ALPHA = 150
 
 # set AMAZE_PYGAME_DEBUG=1 to print every fake-stdout write to the real terminal
@@ -443,6 +470,15 @@ class TerminalWindow:
     def __init__(self) -> None:
         """Set up the window itself, and all the state tracked between frames."""
         pygame.init()
+        self.music = Music(
+            {name: os.path.join(_ASSETS_DIR, file) for name, file in _MUSIC_FILES.items()}
+        )
+        self.move_sound = self._load_move_sound()
+        self.cue_sounds = {
+            name: self._load_sound(file, volume) for name, (file, volume) in _CUE_SOUNDS.items()
+        }
+        self.move_level = _MOVE_SOUND_START
+        self.boss_music = False  # True from getting closer to a boss until its encounter is over
         if os.environ.get("AMAZE_WINDOWED") == "1":
             # a normal 1280x720 window instead of fullscreen - handy for
             # watching the game next to an editor, or for demos
@@ -602,6 +638,7 @@ class TerminalWindow:
         self.pause_view = "menu"  # "menu", "scoreboard", "controls", "quit" or "map"
         self.pause_status: dict[str, object] = {}
         self.pause_scores: list[str] = []
+        self._scores_read_at = 0.0  # when the scoreboard on screen was last read
         # the blurred freeze-frame drawn behind the menu, made when it opens
         self.pause_backdrop: pygame.Surface | None = None
         # a short message on the menu, such as "Game saved." - and when it goes
@@ -649,6 +686,58 @@ class TerminalWindow:
                     break
         self.out_queue.put(_PAGE_BREAK)  # the text box starts a fresh page for what comes next
         self.waiting_to_advance = False
+
+    @staticmethod
+    def _load_sound(name: str, volume: float = 1.0) -> pygame.mixer.Sound | None:
+        """Load a sound from assets/, or None if there is no file or no sound on this computer."""
+        path = os.path.join(_ASSETS_DIR, name)
+        if not os.path.exists(path):
+            return None
+        try:
+            if not pygame.mixer.get_init():
+                pygame.mixer.init()
+            sound = pygame.mixer.Sound(path)
+            sound.set_volume(volume)
+            return sound
+        except pygame.error:  # no audio device: the game just stays quiet
+            return None
+
+    @staticmethod
+    def _load_move_sound() -> pygame.mixer.Sound | None:
+        """Load the menu tick (its volume is set each time it plays)."""
+        return TerminalWindow._load_sound(_MOVE_SOUND_FILE)
+
+    def _play_cue(self, name: str) -> None:
+        """Handle a cue: switch the boss music on or off, or play its sound and dip the music."""
+        if name == "boss_music_on":
+            self.boss_music = True
+            return
+        if name == "boss_music_off":
+            self.boss_music = False
+            return
+        sound = self.cue_sounds.get(name)
+        if sound is not None:
+            sound.play()
+            self.music.duck(max(0.8, sound.get_length()))
+
+    def _tick(self) -> None:
+        """Play the little sound for moving the highlight to another choice."""
+        volume = _MOVE_SOUND_LEVELS[self.move_level][1]
+        if self.move_sound is not None and volume > 0:
+            self.move_sound.set_volume(volume)
+            self.move_sound.play()
+
+    def _update_music(self) -> None:
+        """Pick the music for where the player is, and move it on a frame."""
+        if self.quitting:
+            self.music.want_track(None)  # leaving: let it fade out
+        elif self.boss_music:
+            self.music.want_track("boss", instant=True)  # a boss: it starts at once, no fades
+        else:
+            # the intro loop until the first room, the exploring loop from then on
+            self.music.want_track("explore" if self.room_header is not None else "intro")
+        self.music.set_paused(self.paused)
+        self.music.update()
 
     def _start_fade(self) -> None:
         """Begin fading out of the room on screen, and hold the game while it goes dark."""
@@ -781,9 +870,11 @@ class TerminalWindow:
         speed = "instant" if ui.is_instant() else "typed out"
         return [
             "Resume",
-            "Scoreboard",
+            "Leaderboard",
             "Controls",
             f"Story text: {speed}",
+            f"Music: {self.music.level_name.lower()}",
+            f"Menu sound: {_MOVE_SOUND_LEVELS[self.move_level][0].lower()}",
             "Save and continue",
             "Save and quit",
             "Quit the game",
@@ -814,8 +905,10 @@ class TerminalWindow:
             self._close_pause_menu()
         elif event.key in (pygame.K_UP, pygame.K_w):
             self.pause_selected = (self.pause_selected - 1) % len(items)
+            self._tick()
         elif event.key in (pygame.K_DOWN, pygame.K_s):
             self.pause_selected = (self.pause_selected + 1) % len(items)
+            self._tick()
         elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
             self._pause_choose(self.pause_selected)
         elif event.unicode.isdigit() and 1 <= int(event.unicode) <= len(items):
@@ -831,6 +924,7 @@ class TerminalWindow:
             self._quit_choose(1)  # backing out is the same as keeping on playing
         elif event.key in (pygame.K_UP, pygame.K_w, pygame.K_DOWN, pygame.K_s):
             self.pause_selected = 1 - self.pause_selected
+            self._tick()
         elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
             self._quit_choose(self.pause_selected)
         elif event.unicode in ("1", "2"):
@@ -842,7 +936,7 @@ class TerminalWindow:
             self._quit(save=False)  # the game stops at once, saving nothing, and the window closes
         else:
             self.pause_view = "menu"
-            self.pause_selected = 6  # back on "Quit the game"
+            self.pause_selected = 8  # back on "Quit the game"
 
     def _pause_choose(self, index: int) -> None:
         """Do what the pause menu's item number ``index`` says."""
@@ -856,6 +950,11 @@ class TerminalWindow:
         elif index == 3:
             ui.set_instant(not ui.is_instant())
         elif index == 4:
+            self.music.cycle_level()  # off, low, normal, and round again
+        elif index == 5:
+            self.move_level = (self.move_level + 1) % len(_MOVE_SOUND_LEVELS)
+            self._tick()  # so the new volume is heard straight away
+        elif index == 6:
             self._settle_pause_clock()  # so the saved time played leaves out this pause
             try:
                 saved = ui.save_game()
@@ -865,9 +964,9 @@ class TerminalWindow:
             else:
                 self.pause_notice = "Game saved." if saved else "There is nothing to save yet."
             self._pause_notice_until = time.monotonic() + 3.0
-        elif index == 5:
+        elif index == 7:
             self._quit()  # saves and ends the game, the same as closing the window
-        elif index == 6:
+        elif index == 8:
             # ask "Are you sure?" right here on the pause screen, on "Keep playing" to start with
             self.pause_view = "quit"
             self.pause_selected = 1
@@ -882,6 +981,7 @@ class TerminalWindow:
         # and read_line_with_clock below for how answers are read
         ui.use_io(write=print, read=keyboard.read_answer, sleep=_make_dialogue_sleep(self))
         ui.set_pause_menu(True)  # Escape opens the pause menu, so the game menu drops "Options"
+        ui.set_cue_handler(lambda name: self.out_queue.put(_Cue(name)))  # sounds, in text order
         ui.set_page_handler(lambda: self.out_queue.put(_PAGE_BREAK))  # a pickup gets its own page
 
         # ui.py's _type_line() has its OWN independent skip check that
@@ -968,6 +1068,9 @@ class TerminalWindow:
                 if chunk is _PAGE_BREAK:
                     self.box_start = len(self.lines)  # the line before it is filed: a fresh page
                     continue
+                if isinstance(chunk, _Cue):
+                    self._play_cue(chunk.name)
+                    continue
                 for character in chunk:
                     if character == "\n":
                         if self._is_room_header(self.current_line):
@@ -990,6 +1093,8 @@ class TerminalWindow:
                         self.skip_event.clear()
                     else:
                         self.current_line += character
+                        if len(chunk) == 1:  # one letter at a time means it is being typed out
+                            self.music.typing()
         except queue.Empty:
             pass
 
@@ -1092,6 +1197,7 @@ class TerminalWindow:
         else:
             self.menu_selected = (self.menu_selected + (1 if down else -1)) % len(options)
         self.typed = ""  # the arrows take over from half a typed number
+        self._tick()
 
     def _check_clock(self) -> None:
         """Press Enter for the player when a timed question runs out."""
@@ -1705,7 +1811,21 @@ class TerminalWindow:
         step = round(self.menu_font.get_height() * _INTRO_ROW_SPACING)
         top = self.margin * 3
         visible_rows = max(1, (self.height - top - self.margin) // step - 1)
-        for row, (line, color) in enumerate(self.lines[-visible_rows:]):
+        # a numbered question here (who is playing?) works like every other menu: the arrows pick,
+        # and the choice that Enter would answer is marked the way the pause menu marks one
+        options = self._menu_options() if self.waiting_for_input else []
+        choices = {row for _number, row in options}
+        marked = (
+            options[self.menu_selected % len(options)][1]
+            if options and self.menu_selected is not None
+            else None
+        )
+        first_shown = max(0, len(self.lines) - visible_rows)
+        for row, (line, color) in enumerate(self.lines[first_shown:]):
+            if first_shown + row in choices:
+                line = line.strip()
+                if first_shown + row == marked:
+                    line, color = f"> {line} <", "khaki"
             surface = self._render_text(line, color, big)
             self.screen.blit(surface, (self._centered_x(surface), top + row * step))
 
@@ -1718,6 +1838,8 @@ class TerminalWindow:
             if self.current_line:
                 surface = self._render_text(self.current_line, "white", big)
                 self.screen.blit(surface, (self._centered_x(surface), y))
+            return
+        if options:  # a menu has no typing line
             return
         cursor = "_" if (pygame.time.get_ticks() // 500) % 2 == 0 else " "
         live_text = self.current_line if self.game_over else self.current_line + self.typed + cursor
@@ -1796,6 +1918,11 @@ class TerminalWindow:
         self.screen.blit(name, ((self.width - name.get_width()) // 2, y))
 
         if self.pause_view == "scoreboard":
+            if (
+                time.monotonic() - self._scores_read_at > 1.0
+            ):  # the shared list arrives a moment later
+                self.pause_scores = scoreboard.lines()
+                self._scores_read_at = time.monotonic()
             rows = [(line, "white") for line in self.pause_scores]
             hint = "Esc or Enter: back"
         elif self.pause_view == "controls":
@@ -1981,6 +2108,7 @@ class TerminalWindow:
         while True:
             self._handle_events()
             self._check_clock()
+            self._update_music()
             if (
                 not self.exit_silently
             ):  # leaving: nothing more to show, just wait for the game to finish
@@ -1996,6 +2124,7 @@ class TerminalWindow:
             # one more pass so the game's very last message doesn't get cut off
             self._pump_output()
             self._draw()
+        self.music.stop()
         pygame.quit()
 
 

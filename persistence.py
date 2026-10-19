@@ -46,10 +46,15 @@ def create_tables() -> None:
             defeated_challenges TEXT NOT NULL,
             taken_items TEXT NOT NULL,
             approached TEXT NOT NULL,
-            elapsed_time REAL NOT NULL
+            elapsed_time REAL NOT NULL,
+            saved_at TEXT
         )
         """
     )
+    # a database made before saved_at existed gets the column, empty, so its saves still load
+    columns = [row[1] for row in connection.execute("PRAGMA table_info(game_states)")]
+    if "saved_at" not in columns:
+        connection.execute("ALTER TABLE game_states ADD COLUMN saved_at TEXT")
 
     connection.execute(
         """
@@ -58,6 +63,29 @@ def create_tables() -> None:
             percent INTEGER NOT NULL,
             seconds REAL NOT NULL,
             finished_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    # the shared scoreboard (leaderboard/online.py): runs waiting to be uploaded, and the last
+    # top list seen
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS pending_scores (
+            run_id TEXT PRIMARY KEY,
+            player_name TEXT NOT NULL,
+            percent INTEGER NOT NULL,
+            seconds REAL NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS online_top (
+            place INTEGER PRIMARY KEY,
+            player_name TEXT NOT NULL,
+            percent INTEGER NOT NULL,
+            seconds REAL NOT NULL
         )
         """
     )
@@ -89,9 +117,10 @@ def save_game(game: Game) -> None:
             defeated_challenges,
             taken_items,
             approached,
-            elapsed_time
+            elapsed_time,
+            saved_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(player_name) DO UPDATE SET
             current_room = excluded.current_room,
             inventory = excluded.inventory,
@@ -102,7 +131,8 @@ def save_game(game: Game) -> None:
             defeated_challenges = excluded.defeated_challenges,
             taken_items = excluded.taken_items,
             approached = excluded.approached,
-            elapsed_time = excluded.elapsed_time
+            elapsed_time = excluded.elapsed_time,
+            saved_at = CURRENT_TIMESTAMP
         """,
         (
             game.player_name,
@@ -239,3 +269,93 @@ def top_scores(limit: int = 5) -> list[tuple[str, int, float]]:
     ).fetchall()
     connection.close()
     return rows
+
+
+def add_pending_score(run_id: str, player_name: str, percent: int, seconds: float) -> None:
+    """Remember a finished run until it has been uploaded to the shared scoreboard."""
+    connection = get_connection()
+    connection.execute(
+        "INSERT OR IGNORE INTO pending_scores (run_id, player_name, percent, seconds)"
+        " VALUES (?, ?, ?, ?)",
+        (run_id, player_name, percent, seconds),
+    )
+    connection.commit()
+    connection.close()
+
+
+def pending_scores() -> list[tuple[str, str, int, float]]:
+    """Return (run_id, name, percent, seconds) for every run not uploaded yet."""
+    connection = get_connection()
+    rows = connection.execute(
+        "SELECT run_id, player_name, percent, seconds FROM pending_scores"
+    ).fetchall()
+    connection.close()
+    return rows
+
+
+def delete_pending_score(run_id: str) -> None:
+    """Forget a run once it is safely on the shared scoreboard."""
+    connection = get_connection()
+    connection.execute("DELETE FROM pending_scores WHERE run_id = ?", (run_id,))
+    connection.commit()
+    connection.close()
+
+
+def save_online_top(players: list[tuple[str, int, float]]) -> None:
+    """Keep the shared scoreboard's top list, to show when there is no connection.
+
+    Place -1 is a marker row saying "the list was fetched", so an empty board that was really
+    fetched can be told apart from one that never was.
+    """
+    connection = get_connection()
+    connection.execute("DELETE FROM online_top")
+    connection.execute("INSERT INTO online_top VALUES (-1, '', 0, 0)")
+    connection.executemany(
+        "INSERT INTO online_top (place, player_name, percent, seconds) VALUES (?, ?, ?, ?)",
+        [(place, name, percent, seconds) for place, (name, percent, seconds) in enumerate(players)],
+    )
+    connection.commit()
+    connection.close()
+
+
+def online_top() -> list[tuple[str, int, float]] | None:
+    """Return (name, percent, seconds) from the last shared scoreboard seen, best first.
+
+    None if no list has ever been fetched; an empty list means it was fetched and nobody is on it.
+    """
+    connection = get_connection()
+    rows = connection.execute(
+        "SELECT place, player_name, percent, seconds FROM online_top ORDER BY place"
+    ).fetchall()
+    connection.close()
+    if not rows:
+        return None
+    return [(name, percent, seconds) for place, name, percent, seconds in rows if place >= 0]
+
+
+def recent_saves(limit: int) -> list[str]:
+    """Return the names of the ``limit`` most recently saved games, newest first."""
+    connection = get_connection()
+    rows = connection.execute(
+        "SELECT player_name FROM game_states ORDER BY saved_at DESC, player_name LIMIT ?", (limit,)
+    ).fetchall()
+    connection.close()
+    return [name for (name,) in rows]
+
+
+def canonical_name(name: str) -> str:
+    """Return the spelling already on file for ``name``, ignoring capital letters, or ``name``.
+
+    "krug" and "Krug" are one player, so a save and a leaderboard row never split in two. The
+    first spelling used wins, and the players keep seeing it.
+    """
+    connection = get_connection()
+    rows = connection.execute(
+        "SELECT player_name FROM game_states UNION SELECT player_name FROM scores"
+    ).fetchall()
+    connection.close()
+    wanted = name.casefold()
+    for (known,) in sorted(rows):
+        if known.casefold() == wanted:
+            return known
+    return name

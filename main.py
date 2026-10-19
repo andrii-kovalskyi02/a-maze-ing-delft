@@ -10,7 +10,6 @@ import rooms  # noqa: F401  (importing rooms registers them)
 import ui
 import world
 from game import Game
-from persistence import create_tables, load_game
 
 #: Set this to a room key (e.g. ``lab_2001``) to start straight in that room, to try it out.
 START_ROOM_VARIABLE = "AMAZE_START_ROOM"
@@ -24,17 +23,17 @@ BANNER = """
 
 
 def ask_name() -> str:
-    """Ask for the player's name until they give one: it cannot be empty.
+    """Ask for the player's name until they give a good one (see ``profiles.check_name``).
 
-    Spaces on their own count as empty, and spaces round a name are dropped, so
-    "  Kru " and "Kru" are the same player to the saved games.
+    Spaces round a name are dropped, so "  Kru " and "Kru" are the same player to the saved
+    games. So are "krug" and "Krug": the spelling already on file is the one that is kept.
     """
     while True:
-        name = ui.ask("Enter your name: ").strip()
-        if name:
-            return name
+        name, problem = profiles.check_name(ui.ask("Enter your name: "))
+        if problem is None:
+            return persistence.canonical_name(name)
         ui.say()
-        ui.say("Please enter a valid name.")
+        ui.say(problem)
 
 
 def developer_start() -> Game | None:
@@ -68,6 +67,9 @@ def main() -> None:
 
     ui.say(BANNER)
     ui.say()
+    ui.say(f"Welcome back, {game.name}!")
+    ui.say("Saved game found. Resuming your game.")
+    return game
 
     practice = developer_start()
     if practice is not None:
@@ -76,19 +78,50 @@ def main() -> None:
 
     player_name = ask_name()
 
-    game = load_game(player_name)
+def new_player() -> Game:
+    """Ask for a name and start that player's game.
 
-    if game is None:
+    A name that already has a saved game is never taken over: the player may continue it if it
+    is theirs, and otherwise picks another name, so nobody's save is ever replaced.
+    """
+    while True:
+        name = ask_name()
+        saved = persistence.load_game(name)
+        if saved is None:
+            ui.say()
+            ui.say(f"No saved game found for {name}.")
+            ui.say("Starting a new game.")
+            return Game(player_name=name)
         ui.say()
-        ui.say(f"No saved game found for {player_name}.")
-        ui.say("Starting a new game.")
-        game = Game(player_name=player_name)
-    else:
-        ui.say()
-        ui.say(f"Welcome back, {player_name}!")
-        ui.say("Saved game found. Resuming your game.")
+        ui.say(f"There is already a saved game for {name}:")
+        ui.say(profiles.describe(saved))
+        if ui.choose("Is that you?", ["Yes, continue this game", "No, use a different name"]) == 0:
+            return resume(saved)
 
-    game.run()
+
+def pick_player() -> Game:
+    """Let the player pick a saved game from the list, or start as a new player."""
+    saves = [
+        game
+        for name in persistence.recent_saves(profiles.MAX_PROFILES)
+        if (game := persistence.load_game(name)) is not None
+    ]
+    if saves:
+        labels = [profiles.describe(game) for game in saves] + ["New player"]
+        index = ui.choose("Who is playing?", labels)
+        if index is not None and index < len(saves):
+            return resume(saves[index])
+    return new_player()
+
+
+def main() -> None:
+    """Start a new game or resume an existing saved game."""
+    persistence.create_tables()
+
+    ui.say(BANNER)
+    ui.say()
+
+    pick_player().run()
 
 
 if __name__ == "__main__":

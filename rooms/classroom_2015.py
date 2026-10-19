@@ -95,7 +95,12 @@ ROOM = Room(
         questions=(
             Question(
                 prompt="When is the Oktoberfest usually held?",
-                answers=("september", "october", "september/october", "september and october"),
+                answers=(
+                    "september",
+                    "october",
+                    "september/october",
+                    "september and october",
+                ),
                 seconds=20,
             ),
             Question(
@@ -131,7 +136,11 @@ ROOM = Room(
             ),
             Question(
                 prompt="What do people traditionally wear at Oktoberfest?",
-                answers=("b", "Dirndl and Lederhose"),
+                answers=(
+                    "b",
+                    "Dirndl and Lederhose",
+                    "Dirndl und Lederhose",
+                ),
                 choices=(
                     "Dresses und embroidered shirts",
                     "Dirndl und Lederhose",

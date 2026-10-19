@@ -13,7 +13,7 @@ from world import register
 
 ROOM = Room(
     key="teacher_rooms",
-    name="Teachers room",
+    name="Main Teachers Room",
     area=Area.RED,
     description=(
         "What used to be three separate teachers' rooms is now one long space.",

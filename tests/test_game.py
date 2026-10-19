@@ -260,9 +260,9 @@ def test_taking_back_a_typed_quit_asks_the_same_question_again(console) -> None:
 
 def test_typing_scoreboard_shows_it_and_carries_on(console) -> None:
     """US5: the scoreboard can be typed at any prompt as well as found in Options."""
-    console.script("Krug", "scoreboard")
+    console.script("Krug", "leaderboard")
 
     main.main()
 
-    assert "scoreboard - top 5" in console.output
+    assert "leaderboard - top 5" in console.output
     assert console.output.count("what do you do?") == 2

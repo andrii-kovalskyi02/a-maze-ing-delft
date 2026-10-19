@@ -10,13 +10,13 @@ import time
 
 import persistence
 import rooms  # noqa: F401  (importing rooms registers them)
-import scoreboard
 from game import Game
+from leaderboard import scoreboard
 
 
 def test_an_empty_scoreboard_says_so(console) -> None:
     scoreboard.show()
-    assert "nobody is on the scoreboard yet" in console.output
+    assert "nobody is on the leaderboard yet" in console.output
 
 
 def test_walking_out_of_the_building_puts_the_run_on_the_scoreboard(console, monkeypatch) -> None:
