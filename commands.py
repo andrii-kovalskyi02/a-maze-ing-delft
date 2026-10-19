@@ -25,10 +25,10 @@ import floor_map
 import models
 import narrator
 import progress
-import scoreboard
 import ui
 import world
 from inventory import get_item
+from leaderboard import scoreboard
 
 if TYPE_CHECKING:  # pragma: no cover - import only needed for type checking
     from game import Game
@@ -179,7 +179,7 @@ def options_menu(game: Game) -> tuple[MenuItem, ...]:
     """
     return (
         MenuItem("Status", do_status),
-        MenuItem("Scoreboard", scoreboard.show),
+        MenuItem("Leaderboard", scoreboard.show),
         MenuItem(_text_speed_label(), do_text_speed),
         MenuItem("Save and continue later", _save_and_continue),
         MenuItem("Quit the game", do_quit),

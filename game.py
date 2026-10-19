@@ -15,11 +15,11 @@ import commands
 import narrator
 import persistence
 import progress
-import scoreboard
 import ui
 import world
 from health import Health
 from inventory import Inventory, get_item
+from leaderboard import online, scoreboard
 from models import Item, Room
 
 #: Where a new game starts (US1a).
@@ -59,7 +59,7 @@ the rest of it appears at once - handy the second time round. Options can turn
 the typing off altogether.
 
 Three words work at any prompt, even in the middle of a fight: pause (save and
-come back later), quit (stop without saving), and scoreboard.\
+come back later), quit (stop without saving), and leaderboard.\
 """
 
 
@@ -205,14 +205,19 @@ class Game:
         """End the game: the player has walked out of the building (US1e).
 
         Shows the final status so the player sees how much of the floor they
-        explored, puts the run on the scoreboard, and shows it (US5). The save
-        is removed, so a finished run cannot be resumed and finished again.
+        explored, puts the run on the scoreboard (and the shared one, if it is set up), and
+        shows it (US5). The save is removed, so a finished run cannot be resumed and finished
+        again.
         """
         ui.say()
         ui.say("You are out of the building. Fresh air, at last.")
         commands.do_status(self)
         self.update_elapsed_time()
-        persistence.record_score(self.name, progress.percent_explored(self), self.elapsed_time)
+        percent = progress.percent_explored(self)
+        persistence.record_score(self.name, percent, self.elapsed_time)
+        if online.enabled():
+            ui.say("Your time is going on the shared leaderboard.")
+        online.submit(self.name, percent, self.elapsed_time)
         persistence.delete_save(self.player_name)
         scoreboard.show()
         self.running = False

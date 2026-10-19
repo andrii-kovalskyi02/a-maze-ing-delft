@@ -43,7 +43,7 @@ inventory.py     the item catalogue and what the player carries
 encounters.py    running a boss's questions
 memories.py      the details the Memory Keeper asks about at the end
 persistence.py   the database: saved games and the scoreboard (see SCHEMA.md)
-scoreboard.py    showing the top 5 players
+leaderboard/     the top 5 shown in the game, and the optional shared online one (see SCHEMA.md)
 progress.py      completion % and play time, shared by status and the scoreboard
 ui.py            all screen output, keyboard input, and the numbered menu
 floor_map.py     the map (issue #120, not built yet)
