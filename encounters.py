@@ -52,8 +52,19 @@ def run(game: Game, boss: Boss) -> bool:
     Returns:
         True if the player answered every question correctly.
     """
+    ui.cue("boss_music_on")  # the boss music starts as you get closer
+    try:
+        return _play(game, boss)
+    finally:
+        ui.cue("boss_music_off")  # and stops when the encounter is over, however it ended
+
+
+def _play(game: Game, boss: Boss) -> bool:
+    """The encounter itself, from the boss's intro to its win or lose text."""
     ui.say()
     _tell(boss, boss.intro, "speaking")
+    ui.narrate(boss.intro)
+    ui.cue("combat")  # the questions are about to begin
     ui.say()
     ui.say(f"Hearts: {game.hearts}")
 
@@ -67,6 +78,7 @@ def run(game: Game, boss: Boss) -> bool:
         return False
 
     _heal(game, boss)
+    ui.cue("victory")  # every question answered: a happy little jingle
     ui.say()
     _tell(boss, boss.win_text, "upset")
     if boss.reward is not None:

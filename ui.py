@@ -76,6 +76,7 @@ _clock: Callable[[], float] = time.monotonic
 #: What to do when the player types one of the words that work at any prompt
 #: (see :func:`ask`). None while no game is running - at the name prompt, say.
 _pause_handler: Callable[[], None] | None = None
+_cue_handler: Callable[[str], None] | None = None
 _page_handler: Callable[[], None] | None = None
 _speaker_handler: Callable[[str | None, str], None] | None = None
 _quit_handler: Callable[[], bool] | None = None
@@ -504,6 +505,22 @@ def pause(seconds: float) -> None:
     if _flowing:
         return
     _sleep(seconds)
+
+
+def set_cue_handler(handler: Callable[[str], None] | None) -> None:
+    """Set the function that plays a named sound cue, or None for a plain terminal."""
+    global _cue_handler
+    _cue_handler = handler
+
+
+def cue(name: str) -> None:
+    """Play the sound for a moment in the game, such as ``"combat"`` when questions begin.
+
+    A terminal has no sounds, so this does nothing there. The Pygame window plays the sound
+    at this exact point in the text, in order with everything else that is printed.
+    """
+    if _cue_handler is not None:
+        _cue_handler(name)
 
 
 def set_pause_handler(handler: Callable[[], None] | None) -> None:
