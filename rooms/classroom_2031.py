@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from models import Area, Boss, Question, Room, Unless
+from models import Area, Boss, Question, Room, Unless, says
 from world import register
 
 ROOM = Room(
@@ -29,32 +29,35 @@ ROOM = Room(
     items=(),
     boss=Boss(
         name="backpack",
+        speaker="backpack",
         intro=(
-            "Hello dear student, it is ME the Backpack",
-            0.6,
-            "...",
-            0.8,
-            "You don't seem too excited. Nonetheless i am here to propose an idea!",
-            0.5,
-            "If you win. I will disapear into thin air and never bother you again.",
-            0.7,
-            "But if you lose...",
-            0.4,
-            "YOU will have to carry me throughout your dr- ",
-            0.6,
-            "I mean adventure!!",
-            0.5,
-            "Oh, and a word of warning, dear student.",
-            0.5,
-            "Out there, every question comes with a clock.",
-            0.6,
-            "Answer too slowly and it counts as WRONG. Hehe.",
-            0.6,
-            "Mine don't have one though. I'm generous like that.",
-            0.5,
-            "Understood?...",
-            0.8,
-            "GREAT LETS GET GOING THEN SHALL WE!",
+            says(
+                "Hello dear student, it is ME the Backpack",
+                0.6,
+                "...",
+                0.8,
+                "You don't seem too excited. Nonetheless i am here to propose an idea!",
+                0.5,
+                "If you win. I will disapear into thin air and never bother you again.",
+                0.7,
+                "But if you lose...",
+                0.4,
+                "YOU will have to carry me throughout your dr- ",
+                0.6,
+                "I mean adventure!!",
+                0.5,
+                "Oh, and a word of warning, dear student.",
+                0.5,
+                "Out there, every question comes with a clock.",
+                0.6,
+                "Answer too slowly and it counts as WRONG. Hehe.",
+                0.6,
+                "Mine don't have one though. I'm generous like that.",
+                0.5,
+                "Understood?...",
+                0.8,
+                "GREAT LETS GET GOING THEN SHALL WE!",
+            ),
         ),
         questions=(
             Question(
@@ -80,11 +83,11 @@ ROOM = Room(
                 answers=(),
             ),
         ),
-        win_text="shouldnt see ts",
+        win_text=(says("shouldnt see ts"),),
         lose_text="*The backpack quickly attaches itself to you*...",
         reward=None,
         lose_reward="backpack",
-        lose_reward_text="Oh, and here, catch, you might find this useful",
+        lose_reward_text=(says("Oh, and here, catch, you might find this useful"),),
         lose_reward_2="blue_card",
         single_attempt=True,
     ),

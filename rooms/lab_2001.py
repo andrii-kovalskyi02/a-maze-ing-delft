@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from models import Area, Boss, Inspectable, Question, Room, Unless
+from models import Area, Boss, Inspectable, Question, Room, Unless, says
 from world import register
 
 ROOM = Room(
@@ -35,10 +35,11 @@ ROOM = Room(
     items=(),
     boss=Boss(
         name="tree guard",
+        speaker="tree_guard",
         intro=(
             "The tree shakes as a loud voice comes out of it.",
             0.6,
-            "If you want the digit you have to answer our quizzes three!! Or 5.",
+            says("If you want the digit you have to answer our quizzes three!! Or 5."),
         ),
         questions=(
             Question(
@@ -78,12 +79,12 @@ ROOM = Room(
         win_text=(
             "a hamster came out of the tree to congratulate you ",
             0.8,
-            "'you've proven yourself. you can take the digit.'",
+            says("'you've proven yourself. you can take the digit.'"),
         ),
         lose_text=(
             "you did not get the digit and you were flung out of the room.",
             0.8,
-            "Comeback when you know better ",
+            says("Comeback when you know better "),
         ),
         reward="digit_3",
     ),

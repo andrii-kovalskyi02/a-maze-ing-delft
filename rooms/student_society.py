@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from models import Area, Boss, Inspectable, Question, Room
+from models import Area, Boss, Inspectable, Question, Room, says
 from world import register
 
 ROOM = Room(
@@ -73,6 +73,7 @@ ROOM = Room(
     # Automated kicker table for now, more complex mini-game later on?
     boss=Boss(
         name="Automated Kicker Machine",
+        speaker="kicker",
         intro=(
             "The red light above the goal blinks once, twice.",
             0.4,
@@ -80,15 +81,7 @@ ROOM = Room(
             0.6,
             "A tiny speaker crackles:",
             0.5,
-            "PENALTY.",
-            0.3,
-            "SHOOTOUT.",
-            0.3,
-            "BEST.",
-            0.2,
-            "OF.",
-            0.2,
-            "THREE.",
+            says("PENALTY.", 0.3, "SHOOTOUT.", 0.3, "BEST.", 0.2, "OF.", 0.2, "THREE."),
             0.6,
             "The mechanical arm lines up a ball that was not there a moment ago.",
         ),
@@ -115,7 +108,7 @@ ROOM = Room(
         win_text=(
             "The red light flashes green.",
             0.3,
-            "MATCH. LOST.",
+            says("MATCH. LOST."),
             0.5,
             "The speaker grumbles, and the table stills again.",
             0.4,
@@ -124,7 +117,7 @@ ROOM = Room(
         lose_text=(
             "The red light stays red.",
             0.3,
-            "MATCH. WON.",
+            says("MATCH. WON."),
             0.5,
             "The machine announces, smug for something that isn't really there.",
         ),

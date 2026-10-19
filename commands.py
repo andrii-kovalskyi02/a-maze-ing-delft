@@ -54,12 +54,16 @@ class MenuItem:
 
 
 def do_look_around(game: Game) -> None:
-    """Describe the room, if it has anything to describe, then offer what is in it."""
-    if game.room.look_around is not None:
+    """Describe the room, if it has anything to describe, then offer what is in it.
+
+    Only the first time in a room: after that this is "Interact", which skips the telling.
+    """
+    if game.room.look_around is not None and not game.looked_around:
         told = models.resolve(game.room.look_around, game.has_taken)
         if told:
             ui.say()
             ui.narrate(told)
+    game.looked_around = True
     _offer_interactions(game)
 
 
@@ -136,8 +140,17 @@ def _code_opens_the_exit(game: Game, door: Room) -> bool:
 
 
 def do_backpack(game: Game) -> None:
-    """List what the player carries, and let them look at any of it."""
-    carried = list(game.carrying)
+    """List what the player carries, and let them look at any of it.
+
+    The backpack is not listed among its own contents.
+    """
+    carried = [item for item in game.carrying if item.key != narrator.BACKPACK]
+    if not carried:
+        ui.new_page()
+        with ui.speaking(narrator.BACKPACK, "upset"):
+            ui.narrate('"There is nothing in here but me. Go and find something."')
+        ui.new_page()
+        return
     if digits.carried(game):
         ui.say()
         ui.say(digits.summary(game))
@@ -145,8 +158,11 @@ def do_backpack(game: Game) -> None:
         "You are carrying:", [item.name for item in carried], back="Close the backpack"
     )
     if chosen is not None:
-        ui.say()
-        ui.say(carried[chosen].description)
+        # the backpack itself tells you what the thing is, as a short dialogue of its own
+        ui.new_page()
+        with ui.speaking(narrator.BACKPACK, "speaking"):
+            ui.narrate(carried[chosen].description)
+        ui.new_page()
 
 
 def do_map(game: Game) -> None:
@@ -258,7 +274,12 @@ def build_menu(game: Game) -> tuple[MenuItem, ...]:
     items: list[MenuItem] = []
     # A room with no look_around text (a staircase you only pass through) only
     # offers "Look around" while there is still something in it to interact with.
-    if game.room.look_around is not None or _interactions(game):
+    # Once the player has looked around, the story text is not told again: the choice
+    # becomes "Interact" and goes straight to what is in the room, until they leave.
+    if game.looked_around:
+        if _interactions(game):
+            items.append(MenuItem("Interact", do_look_around))
+    elif game.room.look_around is not None or _interactions(game):
         items.append(MenuItem("Look around", do_look_around))
 
     if game.room.exits:

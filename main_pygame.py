@@ -41,7 +41,9 @@ Quick map of the file:
 
 from __future__ import annotations
 
+import array
 import ctypes
+import io
 import json
 import math
 import os
@@ -51,6 +53,7 @@ import sys
 import threading
 import time
 import traceback
+import wave
 
 import pygame
 
@@ -96,6 +99,14 @@ _QUIT_NOW = object()
 # on screen: the text box starts a fresh page (it has to go through the queue, so it lands
 # after that line has been filed on screen, in order)
 _PAGE_BREAK = object()
+
+
+class _SpeakerChange:
+    """Put in the print queue when someone starts speaking (who) or stops (who is None)."""
+
+    def __init__(self, who: str | None, mood: str) -> None:
+        self.who = who
+        self.mood = mood
 
 
 class _Cue:
@@ -166,6 +177,9 @@ _ICON_COLOR = (235, 45, 45)
 # are the top edge, a stretchy middle, and the bottom edge with its legs. The numbers are pixel
 # positions in the drawing, which is 450 x 248
 _CHAT_BOX_FILE = "chat_box.png"
+# the picture is drawn at this many times the size the numbers below are written for, so it
+# stays smooth when it is scaled up: every rectangle taken from it is multiplied by this
+_CHAT_BOX_UPSCALE = 4
 _CHAT_BOX_X_CUTS = (0, 75, 146, 200, 330, 450)
 _CHAT_BOX_Y_CUTS = (0, 45, 150, 248)
 _CHAT_BOX_FOOT_HEIGHT = 79  # how tall the leg and foot are: the words are sized to fit between them
@@ -201,7 +215,9 @@ _CONTROLS = [
 # two names instead of a real colour, and _draw_dialogue_box turns them into the colours
 _OPTION = "option"
 _OPTION_SELECTED = "option_selected"
-_OPTION_COLORS = {_OPTION: "white", _OPTION_SELECTED: "khaki"}
+# the choice just confirmed (Enter, or its number): it "clicks" - orange, pressed in a little
+_OPTION_PRESSED = "option_pressed"
+_OPTION_COLORS = {_OPTION: "white", _OPTION_SELECTED: "khaki", _OPTION_PRESSED: "orange"}
 
 # the pause menu sits over a blurred, dimmed freeze-frame of the game, so it is
 # obvious the game is stopped, yet you can still see where you were
@@ -268,7 +284,19 @@ _MAP_SCREEN_FRACTION = 0.92
 # the white scribble drawn over the room you are in, one picture per room, and where each one
 # goes on the map (assets/floor_map_rooms/index.json: room key -> x, y in the map's pixels)
 _MAP_ROOMS_DIR = "floor_map_rooms"
+# the padlocks (and shut doors) drawn on the map over every room that is still locked, one
+# picture per room, with where each goes in assets/floor_map_locks/index.json
+_MAP_LOCKS_DIR = "floor_map_locks"
 # the small map in the bottom right corner that says "press M": this tall, as part of the window
+# the cloud a speaker's face pops up in beside the dialogue box, and the faces that go in it
+# (assets/<who>_<mood>.png). Its height is this share of the window's, and it grows in and
+# shrinks out in these many seconds
+_SPEAKER_CLOUD_FILE = "speaker_cloud.png"
+_SPEAKER_MOODS = ("speaking", "smiling", "upset")
+_SPEAKER_HEIGHT = 0.15
+_SPEAKER_IN_SECONDS = 0.3
+_SPEAKER_OUT_SECONDS = 0.16
+_SPEAKER_SHAKE = {"speaking": 0.6, "smiling": 0.6, "upset": 1.0}  # how hard each mood shakes
 _MENU_ICON_FILE = "settings_icon.png"  # the cog in the top left corner that says "press Esc"
 _MAP_ICON_FILE = "floor_map_icon.png"  # a messy doodle of a map, not the map itself
 _MAP_ICON_HEIGHT = 0.1
@@ -284,7 +312,24 @@ _INTRO_ROW_SPACING = 1.7  # the first screen's rows are this many text heights a
 _INTRO_TEXT_FACTOR = 1.35  # the first screen's text, at most this many times the normal size
 _INTRO_MAX_WIDTH = 0.94  # the first screen's text may fill this much of the window width
 _NAME_NOTICE_SECONDS = 2.5  # how long "Please enter a valid name." stays up
-_PICK_DELAY_SECONDS = 0.25  # a choice picked by its number stays lit up this long, then answers
+_PICK_DELAY_SECONDS = 0.2  # a confirmed choice shows its click this long, then answers
+# the little blip heard while the story is typed out. The backpack has its own sound
+# (type_blip.wav); everyone and everything else shares another (type_blip_other.wav). It is a
+# steady effect, not one sound per letter: it plays on its own sound channel, never over
+# itself, and never closer together than this many seconds, whatever the typing speed. The
+# other sound is turned up or down to be exactly as loud as the backpack's, whatever its file
+_TYPE_SOUND_FILE = "type_blip.wav"
+# every boss shares a tougher blip: lower, with a firmer start and a little grit
+_TYPE_SOUND_BOSS_FILE = "type_blip_boss.wav"
+_TYPE_SOUND_BOSS_ATTACK = 0.016
+# the narrator (nobody in particular speaking) has its own very soft blip, this much of the
+# backpack's loudness
+_TYPE_SOUND_NARRATOR_FILE = "type_blip_narrator.wav"
+_TYPE_SOUND_NARRATOR_SOFTNESS = 0.5
+_TYPE_SOUND_GAP = 0.108  # seconds between blips at the normal pace
+# seconds the start of each blip takes to swell up to full volume: longer is softer
+_TYPE_SOUND_ATTACK = 0.04
+_TYPE_SOUND_VOLUME = 0.26  # the backpack's blip: the loudness the other one is matched to
 _FADE_TIMES = (0.45, 0.12, 0.65)  # seconds: fading out, staying black, fading in
 # the very first room, when a game begins: a long, slow fade in out of the dark
 _FIRST_FADE_TIMES = (1.0, 0.6, 3.5)
@@ -537,6 +582,11 @@ class TerminalWindow:
             with open(rooms_index, encoding="utf-8") as handle:
                 self.map_rooms = {key: (xy[0], xy[1]) for key, xy in json.load(handle).items()}
         self._map_room_scaled: dict[tuple, pygame.Surface] = {}
+        self.map_locks: dict[str, tuple[int, int]] = {}
+        locks_index = os.path.join(_ASSETS_DIR, _MAP_LOCKS_DIR, "index.json")
+        if os.path.exists(locks_index):
+            with open(locks_index, encoding="utf-8") as handle:
+                self.map_locks = {key: (xy[0], xy[1]) for key, xy in json.load(handle).items()}
         icon_path = os.path.join(_ASSETS_DIR, _MAP_ICON_FILE)
         self.map_icon_art: pygame.Surface | None = (
             pygame.image.load(icon_path).convert_alpha() if os.path.exists(icon_path) else None
@@ -549,6 +599,33 @@ class TerminalWindow:
             else None
         )
         self._menu_icon: pygame.Surface | None = None
+        self.type_sound = self._load_type_sound(_TYPE_SOUND_FILE)  # the backpack's
+        self.type_sound_boss = self._load_type_sound(
+            _TYPE_SOUND_BOSS_FILE, like=_TYPE_SOUND_FILE, attack=_TYPE_SOUND_BOSS_ATTACK
+        )
+        self.type_sound_narrator = self._load_type_sound(
+            _TYPE_SOUND_NARRATOR_FILE, like=_TYPE_SOUND_FILE, softness=_TYPE_SOUND_NARRATOR_SOFTNESS
+        )
+        self._clipped_blips: dict[tuple[str, int], pygame.mixer.Sound] = {}
+        self.type_channel: pygame.mixer.Channel | None = None
+        self._last_blip = 0.0
+        # the speaker's cloud and faces, and who is speaking right now
+        cloud_path = os.path.join(_ASSETS_DIR, _SPEAKER_CLOUD_FILE)
+        self.speaker_cloud: pygame.Surface | None = (
+            pygame.image.load(cloud_path).convert_alpha() if os.path.exists(cloud_path) else None
+        )
+        self.speaker_faces: dict[tuple[str, str], pygame.Surface] = {}
+        for mood in _SPEAKER_MOODS:
+            face_path = os.path.join(_ASSETS_DIR, f"backpack_{mood}.png")
+            if os.path.exists(face_path):
+                self.speaker_faces[("backpack", mood)] = pygame.image.load(
+                    face_path
+                ).convert_alpha()
+        self.speaker: tuple[str, str] | None = None  # (who, mood) while someone is talking
+        self.speaker_since = 0.0
+        self.speaker_left_at: float | None = None  # when they stopped, while the cloud shrinks away
+        self._speaker_face_cache: dict[tuple, pygame.Surface] = {}  # faces scaled to each size
+        self._box_rect: tuple[int, int, int, int] | None = None  # where the dialogue box was drawn
         self.fade_started: float | None = None  # when the room change began, if one is going on
         self.fade_snapshot: pygame.Surface | None = None  # the old room, as it last looked
         self._fade_times = _FADE_TIMES  # fade out, hold, fade in - this room change's own timings
@@ -686,6 +763,252 @@ class TerminalWindow:
                     break
         self.out_queue.put(_PAGE_BREAK)  # the text box starts a fresh page for what comes next
         self.waiting_to_advance = False
+
+    @staticmethod
+    def _wave_loudness(path: str, attack_seconds: float = _TYPE_SOUND_ATTACK) -> float:
+        """The average loudness (RMS, 0 to 1) of a .wav file as it is played (with its soft start).
+
+        0 if the file can't be read.
+        """
+        try:
+            with wave.open(path) as handle:
+                width = handle.getsampwidth()
+                rate = handle.getframerate()
+                raw = handle.readframes(handle.getnframes())
+        except (OSError, wave.Error, EOFError):
+            return 0.0
+        if width == 1:
+            values = [(byte - 128) / 128 for byte in raw]
+        elif width == 2:
+            samples = array.array("h")
+            samples.frombytes(raw[: len(raw) // 2 * 2])
+            values = [sample / 32768 for sample in samples]
+        else:
+            return 0.0
+        attack = max(1, int(rate * attack_seconds))
+        values = [v * min(1.0, i / attack) ** 2 for i, v in enumerate(values)]
+        return math.sqrt(sum(v * v for v in values) / len(values)) if values else 0.0
+
+    @staticmethod
+    def _load_type_sound(
+        name: str,
+        like: str | None = None,
+        softness: float = 1.0,
+        attack: float = _TYPE_SOUND_ATTACK,
+    ) -> pygame.mixer.Sound | None:
+        """Load a typing blip, or None if there is no sound file or no sound on this computer.
+
+        With ``like`` (another file's name) the volume is set so it sounds exactly as loud as
+        that file does at the normal volume, however loud this file was recorded - or
+        ``softness`` times as loud, for a sound meant to be quieter.
+        """
+        path = os.path.join(_ASSETS_DIR, name)
+        if not os.path.exists(path):
+            return None
+        volume = _TYPE_SOUND_VOLUME
+        if like is not None:
+            own = TerminalWindow._wave_loudness(path, attack)
+            wanted = TerminalWindow._wave_loudness(os.path.join(_ASSETS_DIR, like))
+            if own > 0 and wanted > 0:
+                volume = min(1.0, _TYPE_SOUND_VOLUME * softness * wanted / own)
+        try:
+            if not pygame.mixer.get_init():
+                pygame.mixer.init()
+            sound = TerminalWindow._shape_sound(path, None, attack) or pygame.mixer.Sound(path)
+            sound.set_volume(volume)
+            return sound
+        except pygame.error:  # no audio device: the game just stays quiet
+            return None
+
+    def _blip_for(self, voice: str, gap: float) -> pygame.mixer.Sound | None:
+        """The typing blip for ``voice`` ("backpack", "boss" or "narrator"), cut to fit ``gap``.
+
+        A blip longer than the gap is shortened and faded out.
+        """
+        sound, name = {
+            "backpack": (self.type_sound, _TYPE_SOUND_FILE),
+            "boss": (self.type_sound_boss, _TYPE_SOUND_BOSS_FILE),
+            "narrator": (self.type_sound_narrator, _TYPE_SOUND_NARRATOR_FILE),
+        }[voice]
+        if sound is None or sound.get_length() <= gap * 0.96:
+            return sound
+        milliseconds = int(gap * 960)
+        key = (name, milliseconds)
+        clipped = self._clipped_blips.get(key)
+        if clipped is None:
+            attack = _TYPE_SOUND_BOSS_ATTACK if voice == "boss" else _TYPE_SOUND_ATTACK
+            clipped = self._shape_sound(
+                os.path.join(_ASSETS_DIR, name), milliseconds / 1000, attack
+            )
+            if clipped is None:
+                return sound
+            clipped.set_volume(sound.get_volume())
+            self._clipped_blips[key] = clipped
+        return clipped
+
+    @staticmethod
+    def _shape_sound(
+        path: str, seconds: float | None, attack_seconds: float = _TYPE_SOUND_ATTACK
+    ) -> pygame.mixer.Sound | None:
+        """A .wav sound with a soft start (see _TYPE_SOUND_ATTACK), cut to ``seconds`` if given.
+
+        A sound that is cut short is also faded out over its last part, so it does not click.
+        """
+        try:
+            with wave.open(path) as handle:
+                params = handle.getparams()
+                raw = handle.readframes(handle.getnframes())
+        except (OSError, wave.Error, EOFError):
+            return None
+        width, channels = params.sampwidth, params.nchannels
+        if width not in (1, 2):
+            return None
+        frames = params.nframes
+        fade = 0
+        if seconds is not None and int(params.framerate * seconds) < frames:
+            frames = int(params.framerate * seconds)
+            fade = max(1, int(frames * 0.35))
+        attack = min(frames, max(1, int(params.framerate * attack_seconds)))
+        if width == 1:
+            samples = [byte - 128 for byte in raw[: frames * channels]]
+        else:
+            samples = array.array("h")
+            samples.frombytes(raw[: frames * channels * 2])
+        for frame in range(frames):
+            gain = 1.0
+            if frame < attack:
+                gain = (frame / attack) ** 2  # a slow, gentle swell up from silence
+            if fade and frame >= frames - fade:
+                gain *= (frames - frame) / fade
+            if gain == 1.0:
+                continue
+            for channel in range(channels):
+                samples[frame * channels + channel] = int(
+                    samples[frame * channels + channel] * gain
+                )
+        data = bytes(sample + 128 for sample in samples) if width == 1 else samples.tobytes()
+        buffer = io.BytesIO()
+        with wave.open(buffer, "wb") as out:
+            out.setnchannels(channels)
+            out.setsampwidth(width)
+            out.setframerate(params.framerate)
+            out.writeframes(data)
+        buffer.seek(0)
+        try:
+            return pygame.mixer.Sound(file=buffer)
+        except pygame.error:
+            return None
+
+    def _blip(self, letter: str) -> None:
+        """Play the typing blip for one letter that has just been typed out."""
+        backpack_talking = (
+            self.speaker is not None
+            and self.speaker_left_at is None
+            and self.speaker[0] == "backpack"
+        )
+        # the rhythm follows the mood of whoever is talking: quicker when upset, slower when smiling
+        talking = self.speaker is not None and self.speaker_left_at is None
+        gap = _TYPE_SOUND_GAP * ui.pace_for(
+            self.speaker[0] if talking and self.speaker else None,
+            self.speaker[1] if talking and self.speaker else "",
+        )
+        if backpack_talking:
+            voice = "backpack"
+        elif self.speaker is not None and self.speaker_left_at is None:
+            voice = "boss"  # a boss, or any other character with a speaker name
+        else:
+            voice = "narrator"
+        sound = self._blip_for(voice, gap)
+        if sound is None or self.paused or letter.isspace():
+            return
+        now = time.monotonic()
+        if now - self._last_blip < gap:
+            return
+        if self.type_channel is None:
+            self.type_channel = pygame.mixer.Channel(0)  # its own channel: blips never stack up
+        if self.type_channel.get_busy():
+            return  # the last blip is still sounding: wait for it to end, never overlap it
+        self._last_blip = now
+        self.type_channel.play(sound)
+
+    def _speaker_changed(self, change: _SpeakerChange) -> None:
+        """Someone started talking (or swapped mood), or stopped: pop the cloud in or out."""
+        now = time.monotonic()
+        if change.who is None:
+            if self.speaker is not None and self.speaker_left_at is None:
+                self.speaker_left_at = now
+            return
+        if self.speaker is None or self.speaker_left_at is not None:
+            self.speaker_since = now  # a fresh pop in
+        self.speaker = (change.who, change.mood)
+        self.speaker_left_at = None
+
+    def _draw_speaker(self) -> None:
+        """Draw the cloud with the speaker's face in it, beside the dialogue box."""
+        if self.speaker is None or self.speaker_cloud is None or self._box_rect is None:
+            return
+        face = self.speaker_faces.get(self.speaker)
+        if face is None:
+            return
+        now = time.monotonic()
+        if self.speaker_left_at is not None:  # shrinking away
+            progress = (now - self.speaker_left_at) / _SPEAKER_OUT_SECONDS
+            if progress >= 1:
+                self.speaker = None
+                self.speaker_left_at = None
+                return
+            grow = 1 - progress * progress
+        else:  # growing in, a little past full size and back
+            progress = min(1.0, (now - self.speaker_since) / _SPEAKER_IN_SECONDS)
+            back = 1.70158
+            grow = 1 + (back + 1) * (progress - 1) ** 3 + back * (progress - 1) ** 2
+
+        box_x, box_y, box_w, box_h = self._box_rect
+        cloud_h = self.height * _SPEAKER_HEIGHT
+        cloud_w = self.speaker_cloud.get_width() * cloud_h / self.speaker_cloud.get_height()
+        # at rest: just left of the box, level with its middle
+        rest_x = max(self.margin, box_x - cloud_w * 0.97)
+        rest_y = box_y + box_h * 0.5 - cloud_h * 0.97
+        # it grows out of its lower right, the side nearest the box
+        anchor_x, anchor_y = rest_x + cloud_w * 0.8, rest_y + cloud_h * 0.78
+        width = max(2, round(cloud_w * grow))
+        height = max(2, round(cloud_h * grow))
+        left = round(anchor_x - (anchor_x - rest_x) * grow)
+        top = round(anchor_y - (anchor_y - rest_y) * grow)
+        cloud = pygame.transform.smoothscale(self.speaker_cloud, (width, height))
+        self.screen.blit(cloud, (left, top))
+
+        # the face bounces and tilts while the words are typed, and only wobbles while they sit
+        # on screen. The motion is smooth (sine waves, not a new random jump every frame), and
+        # the tilt is turned with rotozoom, which smooths the lines - a plain rotate has
+        # jagged edges that look like the drawing is warping as it moves
+        typing = not self.waiting_to_advance
+        strength = _SPEAKER_SHAKE.get(self.speaker[1], 0.6) * (1.0 if typing else 0.25)
+        shake_x = math.sin(now * 31.0) * strength * height * 0.012
+        shake_y = math.sin(now * 23.0 + 1.3) * strength * height * 0.016
+        tilt = math.sin(now * 17.0 + 0.6) * strength * 1.6
+        face_size = (max(2, round(width * 0.74)), 0)
+        face_size = (
+            face_size[0],
+            max(2, round(face.get_height() * face_size[0] / face.get_width())),
+        )
+        key = (self.speaker, face_size)
+        face_picture = self._speaker_face_cache.get(key)
+        if face_picture is None:
+            if len(self._speaker_face_cache) > 80:
+                self._speaker_face_cache.clear()
+            face_picture = pygame.transform.smoothscale(face, face_size)
+            self._speaker_face_cache[key] = face_picture
+        face_picture = pygame.transform.rotozoom(face_picture, tilt, 1.0)
+        centre_x = left + width * 0.47 + shake_x
+        centre_y = top + height * 0.47 + shake_y
+        self.screen.blit(
+            face_picture,
+            (
+                round(centre_x - face_picture.get_width() / 2),
+                round(centre_y - face_picture.get_height() / 2),
+            ),
+        )
 
     @staticmethod
     def _load_sound(name: str, volume: float = 1.0) -> pygame.mixer.Sound | None:
@@ -867,7 +1190,7 @@ class TerminalWindow:
 
     def _pause_items(self) -> list[str]:
         """The labels on the pause menu, in order."""
-        speed = "instant" if ui.is_instant() else "typed out"
+        speed = ui.text_speed().lower()
         return [
             "Resume",
             "Leaderboard",
@@ -948,7 +1271,7 @@ class TerminalWindow:
         elif index == 2:
             self.pause_view = "controls"
         elif index == 3:
-            ui.set_instant(not ui.is_instant())
+            ui.cycle_text_speed()  # slow, normal, fast, instant, and round again
         elif index == 4:
             self.music.cycle_level()  # off, low, normal, and round again
         elif index == 5:
@@ -983,6 +1306,8 @@ class TerminalWindow:
         ui.set_pause_menu(True)  # Escape opens the pause menu, so the game menu drops "Options"
         ui.set_cue_handler(lambda name: self.out_queue.put(_Cue(name)))  # sounds, in text order
         ui.set_page_handler(lambda: self.out_queue.put(_PAGE_BREAK))  # a pickup gets its own page
+        ui.set_speaker_handler(lambda who, mood: self.out_queue.put(_SpeakerChange(who, mood)))
+        ui.set_flowing(True)  # the window holds each line itself: no second wait before the next
 
         # ui.py's _type_line() has its OWN independent skip check that
         # peeks at the real console's keyboard buffer (msvcrt on Windows) -
@@ -1068,6 +1393,9 @@ class TerminalWindow:
                 if chunk is _PAGE_BREAK:
                     self.box_start = len(self.lines)  # the line before it is filed: a fresh page
                     continue
+                if isinstance(chunk, _SpeakerChange):
+                    self._speaker_changed(chunk)
+                    continue
                 if isinstance(chunk, _Cue):
                     self._play_cue(chunk.name)
                     continue
@@ -1076,6 +1404,7 @@ class TerminalWindow:
                         if self._is_room_header(self.current_line):
                             # new room = clean screen, but keep the header pinned up top
                             self._start_fade()
+                            self.speaker = None  # whoever was talking stays behind
                             self.room_header = self.current_line
                             self.room_image = self._load_room_image(self.current_line)
                             self.lines = []
@@ -1094,6 +1423,7 @@ class TerminalWindow:
                     else:
                         self.current_line += character
                         if len(chunk) == 1:  # one letter at a time means it is being typed out
+                            self._blip(character)
                             self.music.typing()
         except queue.Empty:
             pass
@@ -1150,8 +1480,7 @@ class TerminalWindow:
                     elif event.key in (pygame.K_UP, pygame.K_w, pygame.K_DOWN, pygame.K_s):
                         self._move_menu_selection(down=event.key in (pygame.K_DOWN, pygame.K_s))
                     elif event.key == pygame.K_RETURN and self.menu_selected is not None:
-                        self.typed = options[self.menu_selected % len(options)][0]
-                        self._submit(self.typed)
+                        self._pending_pick = time.monotonic() + _PICK_DELAY_SECONDS
                     continue
                 if event.key == pygame.K_RETURN:
                     if self.room_header is None and ui.status() is None and not self.typed.strip():
@@ -1472,7 +1801,11 @@ class TerminalWindow:
                 # a choice: its number and its words - how it is laid out and marked is up to
                 # _draw_dialogue_box
                 label = re.sub(r"^\s*(\d+)\)\s*", r"\1. ", text)
-                shown.append((label, _OPTION_SELECTED if index == highlighted else _OPTION, True))
+                if index == highlighted:
+                    clicked = self._pending_pick is not None
+                    shown.append((label, _OPTION_PRESSED if clicked else _OPTION_SELECTED, True))
+                else:
+                    shown.append((label, _OPTION, True))
                 continue
             shown.append((text, color, True))
         if self.waiting_to_advance:
@@ -1535,14 +1868,15 @@ class TerminalWindow:
     def _make_closed_chat_box(art: pygame.Surface) -> pygame.Surface:
         """A copy of the drawing with the gap and brackets erased and the edge run across."""
         closed = art.copy()
+        up = _CHAT_BOX_UPSCALE
         for rect in _CHAT_BOX_ERASE:
-            closed.fill((0, 0, 0, 0), rect)
-        x, y, width, height = _CHAT_BOX_EDGE_PIECE
+            closed.fill((0, 0, 0, 0), tuple(v * up for v in rect))
+        x, y, width, height = (v * up for v in _CHAT_BOX_EDGE_PIECE)
         edge = pygame.transform.smoothscale(
             art.subsurface((x, y, width, height)),
-            (_CHAT_BOX_EDGE_END_X - _CHAT_BOX_EDGE_START_X, height),
+            ((_CHAT_BOX_EDGE_END_X - _CHAT_BOX_EDGE_START_X) * up, height),
         )
-        closed.blit(edge, (_CHAT_BOX_EDGE_START_X, y))
+        closed.blit(edge, (_CHAT_BOX_EDGE_START_X * up, y))
         return closed
 
     def _chat_box_inside(
@@ -1616,8 +1950,14 @@ class TerminalWindow:
         for column, column_width in enumerate(columns):
             y = 0
             for row, row_height in enumerate(rows):
+                up = _CHAT_BOX_UPSCALE
                 piece = art.subsurface(
-                    (xs[column], ys[row], xs[column + 1] - xs[column], ys[row + 1] - ys[row])
+                    (
+                        xs[column] * up,
+                        ys[row] * up,
+                        (xs[column + 1] - xs[column]) * up,
+                        (ys[row + 1] - ys[row]) * up,
+                    )
                 )
                 outline.blit(
                     pygame.transform.smoothscale(piece, (max(1, column_width), max(1, row_height))),
@@ -1695,6 +2035,11 @@ class TerminalWindow:
         column_width = max((surfaces[row].get_width() for row in option_rows), default=0)
         marker = self._render_text(">", "khaki", True)
         closing_marker = self._render_text("<", "khaki", True)
+        pressed_marker = self._render_text(">", "orange", True)
+        pressed_closing_marker = self._render_text("<", "orange", True)
+        press_shift = max(
+            2, round(4 * scale)
+        )  # how far a click pushes the markers in and the row down
         tail = self.menu_font.size(" <")[0]  # room for the "<" after the longest choice
         countdown_surface = None
         countdown_x = 0
@@ -1744,20 +2089,25 @@ class TerminalWindow:
                 # a little left of centre: the column starts 20% of the way along the free space
                 free = box_width - left_pad - right_pad - gutter - column_width - tail
                 block_x = left_pad + max(0, int(free * 0.2))
-                if wrapped[row][1] == _OPTION_SELECTED:
-                    box.blit(marker, (block_x, y))
+                pressed = wrapped[row][1] == _OPTION_PRESSED
+                lift = press_shift // 2 if pressed else 0  # a click pushes the whole row down
+                if wrapped[row][1] in (_OPTION_SELECTED, _OPTION_PRESSED):
+                    left_marker = pressed_marker if pressed else marker
+                    right_marker = pressed_closing_marker if pressed else closing_marker
+                    box.blit(left_marker, (block_x + (press_shift if pressed else 0), y + lift))
                     box.blit(
-                        closing_marker,
+                        right_marker,
                         (
                             block_x
                             + gutter
                             + surface.get_width()
                             + tail
-                            - closing_marker.get_width(),
-                            y,
+                            - right_marker.get_width()
+                            - (press_shift if pressed else 0),
+                            y + lift,
                         ),
                     )
-                box.blit(surface, (block_x + gutter, y))
+                box.blit(surface, (block_x + gutter, y + lift))
             else:
                 box.blit(surface, (left_pad, y))
             if countdown_surface is not None and row == hearts_row:
@@ -1772,6 +2122,7 @@ class TerminalWindow:
 
         x = (self.width - box_width) // 2
         y = self.height - box_height - self.margin * 3
+        self._box_rect = (x, y, box_width, box_height)
         self.screen.blit(box, (x, y))
 
     def _draw_intro(self) -> None:
@@ -1995,6 +2346,16 @@ class TerminalWindow:
             if here is not None:  # the scribble over the room you are in
                 offset_x, offset_y = self.map_rooms[str(self.pause_status.get("room", ""))]
                 self.screen.blit(here, (x + round(offset_x * scale), y + round(offset_y * scale)))
+            # a padlock on every door and hallway that is still locked
+            unlocked = set(self.pause_status.get("unlocked", []))  # type: ignore[arg-type]
+            for room, (offset_x, offset_y) in self.map_locks.items():
+                if room in unlocked:
+                    continue
+                lock = self._map_overlay_picture(_MAP_LOCKS_DIR, room, size[0] / art_w)
+                if lock is not None:
+                    self.screen.blit(
+                        lock, (x + round(offset_x * scale), y + round(offset_y * scale))
+                    )
         self.screen.blit(
             hint,
             (
@@ -2007,10 +2368,14 @@ class TerminalWindow:
         """The scribble for ``room``, scaled like the map is, or None if the room is not on it."""
         if room not in self.map_rooms:
             return None
-        key = (room, round(scale, 4))
+        return self._map_overlay_picture(_MAP_ROOMS_DIR, room, scale)
+
+    def _map_overlay_picture(self, folder: str, room: str, scale: float) -> pygame.Surface | None:
+        """``room``'s picture from ``folder``, scaled like the map is, or None if there is none."""
+        key = (folder, room, round(scale, 4))
         picture = self._map_room_scaled.get(key)
         if picture is None:
-            path = os.path.join(_ASSETS_DIR, _MAP_ROOMS_DIR, room + ".png")
+            path = os.path.join(_ASSETS_DIR, folder, room + ".png")
             if not os.path.exists(path):
                 return None
             original = pygame.image.load(path).convert_alpha()
@@ -2085,6 +2450,7 @@ class TerminalWindow:
             self.screen.blit(surface, (self._centered_x(surface), self.margin))
             if box:
                 self._draw_dialogue_box()
+                self._draw_speaker()
 
     def _draw(self) -> None:
         """Redraw the whole window from scratch - Pygame has no "update just this line"."""

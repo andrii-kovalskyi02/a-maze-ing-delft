@@ -38,10 +38,31 @@ class Unless:
     after: tuple[str | float, ...] = ()
 
 
+@dataclass(frozen=True, slots=True)
+class Says:
+    """Part of a boss's text that the boss itself speaks, as opposed to what is narrated.
+
+    Everything in a text that is not wrapped in this is narration: it is typed with the soft
+    narrator sound, and the speaker's face is not shown. What is wrapped, the boss's own words,
+    gets the boss's voice. Make one with :func:`says`.
+
+    Args:
+        parts: What is spoken: strings, and numbers for pauses, like any other text.
+    """
+
+    parts: tuple[str | float, ...]
+
+
+def says(*parts: str | float) -> Says:
+    """Mark ``parts`` as spoken by the boss: ``says("PENALTY.", 0.3, "SHOOTOUT.")``."""
+    return Says(parts)
+
+
 #: Story text: one string, or a tuple of parts typed out one after another.
 #: A number in the tuple is a pause, in seconds - see ``ui.narrate``. A part can also
-#: be an :class:`Unless`, told only while an item is still lying there.
-type Text = str | tuple[str | float | Unless, ...]
+#: be an :class:`Unless`, told only while an item is still lying there, or a :class:`Says`,
+#: the words a boss speaks.
+type Text = str | tuple[str | float | Unless | Says, ...]
 
 
 def plain(text: Text | None) -> str:
@@ -54,6 +75,8 @@ def plain(text: Text | None) -> str:
     for part in text:
         if isinstance(part, Unless):
             words += [piece for piece in part.parts + part.after if isinstance(piece, str)]
+        elif isinstance(part, Says):
+            words += [piece for piece in part.parts if isinstance(piece, str)]
         elif isinstance(part, str):
             words.append(part)
     return " ".join(words)
@@ -226,6 +249,7 @@ class Boss:
     lose_reward_text: Text | None = None
     lose_reward_2: str | None = None
     single_attempt: bool = False
+    speaker: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

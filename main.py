@@ -43,6 +43,7 @@ def resume(game: Game) -> Game:
     ui.say()
     ui.say(f"Welcome back, {game.name}!")
     ui.say("Saved game found. Resuming your game.")
+    game.resumed = True  # the backpack greets a player who comes back (see Game.enter)
     return game
 
 
