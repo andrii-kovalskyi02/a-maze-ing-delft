@@ -10,7 +10,7 @@ from world import register
 
 ROOM = Room(
     key="project_room_1",
-    name="Project room 1",
+    name="Project Room 1",
     area=Area.YELLOW,
     description=(
         "A quiet project room in the yellow wing,",

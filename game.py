@@ -35,7 +35,7 @@ STARTING_HEARTS = 3
 OUT_OF_HEARTS = """\
 Your last heart goes out.
 
-The corridor tilts, the alarm thins to nothing, and the floor of the 2nd floor
+The corridor tilts, the lights thin to nothing, and the floor of the 2nd floor
 of THUAS Delft comes up to meet you. Whatever this building is, it is finished
 with you for tonight.\
 """

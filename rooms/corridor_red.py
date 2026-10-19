@@ -30,10 +30,9 @@ ROOM = Room(
         "teacher_rooms",
         "classroom_2021",
     ),
-    requires="fire_extinguisher",
+    requires="red_card",
     locked_text=(
-        "A wall of roaring fire blocks the way into the Red corridor. "
-        "You need a fire extinguisher to get through."
+        "The reader by the door blinks red. You need a red key card to get into the Red corridor."
     ),
     is_hallway=True,
 )

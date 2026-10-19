@@ -6,7 +6,7 @@ what they can do *right now*, and they press a number.
 The list is short on purpose. It is built from what the player has actually
 earned, so the opening room offers only what the story gives them: look
 around, and walk out of the door. The backpack appears once they have one
-(US1c) and the map appears once they have taken the evacuation plan (US1b).
+(US1c) and the map appears once they have taken the floor plan (US1b).
 
 Looking around leads to interacting with what is in the room - the objects,
 anything worth taking, and whatever is waiting for them - as the design doc
@@ -109,11 +109,11 @@ def do_go(game: Game) -> None:
         item = get_item(destination.requires)
         if item.single_use:
             game.carrying.consume(destination.requires)
-        if destination.requires == "fire_extinguisher":
+        if destination.requires in ("red_card", "yellow_card"):
             ui.say()
             ui.narrate(
-                f"You spray the fire extinguisher onto the wall of fire. "
-                f"The flames hiss, die down, and clear the way to {destination.name}."
+                f"You hold the {item.name} up to the reader. "
+                f"It beeps, and the door to {destination.name} slides open."
             )
         game.unlocked.add(destination.key)
 
@@ -288,7 +288,7 @@ def build_menu(game: Game) -> tuple[MenuItem, ...]:
         items.append(MenuItem("Open your backpack", do_backpack))
     if "evacuation_plan" in game.carrying and not ui.has_pause_menu():
         # the Pygame window opens the drawn map with the M key instead
-        items.append(MenuItem("Look at the evacuation plan", do_map))
+        items.append(MenuItem("Look at the floor plan", do_map))
 
     if not ui.has_pause_menu():
         # the Pygame window keeps these in its Escape menu instead
@@ -323,7 +323,11 @@ def _interactions(game: Game) -> tuple[MenuItem, ...]:
         if thing.gone_once_taken is None or not game.has_taken(thing.gone_once_taken)
     ]
     actions += [
-        MenuItem(f"Take the {item.name}", _take(item.key), ends_interaction=True)
+        MenuItem(
+            f"Take the {item.name.upper() if game.room.key == 'storage' else item.name}",
+            _take(item.key),
+            ends_interaction=True,
+        )
         for item in game.items_here()
     ]
 
@@ -350,6 +354,10 @@ def _take(key: str) -> Callable[[Game], None]:
     """Return an action that picks up the item called ``key``."""
 
     def action(game: Game) -> None:
+        item = game.take(key)
+        ui.say()
+        name = item.name.upper() if game.room.key == "storage" else item.name
+        ui.say(f"You take the {name}.")
         ui.new_page()  # picking something up is a moment of its own
         ui.narrate(f"You take the {get_item(key).name}.")
         game.take(key)  # the backpack may have something to say about it

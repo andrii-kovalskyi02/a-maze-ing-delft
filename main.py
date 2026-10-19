@@ -10,7 +10,7 @@ from persistence import create_tables, load_game
 BANNER = """
 ****************************************************************************
 *                       A-maze-ing Delft - THUAS Delft                     *
-*         The fire alarm is screaming. Find the code. Get out alive.       *
+*           Something is wrong in here. Find the code. Get out.            *
 ****************************************************************************
 """.strip()
 

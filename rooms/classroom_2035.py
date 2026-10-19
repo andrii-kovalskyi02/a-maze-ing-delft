@@ -26,14 +26,14 @@ def wake_up(game: Game) -> None:
     """Run the wake-up sequence, once, the first time the player arrives.
 
     Most rooms need nothing like this. This one does, because the game has to
-    explain why a student is asleep in a classroom during a fire alarm, and it
+    explain why a student is asleep in a classroom in an empty, silent building, and it
     is where the player is told how the game is played.
     """
     ui.say()
-    ui.narrate("Your cheek is stuck to the desk. The fire alarm is screaming.")
+    ui.narrate("Your cheek is stuck to the desk. The whole building is far too quiet.")
     ui.narrate("Everyone else is gone. Their chairs are pushed back at odd angles.")
-    ui.narrate("Somewhere below you, something is burning.")
-    ui.narrate("You have to get out.")
+    ui.narrate("Something about this place makes your skin crawl.")
+    ui.narrate("You want to get out.")
 
 
 ROOM = Room(
@@ -44,7 +44,7 @@ ROOM = Room(
     look_around=(
         "Rows of desks face a whiteboard nobody wiped.",
         0.6,
-        "The clock above the door is somehow still audible over the alarm.",
+        "The clock above the door is somehow loud in the silence.",
         0.6,
         "Your own desk is the only one that looks used.",
         0.4,

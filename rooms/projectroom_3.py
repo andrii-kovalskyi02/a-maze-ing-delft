@@ -6,41 +6,59 @@ from world import register
 
 QUESTIONS = (
     Question(
-        # This room's own clock — the twin of the one in 2.035 (see memories.py).
         prompt="What time does the clock in Project Room 3 show?",
-        answers=(memories.CLOCK_TIME,),
+        answers=("23:17",),
+        choices=(
+            "23:17",
+            "08:30",
+            "12:00",
+            "18:45",
+        ),
         seconds=20,
     ),
     Question(
-        # Answer lives in memories.py: this is what was on the desk in 2.035,
-        # not something found in this room. Read from there so the two rooms
-        # can never drift apart.
-        prompt="What did you find on your desk in classroom 2.035?",
-        answers=(memories.DESK_CONTENTS,),
+        prompt="What word is written on the whiteboard?",
+        answers=("remember",),
+        choices=(
+            "REMEMBER",
+            "WELCOME",
+            "ESCAPE",
+            "FORGET",
+        ),
         seconds=20,
     ),
     Question(
         prompt="What did you find inside the storage room?",
         answers=("axe",),
+        choices=(
+            "Axe",
+            "Flashlight",
+            "Book",
+            "First-aid kit",
+        ),
         seconds=20,
     ),
     Question(
         prompt="In which room was the second digit?",
-        answers=("classroom2015",),
+        answers=("Classroom 2015",),
+        choices=(
+            "Classroom 2015",
+            "Classroom 2035",
+            "Project Room 1",
+            "Front Office",
+        ),
         seconds=20,
     ),
     Question(
-        # This is the one memories.py calls out as answered only by the
-        # laptop notification in 2.035 ("Project deadline: Tomorrow.").
-        prompt="What were you doing before you fell asleep?",
-        answers=("working on your project", "your project"),
+        prompt="What object is sitting on the desk in Project Room 3?",
+        answers=("laptop",),
         choices=(
-            "Working on your project",
-            "Reading a book",
-            "Watching a movie",
-            "Doing homework",
+            "Laptop",
+            "Backpack",
+            "Book",
+            "Clock",
         ),
-        seconds=15,
+        seconds=20,
     ),
 )
 

@@ -99,7 +99,7 @@ REMARKS: dict[str, Remark] = {
         every=3,
         lines=(
             '"We have been here. I remember, because I was carried here."',
-            '"Round and round. You do know the building is on fire?"',
+            '"Round and round. You do know we are going in circles?"',
         ),
     ),
     "hurt": Remark(

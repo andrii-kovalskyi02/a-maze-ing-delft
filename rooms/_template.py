@@ -31,7 +31,7 @@ ROOM = Room(
     key="template_room",
     # How the room is shown on screen.
     name="Template Room",
-    # Area.BLUE, Area.RED or Area.YELLOW - check the evacuation plan.
+    # Area.BLUE, Area.RED or Area.YELLOW - check the floor plan.
     area=Area.BLUE,
     # One or two lines, typed out every time the player walks in. Instead of
     # one string you can give a tuple of parts, typed one after another, and
@@ -56,9 +56,7 @@ ROOM = Room(
     locked_text="The door is locked. Something with a blue stripe would help.",
     # Details the player can 'inspect'. Cheap to add and they make a room feel
     # real, so add more than you think you need.
-    inspectables=(
-        Inspectable(name="poster", text="A fire evacuation poster, curling at the corners."),
-    ),
+    inspectables=(Inspectable(name="poster", text="A notice poster, curling at the corners."),),
     # Items lying here, by key. Add them to ITEM_CATALOGUE first.
     items=(),
     # The challenge guarding your room, or None. Delete this whole block if

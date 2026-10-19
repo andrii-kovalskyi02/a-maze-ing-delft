@@ -73,9 +73,7 @@ def test_the_map_choice_leaves_the_game_menu_when_the_window_has_its_own_key(con
     game.carrying.add("evacuation_plan")
     ui.set_pause_menu(True)
     try:
-        assert "Look at the evacuation plan" not in [
-            item.label for item in commands.build_menu(game)
-        ]
+        assert "Look at the floor plan" not in [item.label for item in commands.build_menu(game)]
     finally:
         ui.set_pause_menu(False)
 

@@ -16,15 +16,12 @@ ROOM = Room(
             "axe_key",
             (
                 0.6,
-                "On a sturdy workbench near the back rests a heavy fire axe.",
+                "On a sturdy workbench near the back rests a heavy axe.",
                 0.4,
                 "It looks sharp and ready for emergencies.",
             ),
         ),
-        Unless(
-            "fire_extinguisher",
-            (0.4, "A red fire extinguisher stands against the wall beside the door."),
-        ),
+        Unless("yellow_card", (0.4, "A yellow key card lies on a shelf beside the door.")),
     ),
     exits=("corridor_red",),
     requires="storage_key",
@@ -66,7 +63,7 @@ ROOM = Room(
             ),
         ),
     ),
-    items=("axe_key", "fire_extinguisher"),
+    items=("axe_key", "yellow_card"),
 )
 
 register(ROOM)

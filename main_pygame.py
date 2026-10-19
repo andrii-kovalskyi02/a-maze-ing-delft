@@ -209,6 +209,8 @@ _PAUSE_ACCENT = (240, 200, 80)
 # hallways, both labs, both teachers' rooms and the front desk office, every
 # project room). The storage room is left without a photo on purpose.
 _ROOM_IMAGES = {
+    "== classroom.2015 ==": "classroom_2035.jpg",
+    "== Classroom 2021 ==": "classroom_2035.jpg",
     "== Classroom 2.015 ==": "classroom_2035.jpg",
     "== Classroom 2.021 ==": "classroom_2035.jpg",
     "== Classroom 2.035 ==": "classroom_2035.jpg",
@@ -252,7 +254,7 @@ _TEXT_SHADOW_OFFSET = 1  # pixels, down and to the right
 _TEXT_SHADOW_ALPHA = 190  # 0 = invisible, 255 = fully solid
 
 # the drawn map of the floor (assets/floor_map.png): shown over the blurred game, opened with M
-# once the evacuation plan has been taken, and sized to fill this much of the window
+# once the floor plan has been taken, and sized to fill this much of the window
 _MAP_FILE = "floor_map.png"
 _MAP_SCREEN_FRACTION = 0.92
 # the white scribble drawn over the room you are in, one picture per room, and where each one
@@ -282,7 +284,9 @@ _MAP_ICON_CHECK_SECONDS = 0.5  # how often to ask whether the plan has been take
 _CONTROLS_KEY_COLOR = (
     "khaki"  # the keys on the Controls screen, so they stand out from their meaning
 )
-_INTRO_ROW_SPACING = 1.9  # the first screen's rows are this many text heights apart
+_INTRO_ROW_SPACING = 1.7  # the first screen's rows are this many text heights apart
+_INTRO_TEXT_FACTOR = 1.35  # the first screen's text, at most this many times the normal size
+_INTRO_MAX_WIDTH = 0.94  # the first screen's text may fill this much of the window width
 _NAME_NOTICE_SECONDS = 2.5  # how long "Please enter a valid name." stays up
 _PICK_DELAY_SECONDS = 0.2  # a confirmed choice shows its click this long, then answers
 # the little blip heard while the story is typed out. The backpack has its own sound
@@ -312,13 +316,13 @@ _FIRST_FADE_TIMES = (1.0, 0.6, 3.5)
 # is wrapped as if the box were _BOX_WIDTH_FRACTION of the screen wide (so a
 # long paragraph still wraps at the same point it always has), but the box
 # is then drawn only as wide as its longest actual line needs, down to
-# _BOX_MIN_WIDTH_FRACTION - so a short menu like "1) Look at the evacuation
+# _BOX_MIN_WIDTH_FRACTION - so a short menu like "1) Look at the floor
 # plan" gets a box that hugs the text instead of one that's the same width
 # as a full paragraph, with empty space padding out both sides.
 _BOX_WIDTH_FRACTION = 0.7
 _BOX_MIN_WIDTH_FRACTION = 0.28
-_BOX_MAX_ROWS = 10
-_BOX_PANEL_ALPHA = 180
+_BOX_MAX_ROWS = 15
+_BOX_PANEL_ALPHA = 150
 
 # set AMAZE_PYGAME_DEBUG=1 to print every fake-stdout write to the real terminal
 _DEBUG = os.environ.get("AMAZE_PYGAME_DEBUG") == "1"
@@ -502,6 +506,8 @@ class TerminalWindow:
         # everything below that is measured in pixels is multiplied by it
         self.scale = self.height / _REFERENCE_HEIGHT
         font_size = max(8, round(_REFERENCE_FONT_SIZE * self.scale))
+        self._font_size = font_size
+        self._intro_fonts: dict[int, pygame.font.Font] = {}  # the first screen's text, by size
         self.font = self._load_main_font(font_size)
         # some puzzle text uses unusual Unicode (Canadian syllabics, math
         # symbols, ...) the main font has no glyphs for - these bundled
@@ -1045,7 +1051,7 @@ class TerminalWindow:
         self.pause_gate.clear()  # the game thread stops at its next word or pause
 
     def _can_open_map(self) -> bool:
-        """True once the evacuation plan has been taken, unless a typed answer is being written."""
+        """True once the floor plan has been taken, unless a typed answer is being written."""
         status = ui.status()
         if self.map_art is None or self.quitting or not status or not status.get("has_map"):
             return False
@@ -2027,12 +2033,35 @@ class TerminalWindow:
         "where it originally was". Pacing (typed lines still needing a
         press) is unchanged; only where it's drawn is different.
         """
+        # the first screen's text is as big as it can be (up to _INTRO_TEXT_FACTOR times the normal
+        # size) while its widest line - the banner - still fits the window. The size follows the
+        # window like everything else here: a smaller screen gets smaller text, smoothly
+        widest = max(
+            (self.font.size(line)[0] for line, _color in [*self.lines, (self.current_line, "")]),
+            default=0,
+        )
+        factor = _INTRO_TEXT_FACTOR
+        if widest:
+            factor = min(factor, self.width * _INTRO_MAX_WIDTH / widest)
+        size = max(8, round(self._font_size * factor))
+        if size not in self._intro_fonts:
+            self._intro_fonts[size] = self._load_main_font(size)
+        big_font = self.menu_font
+        self.menu_font = self._intro_fonts[size]  # what "big" means, just for this screen
+        try:
+            self._draw_intro_rows()
+        finally:
+            self.menu_font = big_font
+
+    def _draw_intro_rows(self) -> None:
+        """Draw the rows of the first screen in the (temporarily set) big font."""
+        big = True
         # airy rather than packed: a good gap between every row, and some room above the banner
-        step = round(self.line_height * _INTRO_ROW_SPACING)
+        step = round(self.menu_font.get_height() * _INTRO_ROW_SPACING)
         top = self.margin * 3
         visible_rows = max(1, (self.height - top - self.margin) // step - 1)
         for row, (line, color) in enumerate(self.lines[-visible_rows:]):
-            surface = self._render_text(line, color)
+            surface = self._render_text(line, color, big)
             self.screen.blit(surface, (self._centered_x(surface), top + row * step))
 
         y = top + min(len(self.lines), visible_rows) * step
@@ -2042,16 +2071,16 @@ class TerminalWindow:
             # and files it into self.lines; show it so it doesn't flicker
             # away for a frame, just without a live cursor
             if self.current_line:
-                surface = self._render_text(self.current_line, "white")
+                surface = self._render_text(self.current_line, "white", big)
                 self.screen.blit(surface, (self._centered_x(surface), y))
             return
         cursor = "_" if (pygame.time.get_ticks() // 500) % 2 == 0 else " "
         live_text = self.current_line if self.game_over else self.current_line + self.typed + cursor
         live_color = "gray" if self.game_over else "lightgreen"
-        surface = self._render_text(live_text, live_color)
+        surface = self._render_text(live_text, live_color, big)
         self.screen.blit(surface, (self._centered_x(surface), y))
         if time.monotonic() < self._name_notice_until:
-            notice = self._render_text("Please enter a valid name.", "khaki")
+            notice = self._render_text("Please enter a valid name.", "khaki", big)
             self.screen.blit(notice, (self._centered_x(notice), y + step))
 
     def _render_pause_hearts(self, hearts: str) -> pygame.Surface:
