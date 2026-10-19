@@ -55,8 +55,8 @@ import traceback
 import pygame
 
 import progress
-import scoreboard
 import ui  # the real console ui.py - nothing here reimplements any of it
+from leaderboard import scoreboard
 from main import main as run_console_game
 
 # an exe built with `pyinstaller --windowed` has no console at all, so
@@ -602,6 +602,7 @@ class TerminalWindow:
         self.pause_view = "menu"  # "menu", "scoreboard", "controls", "quit" or "map"
         self.pause_status: dict[str, object] = {}
         self.pause_scores: list[str] = []
+        self._scores_read_at = 0.0  # when the scoreboard on screen was last read
         # the blurred freeze-frame drawn behind the menu, made when it opens
         self.pause_backdrop: pygame.Surface | None = None
         # a short message on the menu, such as "Game saved." - and when it goes
@@ -781,7 +782,7 @@ class TerminalWindow:
         speed = "instant" if ui.is_instant() else "typed out"
         return [
             "Resume",
-            "Scoreboard",
+            "Leaderboard",
             "Controls",
             f"Story text: {speed}",
             "Save and continue",
@@ -1705,7 +1706,21 @@ class TerminalWindow:
         step = round(self.menu_font.get_height() * _INTRO_ROW_SPACING)
         top = self.margin * 3
         visible_rows = max(1, (self.height - top - self.margin) // step - 1)
-        for row, (line, color) in enumerate(self.lines[-visible_rows:]):
+        # a numbered question here (who is playing?) works like every other menu: the arrows pick,
+        # and the choice that Enter would answer is marked the way the pause menu marks one
+        options = self._menu_options() if self.waiting_for_input else []
+        choices = {row for _number, row in options}
+        marked = (
+            options[self.menu_selected % len(options)][1]
+            if options and self.menu_selected is not None
+            else None
+        )
+        first_shown = max(0, len(self.lines) - visible_rows)
+        for row, (line, color) in enumerate(self.lines[first_shown:]):
+            if first_shown + row in choices:
+                line = line.strip()
+                if first_shown + row == marked:
+                    line, color = f"> {line} <", "khaki"
             surface = self._render_text(line, color, big)
             self.screen.blit(surface, (self._centered_x(surface), top + row * step))
 
@@ -1718,6 +1733,8 @@ class TerminalWindow:
             if self.current_line:
                 surface = self._render_text(self.current_line, "white", big)
                 self.screen.blit(surface, (self._centered_x(surface), y))
+            return
+        if options:  # a menu has no typing line
             return
         cursor = "_" if (pygame.time.get_ticks() // 500) % 2 == 0 else " "
         live_text = self.current_line if self.game_over else self.current_line + self.typed + cursor
@@ -1796,6 +1813,11 @@ class TerminalWindow:
         self.screen.blit(name, ((self.width - name.get_width()) // 2, y))
 
         if self.pause_view == "scoreboard":
+            if (
+                time.monotonic() - self._scores_read_at > 1.0
+            ):  # the shared list arrives a moment later
+                self.pause_scores = scoreboard.lines()
+                self._scores_read_at = time.monotonic()
             rows = [(line, "white") for line in self.pause_scores]
             hint = "Esc or Enter: back"
         elif self.pause_view == "controls":

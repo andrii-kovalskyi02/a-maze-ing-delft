@@ -322,7 +322,7 @@ def _answer_or_none(prompt: str, timeout: float | None) -> str | None:
         if _quit_handler():
             raise QuitRequested
         return None
-    if word == "scoreboard" and _scoreboard_handler is not None:
+    if word in ("leaderboard", "scoreboard") and _scoreboard_handler is not None:
         _scoreboard_handler()
         return None
     return answer
