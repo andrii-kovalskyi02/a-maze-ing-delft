@@ -149,7 +149,7 @@ def test_resuming_a_saved_game_from_the_start_screen_greets_you(console) -> None
     game.visited.add("classroom_2031")
     persistence.save_game(game)
 
-    console.script("Kru")  # the name, then nobody is at the keyboard any more
+    console.script("1")  # Kru, first in the "Who is playing?" list, then nobody is at the keyboard
     main.main()
     out = console.output
     assert "welcome back, kru!" in out

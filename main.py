@@ -35,6 +35,7 @@ def resume(game: Game) -> Game:
     ui.say()
     ui.say(f"Welcome back, {game.name}!")
     ui.say("Saved game found. Resuming your game.")
+    game.resumed = True  # the backpack greets a player who comes back (see Game.enter)
     return game
 
 
@@ -53,9 +54,6 @@ def new_player() -> Game:
             ui.say("Starting a new game.")
             return Game(player_name=name)
         ui.say()
-        ui.say(f"Welcome back, {player_name}!")
-        ui.say("Saved game found. Resuming your game.")
-        game.resumed = True
         ui.say(f"There is already a saved game for {name}:")
         ui.say(profiles.describe(saved))
         if ui.choose("Is that you?", ["Yes, continue this game", "No, use a different name"]) == 0:
