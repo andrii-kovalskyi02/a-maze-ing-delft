@@ -1,4 +1,3 @@
-
 """room/us1f-classroom-2015. Issue #30."""
 
 from __future__ import annotations
