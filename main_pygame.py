@@ -223,7 +223,7 @@ _ROOM_IMAGES = {
     "== Classroom 2.021 ==": "classroom_2035.jpg",
     "== Classroom 2.035 ==": "classroom_2035.jpg",
     "== Classroom 2.031 ==": "classroom_2035.jpg",
-    "== The Blue corridor ==": "hallway.jpg",
+    "== The Blue corridor ==": "blue_corridor_hall.jpg",
     "== The Red corridor ==": "hallway.jpg",
     "== LAB2.003 ==": "lab.jpg",
     "== Forest room ==": "forest_lab.jpg",  # lab_2001
