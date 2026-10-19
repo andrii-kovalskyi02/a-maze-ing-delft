@@ -192,6 +192,8 @@ _PAUSE_ACCENT = (240, 200, 80)
 # hallways, both labs, both teachers' rooms and the front desk office, every
 # project room). The storage room is left without a photo on purpose.
 _ROOM_IMAGES = {
+    "== classroom.2015 ==": "classroom_2035.jpg",
+    "== Classroom 2021 ==": "classroom_2035.jpg",
     "== Classroom 2.015 ==": "classroom_2035.jpg",
     "== Classroom 2.021 ==": "classroom_2035.jpg",
     "== Classroom 2.035 ==": "classroom_2035.jpg",
@@ -273,7 +275,7 @@ _FIRST_FADE_TIMES = (1.0, 0.6, 3.5)
 # as a full paragraph, with empty space padding out both sides.
 _BOX_WIDTH_FRACTION = 0.7
 _BOX_MIN_WIDTH_FRACTION = 0.28
-_BOX_MAX_ROWS = 10
+_BOX_MAX_ROWS = 15
 _BOX_PANEL_ALPHA = 150
 
 # set AMAZE_PYGAME_DEBUG=1 to print every fake-stdout write to the real terminal

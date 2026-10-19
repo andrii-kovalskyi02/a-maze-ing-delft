@@ -302,7 +302,11 @@ def _interactions(game: Game) -> tuple[MenuItem, ...]:
         if thing.gone_once_taken is None or not game.has_taken(thing.gone_once_taken)
     ]
     actions += [
-        MenuItem(f"Take the {item.name}", _take(item.key), ends_interaction=True)
+        MenuItem(
+            f"Take the {item.name.upper() if game.room.key == 'storage' else item.name}",
+            _take(item.key),
+            ends_interaction=True,
+        )
         for item in game.items_here()
     ]
 
@@ -329,6 +333,10 @@ def _take(key: str) -> Callable[[Game], None]:
     """Return an action that picks up the item called ``key``."""
 
     def action(game: Game) -> None:
+        item = game.take(key)
+        ui.say()
+        name = item.name.upper() if game.room.key == "storage" else item.name
+        ui.say(f"You take the {name}.")
         ui.new_page()  # picking something up is a moment of its own
         ui.narrate(f"You take the {get_item(key).name}.")
         game.take(key)  # the backpack may have something to say about it
