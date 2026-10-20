@@ -66,56 +66,44 @@ ROOM = Room(
             "Red indicator lights pulse as its visitor-slip arms rustle.",
         ),
         questions=(
-            # Question 1 (Open-ended)
+            # Question 1 (Multiple choice - Office / Front Desk theme: visitor protocol)
             Question(
                 prompt=(
-                    "I let staff call another office without walking there, "
-                    "but I am not a computer. What am I?"
+                    "What official document or credential is typically issued to guests "
+                    "at a front desk for temporary entry?"
                 ),
-                answers=(
-                    "extension",
-                    "an extension",
-                    "extension number",
-                    "an extension number",
-                    "phone",
-                    "a phone",
-                    "telephone",
-                    "a telephone",
-                    "intercom",
-                    "an intercom",
-                    "desk phone",
-                ),
+                choices=("Visitor Pass", "Library Card", "Passport Application", "Bus Ticket"),
+                answers=("Visitor Pass", "visitor pass", "pass", "visitor badge"),
                 seconds=15,
             ),
-            # Question 2 (Multiple choice)
+            # Question 2 (Multiple choice - Office tools: temporary fastening)
             Question(
-                prompt="Which object is used to hold paper steady while someone writes on it?",
-                choices=("Clipboard", "Mouse", "Stapler", "Desk lamp"),
-                answers=("Clipboard",),
-                seconds=15,
-            ),
-            # Question 3 (Multiple choice)
-            Question(
-                prompt="What object is used to fasten papers together temporarily?",
-                choices=("Paperclip", "Highlighter", "Phone", "Monitor"),
-                answers=("Paperclip",),
-                seconds=15,
-            ),
-            # Question 4 (Open-ended)
-            Question(
-                prompt="I show a person's name or role before they even speak. What am I?",
-                answers=(
-                    "name tag",
-                    "a name tag",
-                    "nametag",
-                    "a nametag",
-                    "id badge",
-                    "an id badge",
-                    "badge",
-                    "a badge",
-                    "name badge",
-                    "a name badge",
+                prompt=(
+                    "Which small bent-wire office supply is standard for holding paperwork "
+                    "together temporarily without damaging it?"
                 ),
+                choices=("Paperclip", "Staple", "Pushpin", "Binder Clip"),
+                answers=("Paperclip", "paperclip", "paper clip"),
+                seconds=15,
+            ),
+            # Question 3 (Multiple choice - Bureaucracy: form processing)
+            Question(
+                prompt=(
+                    "In official bureaucracy, what is a document containing blank spaces "
+                    "to be filled in by an applicant called?"
+                ),
+                choices=("Form", "Invoice", "Novel", "Brochure"),
+                answers=("Form", "form", "application form"),
+                seconds=15,
+            ),
+            # Question 4 (Multiple choice - Office administration: secretarial records)
+            Question(
+                prompt=(
+                    "Which book or register is kept at a reception desk to record arrivals, "
+                    "departures, and sign-ins?"
+                ),
+                choices=("Logbook", "Dictionary", "Scrapbook", "Diary"),
+                answers=("Logbook", "logbook", "log book", "guest book", "visitor log"),
                 seconds=15,
             ),
         ),
