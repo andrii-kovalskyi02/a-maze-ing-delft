@@ -298,7 +298,7 @@ def build_menu(game: Game) -> tuple[MenuItem, ...]:
 
 def _offer_interactions(game: Game) -> None:
     """Offer everything in this room worth touching, until the player is done."""
-    while True:
+    while game.running and not game.hearts.is_empty:
         actions = _interactions(game)
         if not actions:
             return
@@ -311,7 +311,7 @@ def _offer_interactions(game: Game) -> None:
             return
         picked = actions[chosen]
         picked.action(game)
-        if picked.ends_interaction:
+        if picked.ends_interaction or not game.running or game.hearts.is_empty:
             return
 
 

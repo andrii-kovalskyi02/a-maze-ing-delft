@@ -168,9 +168,20 @@ def test_running_out_of_hearts_ends_the_run(console) -> None:
     console.script("wrong")
     encounters.run(game, boss())
     assert game.hearts.is_empty
-
-    game._collapse_if_out_of_hearts()
     assert not game.running
+    assert "last heart" in console.output
+
+
+def test_running_out_of_hearts_in_interaction_menu_ends_immediately(console) -> None:
+    """When losing all hearts in a fight, interaction menu exits and game ends."""
+    game = Game(current="front_desk_office", hearts=Health(health.BOSS))
+    game.enter()
+    # Option 6 is "Get closer to the Check-In Terminal", followed by choice "2" (Library Card - wrong for Q1)
+    console.script("6", "2")
+    commands.do_look_around(game)
+    assert game.hearts.is_empty
+    assert not game.running
+    assert "access denied" in console.output
     assert "last heart" in console.output
 
 
