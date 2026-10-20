@@ -176,7 +176,8 @@ def test_running_out_of_hearts_in_interaction_menu_ends_immediately(console) -> 
     """When losing all hearts in a fight, interaction menu exits and game ends."""
     game = Game(current="front_desk_office", hearts=Health(health.BOSS))
     game.enter()
-    # Option 6 is "Get closer to the Check-In Terminal", followed by choice "2" (Library Card - wrong for Q1)
+    # Option 6 is "Get closer to the Check-In Terminal",
+    # followed by choice "2" (Library Card - wrong for Q1)
     console.script("6", "2")
     commands.do_look_around(game)
     assert game.hearts.is_empty
