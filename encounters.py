@@ -75,6 +75,7 @@ def _play(game: Game, boss: Boss) -> bool:
         ui.say()
         _tell(boss, boss.lose_text, "smiling")
         _hand_over_the_losing_items(game, boss)
+        game._collapse_if_out_of_hearts()
         return False
 
     _heal(game, boss)

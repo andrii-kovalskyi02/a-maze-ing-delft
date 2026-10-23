@@ -230,13 +230,7 @@ class Game:
         self._collapse_if_out_of_hearts()
 
     def _collapse_if_out_of_hearts(self) -> None:
-        """End the run if the last heart has gone (#108, E5.3).
-
-        Checked here, after whatever the player just did, rather than inside
-        the encounter engine: one place notices, so anything that costs a
-        heart later - a trap, a timer, a fall - ends the game the same way
-        without having to remember to.
-        """
+        """End the run if the last heart has gone (#108, E5.3)."""
         if self.hearts.is_empty and self.running:
             ui.say()
             ui.narrate(OUT_OF_HEARTS)
