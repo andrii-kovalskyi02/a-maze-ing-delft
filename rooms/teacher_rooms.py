@@ -43,18 +43,6 @@ ROOM = Room(
             text="Brick and plaster, broken rather than removed. Whatever did this did it fast.",
         ),
         Inspectable(
-            name="the nameplates",
-            text="Three nameplates, still lined up neatly: 'Room 1', 'Room 2', 'Room 3'.",
-        ),
-        Inspectable(
-            name="the desks",
-            text=(
-                "Three desks stand untouched by the wreckage around them.",
-                0.4,
-                "It's as if the walls avoided them on purpose.",
-            ),
-        ),
-        Inspectable(
             name="sticky note",
             text=(
                 "A sticky note on one of the desks reads:",

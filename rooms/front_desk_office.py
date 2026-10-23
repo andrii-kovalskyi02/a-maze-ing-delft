@@ -28,18 +28,6 @@ ROOM = Room(
     exits=("corridor_red",),
     inspectables=(
         Inspectable(
-            name="the counter",
-            text="A scratched wooden service desk with a narrow transaction window.",
-        ),
-        Inspectable(
-            name="the computer",
-            text="An office desktop displaying a login screen for the student management portal.",
-        ),
-        Inspectable(
-            name="the phone",
-            text="A multi-line landline phone with a blinking voicemail indicator.",
-        ),
-        Inspectable(
             name="the forms and stamps",
             text="Neatly arranged stacks of building access permits and a red 'DENIED' ink stamp.",
         ),

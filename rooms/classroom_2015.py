@@ -43,32 +43,8 @@ ROOM = Room(
             ),
         ),
         Inspectable(
-            name="whiteboard",
-            text=(
-                "Someone has written 'Intercultural Collaboration' on it.",
-                0.4,
-                "The smoke residue is making it hard to see.",
-            ),
-        ),
-        Inspectable(
-            name="fireplace",
-            text=(
-                "A small campfire, somehow burning safely in the middle of a classroom.",
-                0.5,
-                "You decide not to ask why or how.",
-            ),
-        ),
-        Inspectable(
             name="cans of beer scattered around",
             text="Beer cans, scattered everywhere. Several brands, all empty.",
-        ),
-        Inspectable(
-            name="an odd smell",
-            text=(
-                "Woodsmoke and spilled beer, and something else that's familiar.",
-                0.4,
-                "You can't place it.",
-            ),
         ),
     ),
     items=(),

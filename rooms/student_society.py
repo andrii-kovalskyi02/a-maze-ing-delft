@@ -43,14 +43,6 @@ ROOM = Room(
             ),
         ),
         Inspectable(
-            name="the ipad",
-            text=(
-                "Left on one of the chairs, screen still on.",
-                0.4,
-                "It's open to a note-taking app, one line typed and unfinished.",
-            ),
-        ),
-        Inspectable(
             name="the posters",
             text=(
                 "Flyers for a Sinterklaas party, a LAN night, and a bake sale.",
@@ -59,14 +51,6 @@ ROOM = Room(
                 0.4,
                 "You're fairly sure that one hasn't happened.",
             ),
-        ),
-        Inspectable(
-            name="the seats",
-            text="A row of mismatched chairs, pulled in close as if a meeting just ended.",
-        ),
-        Inspectable(
-            name="the whiteboard",
-            text="An agenda: 'Item 1: snacks budget. Item 2: snacks budget (cont.)'",
         ),
     ),
     items=(),
