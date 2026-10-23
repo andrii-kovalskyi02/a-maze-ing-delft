@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import pytest
+
 import persistence
 import rooms  # noqa: F401
+import world
 from game import Game
 from health import Health
+from models import Area, Room
 
 
 def test_save_and_load_preserves_game_state(tmp_path, monkeypatch) -> None:
@@ -65,6 +69,41 @@ def test_pause_saves_the_game_and_stops_running(tmp_path, monkeypatch) -> None:
     assert loaded.current == "corridor_blue"
     assert loaded.hearts == Health(2)
     assert loaded.elapsed_time >= 10.0
+
+
+def _game_in_a_room_holding(item: str, monkeypatch: pytest.MonkeyPatch) -> Game:
+    """Return a game standing in a made-up room with ``item`` on the floor."""
+    room = Room(
+        key="test_cupboard",
+        name="Test Cupboard",
+        area=Area.BLUE,
+        description="A room built for this test.",
+        look_around="Shelves.",
+        items=(item,),
+    )
+    monkeypatch.setitem(world._ROOMS, room.key, room)
+    return Game(player_name="Tester", current=room.key)
+
+
+def test_picking_up_a_digit_saves_the_game(console, monkeypatch) -> None:
+    """#216: a digit, once found, survives a crash or a closed window."""
+    game = _game_in_a_room_holding("digit_4", monkeypatch)
+    console.script("1", "1")  # look around, take it
+    game.turn()
+
+    loaded = persistence.load_game("Tester")
+    assert loaded is not None
+    assert "digit_4" in loaded.carrying
+    assert game.running
+
+
+def test_picking_up_anything_else_does_not_save(console, monkeypatch) -> None:
+    """#216: only a digit is worth an autosave; the rest waits for "pause"."""
+    game = _game_in_a_room_holding("brass_key", monkeypatch)
+    console.script("1", "1")
+    game.turn()
+
+    assert persistence.load_game("Tester") is None
 
 
 def test_the_scoreboard_puts_the_most_complete_first_and_breaks_a_tie_on_time() -> None:

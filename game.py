@@ -12,6 +12,7 @@ import time
 from dataclasses import dataclass, field
 
 import commands
+import digits
 import narrator
 import persistence
 import progress
@@ -226,7 +227,22 @@ class Game:
         """Offer the menu once, and carry out whatever the player picks."""
         menu = commands.build_menu(self)
         chosen = ui.choose("What do you do?", [item.label for item in menu])
+        digits_before = len(digits.carried(self))
         menu[chosen].action(self)
+        if self.running and len(digits.carried(self)) > digits_before:
+            self.autosave()
+
+    def autosave(self) -> None:
+        """Save without stopping, so a digit once found is never lost (#216).
+
+        Checked once per turn rather than wherever a digit is handed out - a
+        boss, an item on the floor, a door - so a room that hands one out a
+        new way is saved the same way without having to remember to.
+        """
+        self.update_elapsed_time()
+        persistence.save_game(self)
+        ui.say()
+        ui.say("Digit found - your progress has been saved.")
 
     def collapse(self) -> None:
         """End the run: the last heart has gone (#108, E5.3, #217).
