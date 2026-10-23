@@ -9,15 +9,16 @@ time.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 
 import commands
+import digits
 import narrator
 import persistence
 import progress
 import ui
 import world
-from health import Health
+from health import Health, OutOfHearts
 from inventory import Inventory, get_item
 from leaderboard import online, scoreboard
 from models import Item, Room
@@ -39,6 +40,17 @@ The corridor tilts, the lights thin to nothing, and the floor of the 2nd floor
 of THUAS Delft comes up to meet you. Whatever this building is, it is finished
 with you for tonight.\
 """
+
+#: What the player reads when they wake up at their last save instead (#217).
+BACK_AT_THE_SAVE = """\
+...and then you are standing up again, a little earlier, a little further back,
+with every heart back where it belongs. The building is not finished with you
+after all.\
+"""
+
+#: What is not rolled back when the player is sent back to their last save:
+#: who they are, and how long they have been playing - time spent is spent.
+_KEPT_ON_RESPAWN = {"player_name", "name", "elapsed_time", "started_at", "running"}
 
 #: What the player is carrying at the start: nothing. They have no backpack
 #: until the Evil Backpack becomes one in classroom 2.031 (US1c).
@@ -226,15 +238,47 @@ class Game:
         """Offer the menu once, and carry out whatever the player picks."""
         menu = commands.build_menu(self)
         chosen = ui.choose("What do you do?", [item.label for item in menu])
+        digits_before = len(digits.carried(self))
         menu[chosen].action(self)
-        self._collapse_if_out_of_hearts()
+        if self.running and len(digits.carried(self)) > digits_before:
+            self.autosave()
 
-    def _collapse_if_out_of_hearts(self) -> None:
-        """End the run if the last heart has gone (#108, E5.3)."""
-        if self.hearts.is_empty and self.running:
-            ui.say()
-            ui.narrate(OUT_OF_HEARTS)
+    def autosave(self) -> None:
+        """Save without stopping, so a digit once found is never lost (#216).
+
+        Checked once per turn rather than wherever a digit is handed out - a
+        boss, an item on the floor, a door - so a room that hands one out a
+        new way is saved the same way without having to remember to.
+        """
+        self.update_elapsed_time()
+        persistence.save_game(self)
+        ui.say()
+        ui.say("Digit found - your progress has been saved.")
+
+    def collapse(self) -> None:
+        """The last heart has gone (#108, E5.3, #217).
+
+        Called by the main loop the moment :class:`~health.OutOfHearts` is
+        raised, wherever that heart was lost. If the player has a save, they
+        are sent back to it on full hearts, so dying costs the progress since
+        then rather than the whole run. Without one, the run is over.
+        """
+        ui.say()
+        ui.narrate(OUT_OF_HEARTS)
+        saved = persistence.load_game(self.player_name) if self.player_name else None
+        if saved is None:
             self.running = False
+            return
+
+        for each in fields(self):
+            if each.name not in _KEPT_ON_RESPAWN:
+                setattr(self, each.name, getattr(saved, each.name))
+        self.hearts = Health()
+        self.update_elapsed_time()
+        persistence.save_game(self)
+        ui.say()
+        ui.narrate(BACK_AT_THE_SAVE)
+        self.enter()
 
     def quit(self) -> None:
         """End the run without saving it (US2)."""
@@ -264,6 +308,8 @@ class Game:
                     self.running = False
                 except ui.QuitRequested:
                     self.quit()
+                except OutOfHearts:
+                    self.collapse()
                 except EOFError:
                     ui.say()
                     ui.say("There is nobody at the keyboard any more. Game over.")

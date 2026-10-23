@@ -13,11 +13,13 @@ import pytest
 import commands
 import encounters
 import health
+import persistence
 import rooms  # noqa: F401  (importing rooms registers them)
 import ui
+import world
 from game import Game
 from health import Health
-from models import Boss, Question, typing_attack
+from models import Area, Boss, Question, Room, typing_attack
 
 
 def boss(**changes) -> Boss:
@@ -161,35 +163,72 @@ def test_hearts_are_shown_before_the_fight_starts(console) -> None:
     assert f"hearts: {Health()}".casefold() in console.output
 
 
-def test_running_out_of_hearts_ends_the_run(console) -> None:
-    """E5.3: the team's decision - the last heart ends the play-through."""
+def test_losing_the_last_heart_stops_the_fight_there_and_then(console) -> None:
+    """#217: the last heart goes, and nothing else happens - not even the lose text."""
     game = Game(hearts=Health(health.BOSS))
-    game.enter()
     console.script("wrong")
-    encounters.run(game, boss())
+    with pytest.raises(health.OutOfHearts):
+        encounters.run(game, boss())
     assert game.hearts.is_empty
-    assert not game.running
-    assert "last heart" in console.output
-
-
-def test_running_out_of_hearts_in_interaction_menu_ends_immediately(console) -> None:
-    """When losing all hearts in a fight, interaction menu exits and game ends."""
-    game = Game(current="front_desk_office", hearts=Health(health.BOSS))
-    game.enter()
-    # Option 6 is "Get closer to the Check-In Terminal",
-    # followed by choice "2" (Library Card - wrong for Q1)
-    console.script("6", "2")
-    commands.do_look_around(game)
-    assert game.hearts.is_empty
-    assert not game.running
-    assert "access denied" in console.output
-    assert "last heart" in console.output
+    assert "you lose." not in console.output
 
 
 def test_a_run_with_hearts_left_carries_on(console) -> None:
     """The other half of E5.3: nothing ends while there is a heart left."""
     game = Game()
     console.script("wrong")
-    encounters.run(game, boss())
-    game._collapse_if_out_of_hearts()
-    assert game.running
+    assert encounters.run(game, boss()) is False
+    assert not game.hearts.is_empty
+
+
+def _arena(monkeypatch) -> Room:
+    """Register a made-up room with the test boss in it, for this test only."""
+    arena = Room(
+        key="test_arena",
+        name="Test Arena",
+        area=Area.BLUE,
+        description="A room built for this test.",
+        look_around="Bare walls.",
+        boss=boss(),
+    )
+    monkeypatch.setitem(world._ROOMS, arena.key, arena)
+    return arena
+
+
+def test_running_out_of_hearts_with_no_save_ends_the_run(console, monkeypatch) -> None:
+    """#217, E5.3: with nothing to go back to, the last heart ends the run at once.
+
+    Nothing more is scripted: one more menu would read past the end of the
+    script and say "nobody at the keyboard" instead.
+    """
+    game = Game(player_name="Tester", current=_arena(monkeypatch).key)
+    game.hearts = Health(health.BOSS)
+
+    console.script("1", "1", "wrong")  # look around, get closer, answer wrong
+    game.run()
+
+    assert not game.running
+    assert "last heart" in console.output
+    assert "nobody at the keyboard" not in console.output
+
+
+def test_running_out_of_hearts_goes_back_to_the_save_on_full_hearts(console, monkeypatch) -> None:
+    """#217: dying sends the player back to their last save, hearts restored."""
+    arena = _arena(monkeypatch)
+    saved = Game(player_name="Tester", current="classroom_2035")
+    saved.hearts = Health(health.BOSS)
+    saved.visited = {"classroom_2035"}
+    persistence.save_game(saved)
+
+    game = Game(player_name="Tester", current=arena.key, hearts=Health(health.BOSS))
+    game.carrying.add("brass_key")  # picked up after the save: lost with the death
+    console.script("1", "1", "wrong")
+    game.run()
+
+    assert "last heart" in console.output
+    assert game.current == "classroom_2035"
+    assert game.hearts == Health()
+    assert "brass_key" not in game.carrying
+    reloaded = persistence.load_game("Tester")
+    assert reloaded is not None
+    assert reloaded.hearts == Health()

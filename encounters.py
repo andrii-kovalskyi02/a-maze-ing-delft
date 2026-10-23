@@ -75,7 +75,6 @@ def _play(game: Game, boss: Boss) -> bool:
         ui.say()
         _tell(boss, boss.lose_text, "smiling")
         _hand_over_the_losing_items(game, boss)
-        game._collapse_if_out_of_hearts()
         return False
 
     _heal(game, boss)
@@ -172,6 +171,9 @@ def _hurt(game: Game, boss: Boss) -> None:
     game.hearts = game.hearts.lose(_stake(boss))
     ui.say()
     ui.say(f"Hearts: {game.hearts}")
+    if game.hearts.is_empty:
+        # The run is over this instant - see health.OutOfHearts (#217).
+        raise health.OutOfHearts
     narrator.remark(game, "hurt", who=boss.name)
 
 

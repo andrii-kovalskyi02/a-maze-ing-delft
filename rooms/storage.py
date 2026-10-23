@@ -38,30 +38,6 @@ ROOM = Room(
                 "Also boxes of fluorescent tubes and bottles of industrial floor cleaner.",
             ),
         ),
-        Inspectable(
-            name="workbench",
-            text=(
-                "A scarred wooden workbench, covered in dust circles.",
-                0.4,
-                "Stray washers and an empty oil can sit nearby.",
-            ),
-        ),
-        Inspectable(
-            name="cleaning cart",
-            text=(
-                "A yellow janitorial trolley holds a dry mop and a squeegee.",
-                0.4,
-                "There's also a box of heavy-duty rubber gloves.",
-            ),
-        ),
-        Inspectable(
-            name="cardboard boxes",
-            text=(
-                "Old cardboard boxes labeled 'Building Maintenance 2024'.",
-                0.4,
-                "Inside are spare hinges, doorknobs, and rolls of caution tape.",
-            ),
-        ),
     ),
     items=("axe_key", "yellow_card"),
 )
