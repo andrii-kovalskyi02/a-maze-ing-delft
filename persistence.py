@@ -1,14 +1,21 @@
 """Save and load game state, and keep the scoreboard, using SQLite (enabler #121).
 
-Two tables, because they hold two different things - see SCHEMA.md:
+Three tables - see SCHEMA.md:
 
+- ``players``: who plays. One row per name, with that player's password, hashed.
 - ``game_states``: one unfinished game per player, to resume later (US3).
 - ``scores``: one finished run per player - their best - for the scoreboard (US5).
+
+The functions below take a player's name, because names are unique: the database turns it
+into the player's id itself.
 """
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
+import secrets
 import sqlite3
 from typing import TYPE_CHECKING
 
@@ -23,6 +30,36 @@ DATABASE_NAME = "game.db"
 #: wait, so two players on one machine cannot corrupt the file.
 BUSY_TIMEOUT = 5.0
 
+#: How many times a password is hashed. Slow on purpose: somebody with a copy of game.db has to
+#: wait this long for every password they guess.
+HASH_ROUNDS = 100_000
+
+_GAME_STATES = """
+    CREATE TABLE IF NOT EXISTS game_states (
+        player_id INTEGER PRIMARY KEY REFERENCES players(id),
+        current_room TEXT NOT NULL,
+        inventory TEXT NOT NULL,
+        hearts INTEGER NOT NULL,
+        digits TEXT NOT NULL,
+        visited_rooms TEXT NOT NULL,
+        unlocked_rooms TEXT NOT NULL,
+        defeated_challenges TEXT NOT NULL,
+        taken_items TEXT NOT NULL,
+        approached TEXT NOT NULL,
+        elapsed_time REAL NOT NULL,
+        saved_at TEXT
+    )
+"""
+
+_SCORES = """
+    CREATE TABLE IF NOT EXISTS scores (
+        player_id INTEGER PRIMARY KEY REFERENCES players(id),
+        percent INTEGER NOT NULL,
+        seconds REAL NOT NULL,
+        finished_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+"""
+
 
 def get_connection() -> sqlite3.Connection:
     """Return a connection to the game database."""
@@ -30,42 +67,27 @@ def get_connection() -> sqlite3.Connection:
 
 
 def create_tables() -> None:
-    """Create the save table and the scoreboard table if they do not exist."""
+    """Create the players, save and scoreboard tables if they do not exist."""
     connection = get_connection()
 
+    # salt and password_hash are empty for a player from before passwords existed
     connection.execute(
         """
-        CREATE TABLE IF NOT EXISTS game_states (
-            player_name TEXT PRIMARY KEY,
-            current_room TEXT NOT NULL,
-            inventory TEXT NOT NULL,
-            hearts INTEGER NOT NULL,
-            digits TEXT NOT NULL,
-            visited_rooms TEXT NOT NULL,
-            unlocked_rooms TEXT NOT NULL,
-            defeated_challenges TEXT NOT NULL,
-            taken_items TEXT NOT NULL,
-            approached TEXT NOT NULL,
-            elapsed_time REAL NOT NULL,
-            saved_at TEXT
+        CREATE TABLE IF NOT EXISTS players (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            salt BLOB,
+            password_hash BLOB,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
         """
     )
-    # a database made before saved_at existed gets the column, empty, so its saves still load
-    columns = [row[1] for row in connection.execute("PRAGMA table_info(game_states)")]
-    if "saved_at" not in columns:
-        connection.execute("ALTER TABLE game_states ADD COLUMN saved_at TEXT")
 
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS scores (
-            player_name TEXT PRIMARY KEY,
-            percent INTEGER NOT NULL,
-            seconds REAL NOT NULL,
-            finished_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )
-        """
-    )
+    for table, create in (("game_states", _GAME_STATES), ("scores", _SCORES)):
+        if "player_name" in _columns(connection, table):
+            _move_to_player_ids(connection, table, create)
+        else:
+            connection.execute(create)
 
     # the shared scoreboard (leaderboard/online.py): runs waiting to be uploaded, and the last
     # top list seen
@@ -94,6 +116,90 @@ def create_tables() -> None:
     connection.close()
 
 
+def _columns(connection: sqlite3.Connection, table: str) -> list[str]:
+    """Return the column names of ``table``; empty if there is no such table."""
+    return [row[1] for row in connection.execute(f"PRAGMA table_info({table})")]
+
+
+def _move_to_player_ids(connection: sqlite3.Connection, table: str, create: str) -> None:
+    """Rebuild a table from before players existed, keyed by player_name, keyed by player_id.
+
+    Every name in it becomes a player with no password yet, so old saves and scores are kept.
+    """
+    connection.execute(f"ALTER TABLE {table} RENAME TO old_{table}")
+    connection.execute(create)
+    # a column the old table never had (saved_at, in the oldest saves) is just left empty
+    old_columns = _columns(connection, f"old_{table}")
+    kept = ", ".join(column for column in old_columns if column != "player_name")
+    connection.execute(f"INSERT OR IGNORE INTO players (name) SELECT player_name FROM old_{table}")
+    connection.execute(
+        f"INSERT OR IGNORE INTO {table} (player_id, {kept})"
+        f" SELECT players.id, {kept} FROM old_{table}"
+        f" JOIN players ON players.name = old_{table}.player_name"
+    )
+    connection.execute(f"DROP TABLE old_{table}")
+
+
+def _player_id(connection: sqlite3.Connection, name: str) -> int:
+    """Return ``name``'s id, adding them as a player with no password yet if they are new."""
+    connection.execute("INSERT OR IGNORE INTO players (name) VALUES (?)", (name,))
+    (player_id,) = connection.execute("SELECT id FROM players WHERE name = ?", (name,)).fetchone()
+    return player_id
+
+
+def _hash(password: str, salt: bytes) -> bytes:
+    """Hash a password. The same password and salt always give the same hash."""
+    return hashlib.pbkdf2_hmac("sha256", password.encode(), salt, HASH_ROUNDS)
+
+
+def player_exists(name: str) -> bool:
+    """Return True if ``name`` is taken - by a password, a save or a score."""
+    connection = get_connection()
+    row = connection.execute("SELECT 1 FROM players WHERE name = ?", (name,)).fetchone()
+    connection.close()
+    return row is not None
+
+
+def has_password(name: str) -> bool:
+    """Return True if ``name`` has a password. Players from before passwords existed do not."""
+    connection = get_connection()
+    row = connection.execute(
+        "SELECT 1 FROM players WHERE name = ? AND password_hash IS NOT NULL", (name,)
+    ).fetchone()
+    connection.close()
+    return row is not None
+
+
+def set_password(name: str, password: str) -> None:
+    """Give ``name`` a password, adding them as a player if they are new.
+
+    Only a hash is kept, never the password. Each player gets their own random salt, so two
+    players with the same password do not get the same hash.
+    """
+    salt = secrets.token_bytes(16)
+    connection = get_connection()
+    connection.execute(
+        "UPDATE players SET salt = ?, password_hash = ? WHERE id = ?",
+        (salt, _hash(password, salt), _player_id(connection, name)),
+    )
+    connection.commit()
+    connection.close()
+
+
+def password_matches(name: str, password: str) -> bool:
+    """Return True if ``password`` is ``name``'s password. False if they have none."""
+    connection = get_connection()
+    row = connection.execute(
+        "SELECT salt, password_hash FROM players WHERE name = ?", (name,)
+    ).fetchone()
+    connection.close()
+    if row is None or row[1] is None:
+        return False
+    salt, stored = row
+    # compare_digest takes as long whatever the answer, so timing gives nothing away
+    return hmac.compare_digest(_hash(password, salt), stored)
+
+
 def save_game(game: Game) -> None:
     """Save the complete state of a game."""
     inventory = [item.key for item in game.carrying]
@@ -107,7 +213,7 @@ def save_game(game: Game) -> None:
     connection.execute(
         """
         INSERT INTO game_states (
-            player_name,
+            player_id,
             current_room,
             inventory,
             hearts,
@@ -121,7 +227,7 @@ def save_game(game: Game) -> None:
             saved_at
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        ON CONFLICT(player_name) DO UPDATE SET
+        ON CONFLICT(player_id) DO UPDATE SET
             current_room = excluded.current_room,
             inventory = excluded.inventory,
             hearts = excluded.hearts,
@@ -135,7 +241,7 @@ def save_game(game: Game) -> None:
             saved_at = CURRENT_TIMESTAMP
         """,
         (
-            game.player_name,
+            _player_id(connection, game.player_name),
             game.current,
             json.dumps(inventory),
             game.hearts.halves,
@@ -171,7 +277,8 @@ def load_game(player_name: str) -> Game | None:
             approached,
             elapsed_time
         FROM game_states
-        WHERE player_name = ?
+        JOIN players ON players.id = game_states.player_id
+        WHERE players.name = ?
         """,
         (player_name,),
     ).fetchone()
@@ -225,7 +332,10 @@ def delete_save(player_name: str) -> None:
     again - a run that is already on the scoreboard.
     """
     connection = get_connection()
-    connection.execute("DELETE FROM game_states WHERE player_name = ?", (player_name,))
+    connection.execute(
+        "DELETE FROM game_states WHERE player_id = (SELECT id FROM players WHERE name = ?)",
+        (player_name,),
+    )
     connection.commit()
     connection.close()
 
@@ -240,16 +350,16 @@ def record_score(player_name: str, percent: int, seconds: float) -> None:
     connection = get_connection()
     connection.execute(
         """
-        INSERT INTO scores (player_name, percent, seconds)
+        INSERT INTO scores (player_id, percent, seconds)
         VALUES (?, ?, ?)
-        ON CONFLICT(player_name) DO UPDATE SET
+        ON CONFLICT(player_id) DO UPDATE SET
             percent = excluded.percent,
             seconds = excluded.seconds,
             finished_at = CURRENT_TIMESTAMP
         WHERE excluded.percent > scores.percent
             OR (excluded.percent = scores.percent AND excluded.seconds < scores.seconds)
         """,
-        (player_name, percent, seconds),
+        (_player_id(connection, player_name), percent, seconds),
     )
     connection.commit()
     connection.close()
@@ -260,8 +370,9 @@ def top_scores(limit: int = 5) -> list[tuple[str, int, float]]:
     connection = get_connection()
     rows = connection.execute(
         """
-        SELECT player_name, percent, seconds
+        SELECT players.name, percent, seconds
         FROM scores
+        JOIN players ON players.id = scores.player_id
         ORDER BY percent DESC, seconds ASC
         LIMIT ?
         """,
@@ -337,7 +448,9 @@ def recent_saves(limit: int) -> list[str]:
     """Return the names of the ``limit`` most recently saved games, newest first."""
     connection = get_connection()
     rows = connection.execute(
-        "SELECT player_name FROM game_states ORDER BY saved_at DESC, player_name LIMIT ?", (limit,)
+        "SELECT players.name FROM game_states JOIN players ON players.id = game_states.player_id"
+        " ORDER BY saved_at DESC, players.name LIMIT ?",
+        (limit,),
     ).fetchall()
     connection.close()
     return [name for (name,) in rows]
@@ -350,9 +463,7 @@ def canonical_name(name: str) -> str:
     first spelling used wins, and the players keep seeing it.
     """
     connection = get_connection()
-    rows = connection.execute(
-        "SELECT player_name FROM game_states UNION SELECT player_name FROM scores"
-    ).fetchall()
+    rows = connection.execute("SELECT name FROM players").fetchall()
     connection.close()
     wanted = name.casefold()
     for (known,) in sorted(rows):

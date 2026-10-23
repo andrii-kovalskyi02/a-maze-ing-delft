@@ -38,6 +38,37 @@ def ask_name() -> str:
         ui.say(problem)
 
 
+def choose_password(name: str) -> None:
+    """Ask for a new password twice, until it is good and both times match, and keep it."""
+    while True:
+        password = ui.ask_secret("Choose a password: ")
+        problem = profiles.check_password(password)
+        if problem is not None:
+            ui.say(problem)
+        elif ui.ask_secret("Type it again: ") != password:
+            ui.say("Those two were not the same. Try again.")
+        else:
+            persistence.set_password(name, password)
+            return
+
+
+def log_in(name: str) -> bool:
+    """Ask for ``name``'s password. True once it is right; False if the player gives up.
+
+    A player from before passwords existed has none yet: they choose one now.
+    """
+    if not persistence.has_password(name):
+        ui.say(f"{name} has no password yet. Choose one, so nobody else can play as you.")
+        choose_password(name)
+        return True
+    while True:
+        if persistence.password_matches(name, ui.ask_secret("Password: ")):
+            return True
+        ui.say("Wrong password.")
+        if ui.choose("What now?", ["Try again", "Use a different name"]) != 0:
+            return False
+
+
 def resume(game: Game) -> Game:
     """Welcome a player back to their saved game."""
     ui.say()
@@ -47,25 +78,38 @@ def resume(game: Game) -> Game:
     return game
 
 
+def new_game(name: str) -> Game:
+    """Start a fresh game for ``name``."""
+    ui.say()
+    ui.say(f"No saved game found for {name}.")
+    ui.say("Starting a new game.")
+    return Game(player_name=name)
+
+
 def new_player() -> Game:
     """Ask for a name and start that player's game.
 
-    A name that already has a saved game is never taken over: the player may continue it if it
-    is theirs, and otherwise picks another name, so nobody's save is ever replaced.
+    Names are unique, so the scoreboard never shows two players with one name. A new name gets a
+    password. A name that is taken - by a save or a score - needs its password, so nobody's save
+    or score is ever taken over.
     """
     while True:
         name = ask_name()
-        saved = persistence.load_game(name)
-        if saved is None:
+        if not persistence.player_exists(name):
             ui.say()
-            ui.say(f"No saved game found for {name}.")
-            ui.say("Starting a new game.")
-            return Game(player_name=name)
+            ui.say(f"Welcome, {name}! Choose a password, so nobody else can play as you.")
+            choose_password(name)
+            return new_game(name)
+        saved = persistence.load_game(name)
         ui.say()
-        ui.say(f"There is already a saved game for {name}:")
-        ui.say(profiles.describe(saved))
-        if ui.choose("Is that you?", ["Yes, continue this game", "No, use a different name"]) == 0:
-            return resume(saved)
+        if saved is None:
+            ui.say(f"The name {name} is already taken.")
+        else:
+            ui.say(f"There is already a saved game for {name}:")
+            ui.say(profiles.describe(saved))
+        is_me = ui.choose("Is that you?", ["Yes, that's me", "No, use a different name"]) == 0
+        if is_me and log_in(name):
+            return new_game(name) if saved is None else resume(saved)
 
 
 def pick_player() -> Game:
@@ -78,7 +122,7 @@ def pick_player() -> Game:
     if saves:
         labels = [profiles.describe(game) for game in saves] + ["New player"]
         index = ui.choose("Who is playing?", labels)
-        if index is not None and index < len(saves):
+        if index is not None and index < len(saves) and log_in(saves[index].name):
             return resume(saves[index])
     return new_player()
 

@@ -147,9 +147,11 @@ def test_resuming_a_saved_game_from_the_start_screen_greets_you(console) -> None
     game = Game(player_name="Kru", current="classroom_2031")
     game.carrying.add("backpack")
     game.visited.add("classroom_2031")
+    persistence.set_password("Kru", "secret")
     persistence.save_game(game)
 
-    console.script("1")  # Kru, first in the "Who is playing?" list, then nobody is at the keyboard
+    # Kru, first in the "Who is playing?" list, then nobody is at the keyboard
+    console.script("1", "secret")
     main.main()
     out = console.output
     assert "welcome back, kru!" in out

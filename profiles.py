@@ -19,6 +19,8 @@ MAX_NAME = 30
 MAX_PROFILES = 8
 #: Besides letters and numbers, a name may use a space and these.
 _ALLOWED_MARKS = " -_.'"
+#: The shortest password allowed.
+MIN_PASSWORD = 4
 
 
 def check_name(raw: str) -> tuple[str, str | None]:
@@ -38,6 +40,13 @@ def check_name(raw: str) -> tuple[str, str | None]:
     if not all(letter.isalnum() or letter in _ALLOWED_MARKS for letter in name):
         return name, "Names can only use letters, numbers, spaces and - _ . '"
     return name, None
+
+
+def check_password(password: str) -> str | None:
+    """Say what is wrong with a new password, or return None when it is fine."""
+    if len(password) < MIN_PASSWORD:
+        return f"That password is too short: {MIN_PASSWORD} characters at least."
+    return None
 
 
 def describe(game: Game) -> str:
