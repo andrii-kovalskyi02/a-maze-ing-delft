@@ -181,13 +181,8 @@ def test_a_run_with_hearts_left_carries_on(console) -> None:
     assert not game.hearts.is_empty
 
 
-def test_running_out_of_hearts_ends_the_run_at_once(console, monkeypatch) -> None:
-    """#217, E5.3: the last heart ends the play-through, and its save with it.
-
-    The player must not be offered the room again, or another go at the boss,
-    on no hearts - so nothing more is scripted here: one more menu would read
-    past the end of the script and say "nobody at the keyboard" instead.
-    """
+def _arena(monkeypatch) -> Room:
+    """Register a made-up room with the test boss in it, for this test only."""
     arena = Room(
         key="test_arena",
         name="Test Arena",
@@ -197,8 +192,17 @@ def test_running_out_of_hearts_ends_the_run_at_once(console, monkeypatch) -> Non
         boss=boss(),
     )
     monkeypatch.setitem(world._ROOMS, arena.key, arena)
-    game = Game(player_name="Tester", current=arena.key, hearts=Health(health.BOSS))
-    persistence.save_game(game)
+    return arena
+
+
+def test_running_out_of_hearts_with_no_save_ends_the_run(console, monkeypatch) -> None:
+    """#217, E5.3: with nothing to go back to, the last heart ends the run at once.
+
+    Nothing more is scripted: one more menu would read past the end of the
+    script and say "nobody at the keyboard" instead.
+    """
+    game = Game(player_name="Tester", current=_arena(monkeypatch).key)
+    game.hearts = Health(health.BOSS)
 
     console.script("1", "1", "wrong")  # look around, get closer, answer wrong
     game.run()
@@ -206,4 +210,25 @@ def test_running_out_of_hearts_ends_the_run_at_once(console, monkeypatch) -> Non
     assert not game.running
     assert "last heart" in console.output
     assert "nobody at the keyboard" not in console.output
-    assert persistence.load_game("Tester") is None
+
+
+def test_running_out_of_hearts_goes_back_to_the_save_on_full_hearts(console, monkeypatch) -> None:
+    """#217: dying sends the player back to their last save, hearts restored."""
+    arena = _arena(monkeypatch)
+    saved = Game(player_name="Tester", current="classroom_2035")
+    saved.hearts = Health(health.BOSS)
+    saved.visited = {"classroom_2035"}
+    persistence.save_game(saved)
+
+    game = Game(player_name="Tester", current=arena.key, hearts=Health(health.BOSS))
+    game.carrying.add("brass_key")  # picked up after the save: lost with the death
+    console.script("1", "1", "wrong")
+    game.run()
+
+    assert "last heart" in console.output
+    assert game.current == "classroom_2035"
+    assert game.hearts == Health()
+    assert "brass_key" not in game.carrying
+    reloaded = persistence.load_game("Tester")
+    assert reloaded is not None
+    assert reloaded.hearts == Health()

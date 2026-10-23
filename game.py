@@ -9,7 +9,7 @@ time.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 
 import commands
 import digits
@@ -40,6 +40,17 @@ The corridor tilts, the lights thin to nothing, and the floor of the 2nd floor
 of THUAS Delft comes up to meet you. Whatever this building is, it is finished
 with you for tonight.\
 """
+
+#: What the player reads when they wake up at their last save instead (#217).
+BACK_AT_THE_SAVE = """\
+...and then you are standing up again, a little earlier, a little further back,
+with every heart back where it belongs. The building is not finished with you
+after all.\
+"""
+
+#: What is not rolled back when the player is sent back to their last save:
+#: who they are, and how long they have been playing - time spent is spent.
+_KEPT_ON_RESPAWN = {"player_name", "name", "elapsed_time", "started_at", "running"}
 
 #: What the player is carrying at the start: nothing. They have no backpack
 #: until the Evil Backpack becomes one in classroom 2.031 (US1c).
@@ -245,16 +256,29 @@ class Game:
         ui.say("Digit found - your progress has been saved.")
 
     def collapse(self) -> None:
-        """End the run: the last heart has gone (#108, E5.3, #217).
+        """The last heart has gone (#108, E5.3, #217).
 
         Called by the main loop the moment :class:`~health.OutOfHearts` is
-        raised, wherever that heart was lost. The save is removed too, so a
-        run that is over cannot be resumed on no hearts.
+        raised, wherever that heart was lost. If the player has a save, they
+        are sent back to it on full hearts, so dying costs the progress since
+        then rather than the whole run. Without one, the run is over.
         """
         ui.say()
         ui.narrate(OUT_OF_HEARTS)
-        persistence.delete_save(self.player_name)
-        self.running = False
+        saved = persistence.load_game(self.player_name) if self.player_name else None
+        if saved is None:
+            self.running = False
+            return
+
+        for each in fields(self):
+            if each.name not in _KEPT_ON_RESPAWN:
+                setattr(self, each.name, getattr(saved, each.name))
+        self.hearts = Health()
+        self.update_elapsed_time()
+        persistence.save_game(self)
+        ui.say()
+        ui.narrate(BACK_AT_THE_SAVE)
+        self.enter()
 
     def quit(self) -> None:
         """End the run without saving it (US2)."""
