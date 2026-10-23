@@ -13,11 +13,13 @@ import pytest
 import commands
 import encounters
 import health
+import persistence
 import rooms  # noqa: F401  (importing rooms registers them)
 import ui
+import world
 from game import Game
 from health import Health
-from models import Boss, Question, typing_attack
+from models import Area, Boss, Question, Room, typing_attack
 
 
 def boss(**changes) -> Boss:
@@ -161,23 +163,47 @@ def test_hearts_are_shown_before_the_fight_starts(console) -> None:
     assert f"hearts: {Health()}".casefold() in console.output
 
 
-def test_running_out_of_hearts_ends_the_run(console) -> None:
-    """E5.3: the team's decision - the last heart ends the play-through."""
+def test_losing_the_last_heart_stops_the_fight_there_and_then(console) -> None:
+    """#217: the last heart goes, and nothing else happens - not even the lose text."""
     game = Game(hearts=Health(health.BOSS))
-    game.enter()
     console.script("wrong")
-    encounters.run(game, boss())
+    with pytest.raises(health.OutOfHearts):
+        encounters.run(game, boss())
     assert game.hearts.is_empty
-
-    game._collapse_if_out_of_hearts()
-    assert not game.running
-    assert "last heart" in console.output
+    assert "you lose." not in console.output
 
 
 def test_a_run_with_hearts_left_carries_on(console) -> None:
     """The other half of E5.3: nothing ends while there is a heart left."""
     game = Game()
     console.script("wrong")
-    encounters.run(game, boss())
-    game._collapse_if_out_of_hearts()
-    assert game.running
+    assert encounters.run(game, boss()) is False
+    assert not game.hearts.is_empty
+
+
+def test_running_out_of_hearts_ends_the_run_at_once(console, monkeypatch) -> None:
+    """#217, E5.3: the last heart ends the play-through, and its save with it.
+
+    The player must not be offered the room again, or another go at the boss,
+    on no hearts - so nothing more is scripted here: one more menu would read
+    past the end of the script and say "nobody at the keyboard" instead.
+    """
+    arena = Room(
+        key="test_arena",
+        name="Test Arena",
+        area=Area.BLUE,
+        description="A room built for this test.",
+        look_around="Bare walls.",
+        boss=boss(),
+    )
+    monkeypatch.setitem(world._ROOMS, arena.key, arena)
+    game = Game(player_name="Tester", current=arena.key, hearts=Health(health.BOSS))
+    persistence.save_game(game)
+
+    console.script("1", "1", "wrong")  # look around, get closer, answer wrong
+    game.run()
+
+    assert not game.running
+    assert "last heart" in console.output
+    assert "nobody at the keyboard" not in console.output
+    assert persistence.load_game("Tester") is None

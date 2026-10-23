@@ -17,7 +17,7 @@ import persistence
 import progress
 import ui
 import world
-from health import Health
+from health import Health, OutOfHearts
 from inventory import Inventory, get_item
 from leaderboard import online, scoreboard
 from models import Item, Room
@@ -227,20 +227,18 @@ class Game:
         menu = commands.build_menu(self)
         chosen = ui.choose("What do you do?", [item.label for item in menu])
         menu[chosen].action(self)
-        self._collapse_if_out_of_hearts()
 
-    def _collapse_if_out_of_hearts(self) -> None:
-        """End the run if the last heart has gone (#108, E5.3).
+    def collapse(self) -> None:
+        """End the run: the last heart has gone (#108, E5.3, #217).
 
-        Checked here, after whatever the player just did, rather than inside
-        the encounter engine: one place notices, so anything that costs a
-        heart later - a trap, a timer, a fall - ends the game the same way
-        without having to remember to.
+        Called by the main loop the moment :class:`~health.OutOfHearts` is
+        raised, wherever that heart was lost. The save is removed too, so a
+        run that is over cannot be resumed on no hearts.
         """
-        if self.hearts.is_empty and self.running:
-            ui.say()
-            ui.narrate(OUT_OF_HEARTS)
-            self.running = False
+        ui.say()
+        ui.narrate(OUT_OF_HEARTS)
+        persistence.delete_save(self.player_name)
+        self.running = False
 
     def quit(self) -> None:
         """End the run without saving it (US2)."""
@@ -270,6 +268,8 @@ class Game:
                     self.running = False
                 except ui.QuitRequested:
                     self.quit()
+                except OutOfHearts:
+                    self.collapse()
                 except EOFError:
                     ui.say()
                     ui.say("There is nobody at the keyboard any more. Game over.")

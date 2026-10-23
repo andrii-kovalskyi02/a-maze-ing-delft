@@ -42,6 +42,15 @@ HALF = "♥"
 EMPTY = "·"
 
 
+class OutOfHearts(Exception):
+    """The player has just lost their last heart (#217).
+
+    Raised where the heart is lost, so nothing else happens in between: not
+    the rest of the fight, not another "What do you do?". The main loop in
+    ``game.py`` catches it and ends the run.
+    """
+
+
 @dataclass(frozen=True, slots=True)
 class Health:
     """How many hearts the player has left, counted in halves.

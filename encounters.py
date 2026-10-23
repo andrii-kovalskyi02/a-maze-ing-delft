@@ -171,6 +171,9 @@ def _hurt(game: Game, boss: Boss) -> None:
     game.hearts = game.hearts.lose(_stake(boss))
     ui.say()
     ui.say(f"Hearts: {game.hearts}")
+    if game.hearts.is_empty:
+        # The run is over this instant - see health.OutOfHearts (#217).
+        raise health.OutOfHearts
     narrator.remark(game, "hurt", who=boss.name)
 
 
