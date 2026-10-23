@@ -70,7 +70,9 @@ def create_tables() -> None:
     """Create the players, save and scoreboard tables if they do not exist."""
     connection = get_connection()
 
-    # salt and password_hash are empty for a player from before passwords existed
+    # salt and password_hash are empty for a player from before passwords existed. tag is 8
+    # random letters and digits, made by SQLite for every new player: it tells two players with
+    # one name apart on the shared scoreboard, where names are not unique (leaderboard/online.py)
     connection.execute(
         """
         CREATE TABLE IF NOT EXISTS players (
@@ -78,6 +80,7 @@ def create_tables() -> None:
             name TEXT NOT NULL UNIQUE COLLATE NOCASE,
             salt BLOB,
             password_hash BLOB,
+            tag TEXT NOT NULL DEFAULT (lower(hex(randomblob(4)))),
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
         """
@@ -97,10 +100,14 @@ def create_tables() -> None:
             run_id TEXT PRIMARY KEY,
             player_name TEXT NOT NULL,
             percent INTEGER NOT NULL,
-            seconds REAL NOT NULL
+            seconds REAL NOT NULL,
+            player_tag TEXT
         )
         """
     )
+    # runs waiting from before tags existed keep an empty tag
+    if "player_tag" not in _columns(connection, "pending_scores"):
+        connection.execute("ALTER TABLE pending_scores ADD COLUMN player_tag TEXT")
     connection.execute(
         """
         CREATE TABLE IF NOT EXISTS online_top (
@@ -158,6 +165,14 @@ def player_exists(name: str) -> bool:
     row = connection.execute("SELECT 1 FROM players WHERE name = ?", (name,)).fetchone()
     connection.close()
     return row is not None
+
+
+def player_tag(name: str) -> str | None:
+    """Return ``name``'s tag, which tells them apart from players with the same name elsewhere."""
+    connection = get_connection()
+    row = connection.execute("SELECT tag FROM players WHERE name = ?", (name,)).fetchone()
+    connection.close()
+    return None if row is None else row[0]
 
 
 def has_password(name: str) -> bool:
@@ -383,22 +398,22 @@ def top_scores(limit: int = 5) -> list[tuple[str, int, float]]:
 
 
 def add_pending_score(run_id: str, player_name: str, percent: int, seconds: float) -> None:
-    """Remember a finished run until it has been uploaded to the shared scoreboard."""
+    """Remember a finished run, with the player's tag, until it is on the shared scoreboard."""
     connection = get_connection()
     connection.execute(
-        "INSERT OR IGNORE INTO pending_scores (run_id, player_name, percent, seconds)"
-        " VALUES (?, ?, ?, ?)",
-        (run_id, player_name, percent, seconds),
+        "INSERT OR IGNORE INTO pending_scores (run_id, player_name, player_tag, percent, seconds)"
+        " VALUES (?, ?, (SELECT tag FROM players WHERE name = ?), ?, ?)",
+        (run_id, player_name, player_name, percent, seconds),
     )
     connection.commit()
     connection.close()
 
 
-def pending_scores() -> list[tuple[str, str, int, float]]:
-    """Return (run_id, name, percent, seconds) for every run not uploaded yet."""
+def pending_scores() -> list[tuple[str, str, str | None, int, float]]:
+    """Return (run_id, name, tag, percent, seconds) for every run not uploaded yet."""
     connection = get_connection()
     rows = connection.execute(
-        "SELECT run_id, player_name, percent, seconds FROM pending_scores"
+        "SELECT run_id, player_name, player_tag, percent, seconds FROM pending_scores"
     ).fetchall()
     connection.close()
     return rows

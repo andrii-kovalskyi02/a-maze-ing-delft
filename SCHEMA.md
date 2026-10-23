@@ -18,6 +18,7 @@ the scoreboard is one query instead of code we write and test ourselves.
 | `name` | TEXT, **unique**, ignoring capitals | The name typed at the start. Two players can never share one |
 | `salt` | BLOB | Random bytes, different for every player, mixed into the hash |
 | `password_hash` | BLOB | The password, hashed (PBKDF2-SHA256). Never the password itself |
+| `tag` | TEXT | 8 random letters and digits, made by SQLite. Tells two players with one name apart online |
 | `created_at` | TEXT | When the name was first used (filled in by SQLite) |
 
 A new name chooses a password (`set_password()`). A taken name - one with a save or a score - needs
@@ -101,6 +102,13 @@ the scoreboard shows everyone's best five. Two more local tables back this up:
 |---|---|
 | `pending_scores` | Finished runs not uploaded yet (no connection); sent the next time the server answers |
 | `online_top` | The last top list seen, shown when the server cannot be reached |
+
+Names are unique on one computer, but two computers can each have a "Kru". So every uploaded run
+carries its player's `tag` (`player_tag` on Supabase). When two different players with one name are
+both in the top five, the first four letters of their tags are shown after the name: `Kru #a3f9`
+and `Kru #07bc`. The tag is random rather than made from the name, because a hash of the name would
+be the same for both "Kru"s. A Supabase table made before tags existed needs the column added once
+(the `alter table` line at the bottom of `scores_online.sql`) before this version of the game uploads.
 
 ## Two copies of the game at once
 
