@@ -1483,7 +1483,12 @@ class TerminalWindow:
                         self._pending_pick = time.monotonic() + _PICK_DELAY_SECONDS
                     continue
                 if event.key == pygame.K_RETURN:
-                    if self.room_header is None and ui.status() is None and not self.typed.strip():
+                    if (
+                        self.room_header is None
+                        and ui.status() is None
+                        and not ui.asking_secret()
+                        and not self.typed.strip()
+                    ):
                         # the name prompt: an empty name is not sent, it is only pointed out
                         self._name_notice_until = time.monotonic() + _NAME_NOTICE_SECONDS
                     else:
@@ -1555,13 +1560,17 @@ class TerminalWindow:
             return None
         return max(0, math.ceil(self.deadline - time.monotonic()))
 
+    def _shown_typed(self) -> str:
+        """What the player has typed, as shown on screen: a password is shown as stars."""
+        return "*" * len(self.typed) if ui.asking_secret() else self.typed
+
     def _submit(self, answer: object) -> None:
         """Send an answer to the game, and tidy the question away on screen.
 
         ``answer`` is what the player typed, or _TIMED_OUT when the clock did
         the pressing - either way the screen looks the same as pressing Enter.
         """
-        answer_line = self.current_line + self.typed
+        answer_line = self.current_line + self._shown_typed()
         if self._prompt_start is not None:
             # collapse the whole question down to just what you picked
             block = self.lines[self._prompt_start :]
@@ -1823,7 +1832,8 @@ class TerminalWindow:
             if self.game_over:
                 live_text, live_color = self.current_line, "gray"
             else:
-                live_text, live_color = self.current_line + self.typed + cursor, "lightgreen"
+                live_text = self.current_line + self._shown_typed() + cursor
+                live_color = "lightgreen"
             shown.append((live_text, live_color, True))
         if (
             self._seconds_left() is not None
@@ -2193,7 +2203,8 @@ class TerminalWindow:
         if options:  # a menu has no typing line
             return
         cursor = "_" if (pygame.time.get_ticks() // 500) % 2 == 0 else " "
-        live_text = self.current_line if self.game_over else self.current_line + self.typed + cursor
+        typing = self.current_line + self._shown_typed() + cursor
+        live_text = self.current_line if self.game_over else typing
         live_color = "gray" if self.game_over else "lightgreen"
         surface = self._render_text(live_text, live_color, big)
         self.screen.blit(surface, (self._centered_x(surface), y))

@@ -10,7 +10,34 @@ file. It survives the program closing, which is what US3 (pause and resume)
 and US5 (the scoreboard) both need. And it is a real SQL database, so ordering
 the scoreboard is one query instead of code we write and test ourselves.
 
-## Two tables, for two different things
+## Who is playing: `players`
+
+| Column | Type | What it holds |
+|---|---|---|
+| `id` | INTEGER, **primary key** | The player's number. Saves and scores point at this, not at the name |
+| `name` | TEXT, **unique**, ignoring capitals | The name typed at the start. Two players can never share one |
+| `salt` | BLOB | Random bytes, different for every player, mixed into the hash |
+| `password_hash` | BLOB | The password, hashed (PBKDF2-SHA256). Never the password itself |
+| `tag` | TEXT | 8 random letters and digits, made by SQLite. Tells two players with one name apart online |
+| `created_at` | TEXT | When the name was first used (filled in by SQLite) |
+
+A new name chooses a password (`set_password()`). A taken name - one with a save or a score - needs
+its password (`password_matches()`) before anyone can play as it. Because names are unique, the
+scoreboard never shows two players with the same name.
+
+Keeping the player apart from their save and score means the name lives in one place only.
+
+Only a hash is stored. Each player gets their own salt, so two players with the same password get
+different hashes, and checking a password is slow on purpose (`HASH_ROUNDS`), so guessing passwords
+from a copied `game.db` is slow too. This protects one player's save from another player. It is not
+strong security: anyone can open `game.db` and edit it. A forgotten password cannot be recovered;
+the player picks a new name.
+
+A database from before passwords existed is updated by `create_tables()`: every name in it becomes a
+player with no password (`salt` and `password_hash` empty), and the first person to come back as
+that name chooses its password.
+
+## Saves and scores: two tables, for two different things
 
 An unfinished game and a finished one are different things. An unfinished
 game has to be resumed exactly, so it holds everything. A finished run only has
@@ -22,7 +49,7 @@ somebody is still playing.
 
 | Column | Type | What it holds |
 |---|---|---|
-| `player_name` | TEXT, **primary key** | The name typed at the start. One save per name |
+| `player_id` | INTEGER, **primary key** | The player (`players.id`). One save per player |
 | `current_room` | TEXT | The key of the room the player is in |
 | `inventory` | TEXT (JSON list) | The keys of the items carried |
 | `hearts` | INTEGER | Hearts left, counted in halves (3 hearts = 6) |
@@ -35,7 +62,7 @@ somebody is still playing.
 | `elapsed_time` | REAL | Seconds played in earlier sessions |
 
 Written by `save_game()` (Options -> Save, or typing `pause`), read by
-`load_game()` when the player gives their name, and deleted by `delete_save()`
+`load_game()` once the player has logged in, and deleted by `delete_save()`
 when they finish.
 
 The sets (visited, defeated, ...) are Python `set`s in the game, because the
@@ -46,7 +73,7 @@ stored as JSON lists and turned back into sets on loading.
 
 | Column | Type | What it holds |
 |---|---|---|
-| `player_name` | TEXT, **primary key** | One row per player: their best run |
+| `player_id` | INTEGER, **primary key** | The player (`players.id`). One row per player: their best run |
 | `percent` | INTEGER | How much of the floor was done, 0-100 |
 | `seconds` | REAL | Total play time, every session included |
 | `finished_at` | TEXT | When that run finished (filled in by SQLite) |
@@ -58,8 +85,9 @@ amount faster.
 The scoreboard is one query, in `top_scores()`:
 
 ```sql
-SELECT player_name, percent, seconds
+SELECT players.name, percent, seconds
 FROM scores
+JOIN players ON players.id = scores.player_id
 ORDER BY percent DESC, seconds ASC
 LIMIT 5
 ```
@@ -74,6 +102,13 @@ the scoreboard shows everyone's best five. Two more local tables back this up:
 |---|---|
 | `pending_scores` | Finished runs not uploaded yet (no connection); sent the next time the server answers |
 | `online_top` | The last top list seen, shown when the server cannot be reached |
+
+Names are unique on one computer, but two computers can each have a "Kru". So every uploaded run
+carries its player's `tag` (`player_tag` on Supabase). When two different players with one name are
+both in the top five, the first four letters of their tags are shown after the name: `Kru #a3f9`
+and `Kru #07bc`. The tag is random rather than made from the name, because a hash of the name would
+be the same for both "Kru"s. A Supabase table made before tags existed needs the column added once
+(the `alter table` line at the bottom of `scores_online.sql`) before this version of the game uploads.
 
 ## Two copies of the game at once
 

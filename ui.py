@@ -8,6 +8,7 @@ directly from a room.
 from __future__ import annotations
 
 import contextlib
+import getpass
 import sys
 import textwrap
 import time
@@ -95,6 +96,9 @@ _held = 0.0
 #: True when the window has its own pause menu, so the game menu does not
 #: need an "Options" entry.
 _pause_menu = False
+
+#: True while the player is typing a password, so the Pygame window shows stars instead.
+_secret = False
 
 
 class PauseRequested(Exception):
@@ -400,6 +404,26 @@ def ask(prompt: str = "> ", timeout: float | None = None) -> str:
         answer = _answer_or_none(prompt, timeout)
         if answer is not None:
             return answer
+
+
+def ask_secret(prompt: str) -> str:
+    """Ask for a password without showing it: a real terminal shows nothing, the window stars.
+
+    Unlike :func:`ask`, spaces are kept and ``pause`` or ``quit`` are just a password.
+    """
+    global _secret
+    if _read is input and _at_a_real_terminal():  # pragma: no cover - needs a person typing
+        return getpass.getpass(prompt)
+    _secret = True
+    try:
+        return _read(prompt)
+    finally:
+        _secret = False
+
+
+def asking_secret() -> bool:
+    """Return True while the player is typing a password (see :func:`ask_secret`)."""
+    return _secret
 
 
 def _answer_or_none(prompt: str, timeout: float | None) -> str | None:

@@ -132,3 +132,32 @@ def test_a_fetched_but_empty_shared_board_is_not_mistaken_for_no_connection(serv
         "Leaderboard - top 5",
         "Nobody is on the leaderboard yet.",
     ]
+
+
+def test_every_run_carries_its_players_tag(server) -> None:
+    persistence.set_password("Krug", "secret")
+    online.submit("Krug", 50, 100.0)
+    assert server.rows[0]["player_tag"] == persistence.player_tag("Krug")
+    assert len(server.rows[0]["player_tag"]) == 8
+
+
+def test_two_players_with_one_name_are_told_apart_by_their_tags(server) -> None:
+    for run, (tag, percent) in enumerate([("a3f9c0de", 80), ("07bc11aa", 60), (None, 40)]):
+        server.rows.append(
+            {
+                "run_id": str(run),
+                "name": "Kru",
+                "player_tag": tag,
+                "percent": percent,
+                "seconds": 9.0,
+            }
+        )
+    server.rows.append(
+        {"run_id": "x", "name": "Ann", "player_tag": "ffff0000", "percent": 10, "seconds": 9.0}
+    )
+    assert online.fetch_top(5) == [
+        ("Kru #a3f9", 80, 9.0),
+        ("Kru #07bc", 60, 9.0),
+        ("Kru", 40, 9.0),  # a run from before tags: no tag to show
+        ("Ann", 10, 9.0),  # nobody else is called Ann: no tag needed
+    ]

@@ -241,7 +241,7 @@ def test_project_room_2_supervisor_dialogue_reaches_the_end(console) -> None:
 
 def test_typing_quit_and_confirming_ends_the_game_without_saving(console) -> None:
     """US2: quit works at any prompt, asks first, and leaves no save behind."""
-    console.script("Krug", "quit", "1")
+    console.script("Krug", "secret", "secret", "quit", "1")
 
     main.main()  # returns normally: no traceback, exit code 0
 
@@ -250,7 +250,7 @@ def test_typing_quit_and_confirming_ends_the_game_without_saving(console) -> Non
 
 
 def test_taking_back_a_typed_quit_asks_the_same_question_again(console) -> None:
-    console.script("Krug", "quit", "2")
+    console.script("Krug", "secret", "secret", "quit", "2")
 
     main.main()
 
@@ -260,7 +260,7 @@ def test_taking_back_a_typed_quit_asks_the_same_question_again(console) -> None:
 
 def test_typing_scoreboard_shows_it_and_carries_on(console) -> None:
     """US5: the scoreboard can be typed at any prompt as well as found in Options."""
-    console.script("Krug", "leaderboard")
+    console.script("Krug", "secret", "secret", "leaderboard")
 
     main.main()
 

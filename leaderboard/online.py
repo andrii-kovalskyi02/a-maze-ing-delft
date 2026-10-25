@@ -10,6 +10,11 @@ Nothing here may get in the player's way:
   the outbox and goes up the next time the game manages to reach the server.
 - The last top list seen is kept on disk, so the scoreboard still shows something offline.
 - Every network problem is swallowed; the worst that happens is an out-of-date scoreboard.
+
+Names are unique on one computer, but not across computers: two "Kru"s can each play on their own.
+So every run carries its player's tag (random, see ``persistence.create_tables``), and when two
+different players with one name are both in the top list they are shown as "Kru #a3f9" and
+"Kru #07bc".
 """
 
 from __future__ import annotations
@@ -34,6 +39,7 @@ SUPABASE_KEY = "sb_publishable_IxX7Ql4UqujXXE9NEsFXnw_MClEkPnj"
 
 TIMEOUT = 4.0  # seconds to wait for the server before giving up
 FETCH_ROWS = 50  # how many rows to ask for, so a player with several runs does not crowd the top
+TAG_SHOWN = 4  # how many letters of a tag are shown after a name that two players share
 REFRESH_EVERY = 30.0  # seconds between background refreshes
 
 _last_sync: float | None = None
@@ -60,9 +66,15 @@ def _send(method: str, path: str, body: dict | None = None) -> bytes:
         return response.read()
 
 
-def _upload(run_id: str, name: str, percent: int, seconds: float) -> bool:
+def _upload(run_id: str, name: str, tag: str | None, percent: int, seconds: float) -> bool:
     """Send one run. True if the server has it now (also when it already had it)."""
-    row = {"run_id": run_id, "name": name, "percent": percent, "seconds": seconds}
+    row = {
+        "run_id": run_id,
+        "name": name,
+        "player_tag": tag,
+        "percent": percent,
+        "seconds": seconds,
+    }
     try:
         _send("POST", "scores", row)
     except urllib.error.HTTPError as error:
@@ -74,8 +86,8 @@ def _upload(run_id: str, name: str, percent: int, seconds: float) -> bool:
 
 def flush_pending() -> None:
     """Upload every run waiting in the outbox, stopping at the first failure (no connection)."""
-    for run_id, name, percent, seconds in persistence.pending_scores():
-        if not _upload(run_id, name, percent, seconds):
+    for run_id, name, tag, percent, seconds in persistence.pending_scores():
+        if not _upload(run_id, name, tag, percent, seconds):
             return
         persistence.delete_pending_score(run_id)
 
@@ -83,23 +95,36 @@ def flush_pending() -> None:
 def fetch_top(limit: int = 5) -> list[tuple[str, int, float]] | None:
     """Return everyone's best ``limit`` players as (name, percent, seconds), or None if unreachable.
 
-    Highest percent first, then fastest, one line per player (their best run).
+    Highest percent first, then fastest, one line per player (their best run). A player is a name
+    and a tag, so two players with one name get a line each, told apart by their tags.
     """
     query = urllib.parse.urlencode(
-        {"select": "name,percent,seconds", "order": "percent.desc,seconds.asc", "limit": FETCH_ROWS}
+        {
+            "select": "name,player_tag,percent,seconds",
+            "order": "percent.desc,seconds.asc",
+            "limit": FETCH_ROWS,
+        }
     )
     try:
         rows = json.loads(_send("GET", f"scores?{query}"))
     except (OSError, ValueError):
         return None
-    best: dict[str, tuple[str, int, float]] = {}
+    best: dict[tuple[str, str], tuple[str, str, int, float]] = {}
     for row in rows:
         try:
             name, percent, seconds = str(row["name"]), int(row["percent"]), float(row["seconds"])
         except (KeyError, TypeError, ValueError):
             continue
-        best.setdefault(name.casefold(), (name, percent, seconds))  # rows come best first
-    return list(best.values())[:limit]
+        tag = str(row.get("player_tag") or "")  # runs from before tags have none
+        best.setdefault((name.casefold(), tag), (name, tag, percent, seconds))  # best come first
+    top = list(best.values())[:limit]
+    names = [name.casefold() for name, _, _, _ in top]
+    shown = []
+    for name, tag, percent, seconds in top:
+        if tag and names.count(name.casefold()) > 1:  # two players with this name are on the list
+            name = f"{name} #{tag[:TAG_SHOWN]}"
+        shown.append((name, percent, seconds))
+    return shown
 
 
 def sync(limit: int = 5) -> None:
