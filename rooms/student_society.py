@@ -40,7 +40,6 @@ ROOM = Room(
                 "Below it: MTG NIGHT, every 3rd Wednesday of the month.",
                 0.4,
                 "Someone circled both of them in marker.",
-
             ),
         ),
         Inspectable(
