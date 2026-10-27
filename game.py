@@ -157,10 +157,10 @@ class Game:
             if narrator.BACKPACK in self.carrying:
                 self._greet_back(room)
                 return
-        if first_time or room.return_description is None:
+        if first_time:
             ui.narrate(room.description)
-        else:
-            ui.narrate(room.return_description)
+        elif room.return_description is not None:
+            ui.narrate(room.return_description)  # a room with nothing to say again says nothing
         if not first_time:
             ui.say("You have been here before.")
             if not room.is_hallway:

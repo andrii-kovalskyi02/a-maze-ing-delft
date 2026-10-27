@@ -265,8 +265,8 @@ class Room:
         name: How the room is shown on screen, e.g. ``"Classroom 2.035"``.
         area: Which colour-coded part of the floor the room is in.
         description: The short line printed when the player walks in.
-        return_description: What is printed instead on every later visit, if the room
-            would sound wrong told as a first arrival. None repeats ``description``.
+        return_description: What is printed instead on every later visit. None tells
+            nothing again: the player has read ``description`` already.
         look_around: The longer text printed for ``look around``, or None for a
             place with nothing to describe, like a staircase you only pass
             through. The "Look around" choice is then only offered if there

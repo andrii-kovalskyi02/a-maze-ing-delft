@@ -157,6 +157,15 @@ def test_revisiting_a_room_says_so(console) -> None:
     assert "you have been here before" in console.output
 
 
+def test_a_room_without_return_text_is_not_described_again(console) -> None:
+    game = start()
+    game.move_to("corridor_blue")
+    game.move_to("classroom_2035")
+    game.move_to("corridor_blue")
+    first_line = world.get("corridor_blue").description[0].casefold()
+    assert console.output.count(first_line) == 1
+
+
 def option_in_options(game: Game, label: str) -> str:
     """Return the number the player would press for ``label`` under Options.
 
