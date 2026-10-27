@@ -172,13 +172,13 @@ def test_hearts_are_shown_before_the_fight_starts(console) -> None:
 
 
 def test_losing_the_last_heart_stops_the_fight_there_and_then(console) -> None:
-    """#217: the last heart goes, and nothing else happens - not even the lose text."""
+    """#217: the last heart goes, the boss has its say, and the fight is over."""
     game = Game(hearts=Health(health.BOSS))
     console.script("wrong")
     with pytest.raises(health.OutOfHearts):
         encounters.run(game, boss())
     assert game.hearts.is_empty
-    assert "you lose." not in console.output
+    assert "you lose." in console.output
 
 
 def test_a_run_with_hearts_left_carries_on(console) -> None:

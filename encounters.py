@@ -186,7 +186,10 @@ def _hurt(game: Game, boss: Boss) -> None:
     ui.say()
     ui.say(f"Hearts: {game.hearts}")
     if game.hearts.is_empty:
-        # The run is over this instant - see health.OutOfHearts (#217).
+        # The battle is lost: the boss has its say, then the run goes back to the last save -
+        # see health.OutOfHearts (#217).
+        ui.say()
+        _tell(boss, boss.lose_text, "smiling")
         raise health.OutOfHearts
     narrator.remark(game, "hurt", who=boss.name)
 
