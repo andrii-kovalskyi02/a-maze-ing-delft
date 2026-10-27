@@ -10,7 +10,8 @@ Run it with:
     python main_pygame.py
 
 Type + Enter like a normal console. The story text moves on by itself a
-second after each line, and Space skips all of it. Escape
+second after each line, stays up once it is told until Space (or Enter) is
+pressed, and Space skips all of it. Escape
 opens the pause menu: the whole game stops behind it, timers included, and
 Escape again resumes. Closing the window saves and quits, the same as typing
 "pause". A timed question shows its seconds counting down, and presses Enter
@@ -198,13 +199,15 @@ _CHAT_BOX_EDGE_END_X = 211  # ...and where it joins the drawing's own bottom edg
 _CHAT_BOX_ERASE = ((0, 198, 76, 50), (76, 150, 124, 98))
 # shown in the gap at the bottom left of the box while the story is being told
 _SKIP_HINT_TEXT = "SPACE to skip"
+# ...and in its place once the story has been told, until the player presses to go on
+_CONTINUE_HINT_TEXT = "SPACE to go on"
 
 # what the Controls screen of the pause menu lists: (the keys, what they do)
 _CONTROLS = [
     ("Up / Down  or  W / S", "choose from a menu or a question"),
     ("1, 2, 3 ...", "pick that choice by its number"),
     ("Enter", "confirm your choice, or send what you typed"),
-    ("Space", "skip all of the story text"),
+    ("Space", "skip the story text, or go on once it has been told"),
     ("M", "open the floor map, once you have taken the plan from the wall"),
     ("Esc", "open the pause menu, and close it again"),
     ("Type + Enter", "answer a question in your own words"),
@@ -398,6 +401,7 @@ class _StreamToQueue:
         self._queue = out_queue
         self._window = window
         self._typing_current_line = False
+        self._story_told = False  # a typed line has finished since the player last went on
 
     def write(self, text: str) -> None:
         # this is the whole trick: print()/say()/narrate() call write(), and it
@@ -415,7 +419,13 @@ class _StreamToQueue:
                 # dead here and don't let it write anything more until the
                 # player presses to move on
                 self._window.wait_for_line_advance()
+                self._story_told = True
             return
+        if self._story_told and len(text) > 1 and text.strip():
+            # the story is over and something else (a menu, a question, the next room) is
+            # about to be shown: the story stays up until the player presses to go on
+            self._story_told = False
+            self._window.wait_for_story_press()
         # _type_line() writes one character at a time; say()'s _write()
         # (== print()) hands over a whole already-built line in a single
         # write() call - a lone character is the signature of the typed
@@ -720,6 +730,8 @@ class TerminalWindow:
         # True only in that state - the game thread is genuinely blocked,
         # not just "the window happens to not be showing more yet"
         self.waiting_to_advance = False
+        # True while the story is over and the box waits for Space or Enter to go on
+        self.waiting_for_press = False
         # where the dialogue box's current "page" starts in self.lines -
         # advances only when the player presses past a completed line, or
         # answers a question (see _draw_dialogue_box / _handle_events)
@@ -786,6 +798,21 @@ class TerminalWindow:
                 elif time.monotonic() >= deadline:
                     break
         self.waiting_to_advance = False
+
+    def wait_for_story_press(self) -> None:
+        """Hold the game thread, with the whole story still in the box, until Space or Enter.
+
+        Called from the GAME THREAD (see _StreamToQueue.write) once the story is over and
+        something else is about to be shown. Not on the first screen, and not once Space has
+        skipped the story: the player has said they do not want to wait for it.
+        """
+        if self.quitting or self.skipping or self.room_header is None:
+            return
+        self.advance_event.clear()
+        self.waiting_for_press = True
+        while not self.advance_event.wait(0.02) and not self.quitting:
+            pass
+        self.waiting_for_press = False
 
     @staticmethod
     def _wave_loudness(path: str, attack_seconds: float = _TYPE_SOUND_ATTACK) -> float:
@@ -1511,6 +1538,10 @@ class TerminalWindow:
                 if event.key == pygame.K_m and self._can_open_map():
                     self._open_map()
                     continue
+                if self.waiting_for_press:
+                    if event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                        self.advance_event.set()  # read it: on to what comes next
+                    continue
                 if self.waiting_to_advance or not self.waiting_for_input:
                     # the story is being told: Space skips all of it, and no other key does
                     # anything (the text moves on by itself - see wait_for_line_advance)
@@ -1868,7 +1899,7 @@ class TerminalWindow:
                     shown.append((label, _OPTION, True))
                 continue
             shown.append((text, color, color != _SPEAKER_LABEL))  # a name is smaller than its lines
-        if self.waiting_to_advance:
+        if self.waiting_to_advance or self.waiting_for_press:
             # the game thread is genuinely blocked right now (see
             # wait_for_line_advance) - nothing more can arrive until the
             # player presses, so just show what's there. current_line may
@@ -2041,7 +2072,8 @@ class TerminalWindow:
         min_box_width = int(self.width * _BOX_MIN_WIDTH_FRACTION)
 
         # the drawing is scaled so the words fit between its leg and foot
-        hint = self._render_text(_SKIP_HINT_TEXT, "white", True)
+        hint_text = _CONTINUE_HINT_TEXT if self.waiting_for_press else _SKIP_HINT_TEXT
+        hint = self._render_text(hint_text, "white", True)
         scale = hint.get_height() * 1.5 / _CHAT_BOX_FOOT_HEIGHT
         xs, ys = _CHAT_BOX_X_CUTS, _CHAT_BOX_Y_CUTS
         left_cap = round((xs[1] - xs[0]) * scale)
@@ -2508,7 +2540,7 @@ class TerminalWindow:
             # before the first room - see _draw_intro
             self._draw_intro()
         else:
-            surface = self._render_text(self.room_header, "khaki")
+            surface = self._render_text(self.room_header, "black")
             self.screen.blit(surface, (self._centered_x(surface), self.margin))
             if box:
                 self._draw_dialogue_box()
