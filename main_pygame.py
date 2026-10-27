@@ -406,7 +406,9 @@ class _StreamToQueue:
         self._window = window
         self._typing_current_line = False
         self._story_told = False  # a typed line has finished since the player last went on
-        self.someone_spoke = False  # a character (not the narrator) has talked in that story
+        # a character (not the narrator) has talked in that story, or the game asked to keep it
+        # up (ui.keep_up): it waits for a press once it is told
+        self.someone_spoke = False
 
     def write(self, text: str) -> None:
         # this is the whole trick: print()/say()/narrate() call write(), and it
@@ -1380,6 +1382,7 @@ class TerminalWindow:
         ui.set_pause_menu(True)  # Escape opens the pause menu, so the game menu drops "Options"
         ui.set_cue_handler(lambda name: self.out_queue.put(_Cue(name)))  # sounds, in text order
         ui.set_page_handler(lambda: (screen.story_over(), self.out_queue.put(_PAGE_BREAK)))
+        ui.set_keep_up_handler(lambda: setattr(screen, "someone_spoke", True))
         ui.set_map_handler(lambda: (screen.story_over(), self.out_queue.put(_ShowMap())))
         ui.set_speaker_handler(lambda who, mood: self._speaker_from_game(screen, who, mood))
         ui.set_flowing(True)  # the window holds each line itself: no second wait before the next

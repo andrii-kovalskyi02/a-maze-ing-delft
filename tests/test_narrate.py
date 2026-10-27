@@ -140,3 +140,14 @@ def test_the_drawn_map_is_shown_only_where_there_is_one(console) -> None:
     finally:
         ui.set_map_handler(None)
     assert shown == [True]
+
+
+def test_keeping_the_story_up_is_left_to_the_window(console) -> None:
+    ui.keep_up()  # a plain terminal keeps everything on screen anyway: nothing happens
+    kept = []
+    ui.set_keep_up_handler(lambda: kept.append(True))
+    try:
+        ui.keep_up()
+    finally:
+        ui.set_keep_up_handler(None)
+    assert kept == [True]

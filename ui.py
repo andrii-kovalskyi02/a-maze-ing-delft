@@ -82,6 +82,7 @@ _pause_handler: Callable[[], None] | None = None
 _cue_handler: Callable[[str], None] | None = None
 _page_handler: Callable[[], None] | None = None
 _map_handler: Callable[[], None] | None = None
+_keep_up_handler: Callable[[], None] | None = None
 _speaker_handler: Callable[[str | None, str], None] | None = None
 _quit_handler: Callable[[], bool] | None = None
 _scoreboard_handler: Callable[[], None] | None = None
@@ -153,6 +154,23 @@ def show_map() -> None:
     """Show the drawn floor map, where the window has one. A terminal has none: nothing happens."""
     if _map_handler is not None:
         _map_handler()
+
+
+def set_keep_up_handler(handler: Callable[[], None] | None) -> None:
+    """Set the function that keeps the story up until a key is pressed, or None for a terminal."""
+    global _keep_up_handler
+    _keep_up_handler = handler
+
+
+def keep_up() -> None:
+    """Keep the story told so far on screen until the player presses to go on.
+
+    A window that moves plain narration on by itself (the Pygame box) waits for a key this
+    time instead, as it does after a character speaks. A terminal keeps everything on screen
+    anyway, so nothing happens there.
+    """
+    if _keep_up_handler is not None:
+        _keep_up_handler()
 
 
 def set_speaker_handler(handler: Callable[[str | None, str], None] | None) -> None:

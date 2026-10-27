@@ -351,6 +351,7 @@ def _inspect(name: str) -> Callable[[Game], None]:
             if thing.name == name:
                 ui.say()
                 ui.narrate(thing.text)
+                ui.keep_up()  # something the player chose to look at stays until they go on
                 if thing.shows_map:
                     ui.show_map()
                 return
