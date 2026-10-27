@@ -421,11 +421,8 @@ class _StreamToQueue:
                 self._window.wait_for_line_advance()
                 self._story_told = True
             return
-        if self._story_told and len(text) > 1 and text.strip():
-            # the story is over and something else (a menu, a question, the next room) is
-            # about to be shown: the story stays up until the player presses to go on
-            self._story_told = False
-            self._window.wait_for_story_press()
+        if len(text) > 1 and text.strip():
+            self.story_over()  # a menu, a question or the next room is about to be shown
         # _type_line() writes one character at a time; say()'s _write()
         # (== print()) hands over a whole already-built line in a single
         # write() call - a lone character is the signature of the typed
@@ -434,6 +431,17 @@ class _StreamToQueue:
         if self._typing_current_line:
             self._window.narrating = True  # the "SPACE to skip" tag shows while this goes on
         self._queue.put(text)
+
+    def story_over(self) -> None:
+        """Keep the story that was just told up until the player presses to go on.
+
+        Called on the GAME THREAD just before something else takes the box: other text, or a
+        fresh page (ui.new_page). Waiting here, before that happens, is what keeps the story in
+        the box while "SPACE to go on" shows, instead of an empty box.
+        """
+        if self._story_told:
+            self._story_told = False
+            self._window.wait_for_story_press()
 
     def flush(self) -> None:
         pass  # nothing to flush, queue.put() already delivers instantly
@@ -1346,7 +1354,8 @@ class TerminalWindow:
 
     def start_game_thread(self) -> None:
         """Wire the fake stdout/stdin in, then start the real game in the background."""
-        sys.stdout = _StreamToQueue(self.out_queue, self)
+        screen = _StreamToQueue(self.out_queue, self)
+        sys.stdout = screen
         keyboard = _QueueToStream(self.in_queue, self._wait_start, self._wait_end)
         sys.stdin = keyboard
 
@@ -1355,7 +1364,7 @@ class TerminalWindow:
         ui.use_io(write=print, read=keyboard.read_answer, sleep=_make_dialogue_sleep(self))
         ui.set_pause_menu(True)  # Escape opens the pause menu, so the game menu drops "Options"
         ui.set_cue_handler(lambda name: self.out_queue.put(_Cue(name)))  # sounds, in text order
-        ui.set_page_handler(lambda: self.out_queue.put(_PAGE_BREAK))  # a pickup gets its own page
+        ui.set_page_handler(lambda: (screen.story_over(), self.out_queue.put(_PAGE_BREAK)))
         ui.set_speaker_handler(lambda who, mood: self.out_queue.put(_SpeakerChange(who, mood)))
         ui.set_flowing(True)  # the window holds each line itself: no second wait before the next
 
