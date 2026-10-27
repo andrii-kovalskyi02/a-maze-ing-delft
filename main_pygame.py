@@ -1601,7 +1601,7 @@ class TerminalWindow:
             match = re.match(r"(\d+)\) ", self.lines[index][0].strip())
             if match:
                 options.append((match.group(1), index))
-        return options if len(options) >= 2 else []
+        return options  # one choice is a menu too: picked with Enter, never typed out
 
     def _move_menu_selection(self, down: bool) -> None:
         """Move the highlight to the next or previous choice, wrapping round."""
