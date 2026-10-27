@@ -39,7 +39,7 @@ def test_two_players_with_one_password_get_different_hashes() -> None:
 
 
 def test_a_name_is_taken_whatever_the_capitals() -> None:
-    persistence.set_password("Krug", PASSWORD)
+    make_save("Krug")
     assert persistence.player_exists("KRUG")
     assert persistence.password_matches("krug", PASSWORD)
 
@@ -85,6 +85,16 @@ def test_a_name_on_the_scoreboard_is_taken_too(console) -> None:
     main.main()
     assert "the name ann is already taken" in console.output
     assert "starting a new game" in console.output
+
+
+def test_a_password_without_a_save_does_not_take_the_name(console) -> None:
+    persistence.set_password("Kru", "forgotten")  # chose a password, then quit without saving
+    assert not persistence.player_exists("Kru")
+    console.script("Kru", PASSWORD, PASSWORD, "quit", "1")
+    main.main()
+    assert "already taken" not in console.output
+    assert "no saved game found for kru" in console.output
+    assert persistence.password_matches("Kru", PASSWORD)
 
 
 def test_a_player_from_before_passwords_chooses_one_when_they_come_back(console) -> None:
