@@ -10,8 +10,8 @@ Run it with:
     python main_pygame.py
 
 Type + Enter like a normal console. The story text moves on by itself a
-second after each line, stays up once it is told until Space (or Enter) is
-pressed, and Space skips all of it. Escape
+second after each line. When a character has spoken in it, it stays up once it is
+told until Space (or Enter) is pressed. Space skips all of it. Escape
 opens the pause menu: the whole game stops behind it, timers included, and
 Escape again resumes. Closing the window saves and quits, the same as typing
 "pause". A timed question shows its seconds counting down, and presses Enter
@@ -402,6 +402,7 @@ class _StreamToQueue:
         self._window = window
         self._typing_current_line = False
         self._story_told = False  # a typed line has finished since the player last went on
+        self.someone_spoke = False  # a character (not the narrator) has talked in that story
 
     def write(self, text: str) -> None:
         # this is the whole trick: print()/say()/narrate() call write(), and it
@@ -438,10 +439,14 @@ class _StreamToQueue:
         Called on the GAME THREAD just before something else takes the box: other text, or a
         fresh page (ui.new_page). Waiting here, before that happens, is what keeps the story in
         the box while "SPACE to go on" shows, instead of an empty box.
+
+        Only when a character - a boss, the backpack - had something to say in it: plain
+        narration moves on by itself, so the player is not pressing a key after every room.
         """
-        if self._story_told:
-            self._story_told = False
+        if self._story_told and self.someone_spoke:
             self._window.wait_for_story_press()
+        self._story_told = False
+        self.someone_spoke = False
 
     def flush(self) -> None:
         pass  # nothing to flush, queue.put() already delivers instantly
@@ -989,6 +994,12 @@ class TerminalWindow:
         self._last_blip = now
         self.type_channel.play(sound)
 
+    def _speaker_from_game(self, screen: _StreamToQueue, who: str | None, mood: str) -> None:
+        """On the GAME THREAD: someone starts or stops talking. Tell the window, in text order."""
+        if who is not None:
+            screen.someone_spoke = True  # what they say will wait for a press once it is told
+        self.out_queue.put(_SpeakerChange(who, mood))
+
     def _speaker_changed(self, change: _SpeakerChange) -> None:
         """Someone started talking (or swapped mood), or stopped: pop the cloud in or out."""
         now = time.monotonic()
@@ -1365,7 +1376,7 @@ class TerminalWindow:
         ui.set_pause_menu(True)  # Escape opens the pause menu, so the game menu drops "Options"
         ui.set_cue_handler(lambda name: self.out_queue.put(_Cue(name)))  # sounds, in text order
         ui.set_page_handler(lambda: (screen.story_over(), self.out_queue.put(_PAGE_BREAK)))
-        ui.set_speaker_handler(lambda who, mood: self.out_queue.put(_SpeakerChange(who, mood)))
+        ui.set_speaker_handler(lambda who, mood: self._speaker_from_game(screen, who, mood))
         ui.set_flowing(True)  # the window holds each line itself: no second wait before the next
 
         # ui.py's _type_line() has its OWN independent skip check that
