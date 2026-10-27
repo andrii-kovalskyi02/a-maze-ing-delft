@@ -81,6 +81,7 @@ _clock: Callable[[], float] = time.monotonic
 _pause_handler: Callable[[], None] | None = None
 _cue_handler: Callable[[str], None] | None = None
 _page_handler: Callable[[], None] | None = None
+_map_handler: Callable[[], None] | None = None
 _speaker_handler: Callable[[str | None, str], None] | None = None
 _quit_handler: Callable[[], bool] | None = None
 _scoreboard_handler: Callable[[], None] | None = None
@@ -140,6 +141,18 @@ def set_page_handler(handler: Callable[[], None] | None) -> None:
     """Set the function that starts a new page, or None for a plain terminal."""
     global _page_handler
     _page_handler = handler
+
+
+def set_map_handler(handler: Callable[[], None] | None) -> None:
+    """Set the function that shows the drawn floor map, or None for a plain terminal."""
+    global _map_handler
+    _map_handler = handler
+
+
+def show_map() -> None:
+    """Show the drawn floor map, where the window has one. A terminal has none: nothing happens."""
+    if _map_handler is not None:
+        _map_handler()
 
 
 def set_speaker_handler(handler: Callable[[str | None, str], None] | None) -> None:

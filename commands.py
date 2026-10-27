@@ -351,6 +351,8 @@ def _inspect(name: str) -> Callable[[Game], None]:
             if thing.name == name:
                 ui.say()
                 ui.narrate(thing.text)
+                if thing.shows_map:
+                    ui.show_map()
                 return
 
     return action

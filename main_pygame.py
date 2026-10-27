@@ -111,6 +111,10 @@ class _SpeakerChange:
         self.mood = mood
 
 
+class _ShowMap:
+    """Put in the output queue where the game asks for the drawn floor map (see ui.show_map)."""
+
+
 class _Cue:
     """Put in the output queue where a sound cue is to be played (see ui.cue)."""
 
@@ -1376,6 +1380,7 @@ class TerminalWindow:
         ui.set_pause_menu(True)  # Escape opens the pause menu, so the game menu drops "Options"
         ui.set_cue_handler(lambda name: self.out_queue.put(_Cue(name)))  # sounds, in text order
         ui.set_page_handler(lambda: (screen.story_over(), self.out_queue.put(_PAGE_BREAK)))
+        ui.set_map_handler(lambda: (screen.story_over(), self.out_queue.put(_ShowMap())))
         ui.set_speaker_handler(lambda who, mood: self._speaker_from_game(screen, who, mood))
         ui.set_flowing(True)  # the window holds each line itself: no second wait before the next
 
@@ -1465,6 +1470,10 @@ class TerminalWindow:
                     continue
                 if isinstance(chunk, _SpeakerChange):
                     self._speaker_changed(chunk)
+                    continue
+                if isinstance(chunk, _ShowMap):
+                    if self.map_art is not None and not self.quitting:
+                        self._open_map()  # stops the game behind it, like pressing M
                     continue
                 if isinstance(chunk, _Cue):
                     self._play_cue(chunk.name)

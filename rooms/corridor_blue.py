@@ -25,6 +25,7 @@ ROOM = Room(
             name="the floor plan",
             text="A plan of the 2nd floor. You could take it off the wall.",
             gone_once_taken="evacuation_plan",
+            shows_map=True,
         ),
     ),
     items=("evacuation_plan",),

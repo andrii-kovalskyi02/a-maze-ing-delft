@@ -148,11 +148,14 @@ class Inspectable:
         text: What they read.
         gone_once_taken: The key of an item that, once the player has it, takes this
             detail away - the floor plan is not on the wall any more.
+        shows_map: True if looking at it also shows the drawn floor map, where the
+            window can draw one (the floor plan on the wall).
     """
 
     name: str
     text: Text
     gone_once_taken: str | None = None
+    shows_map: bool = False
 
 
 @dataclass(frozen=True, slots=True)

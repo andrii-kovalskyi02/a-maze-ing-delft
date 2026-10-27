@@ -129,3 +129,14 @@ def test_the_backpack_always_talks_at_the_same_pace_whatever_its_mood(console) -
     assert paces == {1.0}
     assert ui.pace_for("backpack", "upset") == ui.pace_for("backpack", "smiling") == 1.0
     assert ui.pace_for("steve", "upset") < 1.0
+
+
+def test_the_drawn_map_is_shown_only_where_there_is_one(console) -> None:
+    ui.show_map()  # a plain terminal has no map to show: nothing happens
+    shown = []
+    ui.set_map_handler(lambda: shown.append(True))
+    try:
+        ui.show_map()
+    finally:
+        ui.set_map_handler(None)
+    assert shown == [True]
