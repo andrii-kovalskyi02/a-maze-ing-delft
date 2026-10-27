@@ -239,13 +239,13 @@ class Game:
 
     def turn(self) -> None:
         """Offer the menu once, and carry out whatever the player picks."""
+        digits_before = len(digits.carried(self))
         if self.in_question is not None:
             commands.back_into_the_fight(self)  # saved mid-question: straight back to it
-            return
-        menu = commands.build_menu(self)
-        chosen = ui.choose("What do you do?", [item.label for item in menu])
-        digits_before = len(digits.carried(self))
-        menu[chosen].action(self)
+        else:
+            menu = commands.build_menu(self)
+            chosen = ui.choose("What do you do?", [item.label for item in menu])
+            menu[chosen].action(self)
         if self.running and len(digits.carried(self)) > digits_before:
             self.autosave()
 

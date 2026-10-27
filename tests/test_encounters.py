@@ -273,3 +273,21 @@ def test_pausing_mid_question_resumes_on_that_question(console, monkeypatch) -> 
     assert "it looks at you." not in console.output
     assert arena.key in saved.defeated
     assert saved.in_question is None
+
+
+def test_a_digit_won_in_a_resumed_fight_is_saved(console, monkeypatch) -> None:
+    questions = (Question("1 + 1?", ("2",)), Question("2 + 2?", ("4",)))
+    arena = _arena(monkeypatch)
+    fight = boss(questions=questions, reward="digit_2")
+    monkeypatch.setitem(world._ROOMS, arena.key, replace(arena, boss=fight))
+    game = Game(player_name="Tester", current=arena.key, in_question=1)
+    persistence.save_game(game)
+
+    console.script("4")  # back on question 2, answered right: the digit is handed over
+    game.resumed = True
+    game.run()
+
+    saved = persistence.load_game("Tester")
+    assert saved is not None
+    assert "digit_2" in saved.carrying
+    assert saved.in_question is None
