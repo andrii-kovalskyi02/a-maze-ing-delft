@@ -63,7 +63,6 @@ def _play(game: Game, boss: Boss) -> bool:
     """The encounter itself, from the boss's intro to its win or lose text."""
     ui.say()
     _tell(boss, boss.intro, "speaking")
-    ui.narrate(boss.intro)
     ui.cue("combat")  # the questions are about to begin
     ui.say()
     ui.say(f"Hearts: {game.hearts}")

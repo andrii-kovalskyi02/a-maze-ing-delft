@@ -34,6 +34,12 @@ def boss(**changes) -> Boss:
     return Boss(**(fields | changes))
 
 
+def test_a_boss_tells_its_intro_once(console) -> None:
+    console.script("2")
+    encounters.run(Game(), boss())
+    assert console.output.count("it looks at you.") == 1
+
+
 def test_an_open_question_ignores_case_and_spacing(console) -> None:
     """E4.1: the one place the player types words must not be picky about them."""
     console.script("  TWO ")
