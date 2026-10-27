@@ -6,7 +6,7 @@ import pytest
 
 import rooms  # noqa: F401  (importing rooms registers them)
 import world
-from commands import _interactions, do_look_around
+from commands import _interactions, _take, do_look_around
 from game import Game
 from models import Room, Unless, plain, resolve
 
@@ -86,3 +86,10 @@ def test_unless_tells_its_after_text_once_taken() -> None:
 
 def test_resolve_leaves_plain_text_alone() -> None:
     assert resolve("one line", lambda _key: True) == ("one line",)
+
+
+def test_picking_something_up_says_so_once(console) -> None:
+    game = Game(current="corridor_blue")
+    _take("evacuation_plan")(game)
+    assert console.output.count("you take the floor plan.") == 1
+    assert game.heard.get("took", 0) <= 1  # the backpack heard about it once, not twice
