@@ -45,12 +45,22 @@ if TYPE_CHECKING:  # pragma: no cover - import only needed for type checking
 #: What the player reads when the clock beats them.
 TOO_SLOW = "Too slow."
 
+#: What the player reads after a wrong answer that has cost them a heart: the same question again.
+TRY_AGAIN = "Not quite. Try that one again."
+
 
 def run(game: Game, boss: Boss) -> bool:
     """Play out ``boss``'s challenge.
 
+    A wrong answer does not end the fight: it costs a heart and the same question is asked
+    again, until the player gets it right or runs out of hearts.
+
     Returns:
-        True if the player answered every question correctly.
+        True if the player answered every question correctly. False only for a fight the
+        story means them to lose (``single_attempt``).
+
+    Raises:
+        health.OutOfHearts: If the last heart goes on a wrong answer.
     """
     ui.cue("boss_music_on")  # the boss music starts as you get closer
     try:
@@ -68,13 +78,18 @@ def _play(game: Game, boss: Boss) -> bool:
     ui.say(f"Hearts: {game.hearts}")
 
     for number, question in enumerate(boss.questions, start=1):
-        if _ask_question(number, len(boss.questions), question):
-            continue
-        _hurt(game, boss)
-        ui.say()
-        _tell(boss, boss.lose_text, "smiling")
-        _hand_over_the_losing_items(game, boss)
-        return False
+        # A wrong answer costs a heart and the same question comes back, until it is answered
+        # right or the last heart goes (health.OutOfHearts ends the fight there and then).
+        while not _ask_question(number, len(boss.questions), question):
+            if boss.single_attempt:
+                # the story's own loss (US1c): there is no second go at this one
+                ui.say()
+                _tell(boss, boss.lose_text, "smiling")
+                _hand_over_the_losing_items(game, boss)
+                return False
+            _hurt(game, boss)
+            ui.say()
+            ui.say(TRY_AGAIN)
 
     _heal(game, boss)
     ui.cue("victory")  # every question answered: a happy little jingle

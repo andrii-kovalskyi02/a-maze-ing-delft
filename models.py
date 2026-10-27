@@ -214,7 +214,9 @@ class Boss:
         intro: What is printed when the encounter starts.
         questions: The questions asked, in order.
         win_text: What is printed when the player answers everything correctly.
-        lose_text: What is printed when the player gets one wrong.
+        lose_text: What is printed when the player loses a ``single_attempt`` fight. Any
+            other fight is not lost on a wrong answer: it costs a heart and the same
+            question is asked again, until it is answered or the hearts run out.
         reward: The key of the item handed over on a win, if any.
         lose_reward: The key of the item handed over on a loss, if any. Use
             this for a boss that cannot actually be beaten - the "reward" is

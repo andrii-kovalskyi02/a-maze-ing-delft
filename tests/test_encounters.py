@@ -57,7 +57,8 @@ def test_a_question_with_no_right_answer_cannot_be_won(console) -> None:
     """US1c: the Evil Backpack's last question. Any answer loses."""
     question = Question("What is the deep state of ↸∷ᒷᔑᒲ?", answers=())
     console.script("anything at all")
-    assert not encounters.run(Game(), boss(questions=(question,)))
+    with pytest.raises(health.OutOfHearts):
+        encounters.run(Game(hearts=Health(health.BOSS)), boss(questions=(question,)))
 
 
 def test_an_untimed_question_can_be_thought_about_for_as_long_as_you_like(console) -> None:
@@ -73,7 +74,8 @@ def test_a_timed_question_is_lost_by_being_slow(console) -> None:
     console.script("photosynthesis")
     console.take_seconds(11)
 
-    assert not encounters.run(Game(), boss(questions=(question,)))
+    with pytest.raises(health.OutOfHearts):
+        encounters.run(Game(hearts=Health(health.BOSS)), boss(questions=(question,)))
     assert encounters.TOO_SLOW.casefold() in console.output
 
 
@@ -87,26 +89,26 @@ def test_a_timed_question_is_won_by_being_quick(console) -> None:
 def test_a_wrong_answer_to_a_boss_costs_a_whole_heart(console) -> None:
     """E5.2: the penalty the design document gives for a boss."""
     game = Game()
-    console.script("wrong")
-    assert not encounters.run(game, boss())
-    assert game.hearts == Health().lose(health.BOSS)
+    console.script("wrong", "2")
+    assert encounters.run(game, boss())
+    assert f"hearts: {Health().lose(health.BOSS)}".casefold() in console.output
 
 
 def test_a_wrong_answer_to_a_side_quest_costs_half_a_heart(console) -> None:
     """E5.2: a side quest is worth half of what a boss is."""
     game = Game()
-    console.script("wrong")
-    assert not encounters.run(game, boss(side_quest=True))
-    assert game.hearts == Health().lose(health.SIDE_QUEST)
+    console.script("wrong", "2")
+    assert encounters.run(game, boss(side_quest=True))
+    assert f"hearts: {Health().lose(health.SIDE_QUEST)}".casefold() in console.output
 
 
 def test_running_out_of_time_costs_the_same_as_getting_it_wrong(console) -> None:
     """E5.2: "if not completed" and "answered wrongly" cost the same."""
-    game = Game()
+    game = Game(hearts=Health(health.BOSS))
     console.script("photosynthesis")
     console.take_seconds(30)
-    assert not encounters.run(game, boss(questions=(typing_attack("photosynthesis", 5),)))
-    assert game.hearts == Health().lose(health.BOSS)
+    with pytest.raises(health.OutOfHearts):
+        encounters.run(game, boss(questions=(typing_attack("photosynthesis", 5),)))
 
 
 def test_being_cut_off_by_the_clock_costs_the_same_as_getting_it_wrong(
@@ -118,10 +120,10 @@ def test_being_cut_off_by_the_clock_costs_the_same_as_getting_it_wrong(
         raise ui.TimedOut
 
     monkeypatch.setattr(ui, "ask", clock_runs_out)
-    game = Game()
-    assert not encounters.run(game, boss(questions=(typing_attack("photosynthesis", 5),)))
+    game = Game(hearts=Health(health.BOSS))
+    with pytest.raises(health.OutOfHearts):
+        encounters.run(game, boss(questions=(typing_attack("photosynthesis", 5),)))
     assert encounters.TOO_SLOW.casefold() in console.output
-    assert game.hearts == Health().lose(health.BOSS)
 
 
 def test_quit_can_be_typed_in_the_middle_of_a_fight(console) -> None:
@@ -183,8 +185,17 @@ def test_a_run_with_hearts_left_carries_on(console) -> None:
     """The other half of E5.3: nothing ends while there is a heart left."""
     game = Game()
     console.script("wrong")
-    assert encounters.run(game, boss()) is False
+    with pytest.raises(EOFError):  # it asks the same question again: nobody left to answer
+        encounters.run(game, boss())
     assert not game.hearts.is_empty
+
+
+def test_a_wrong_answer_asks_the_same_question_again(console) -> None:
+    questions = (Question("1 + 1?", ("2",)), Question("2 + 2?", ("4",)))
+    console.script("2", "wrong", "4")
+    assert encounters.run(Game(), boss(questions=questions))
+    assert console.output.count("question 2 of 2") == 2
+    assert encounters.TRY_AGAIN.casefold() in console.output
 
 
 def _arena(monkeypatch) -> Room:

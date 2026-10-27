@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import contextlib
 
+import pytest
+
+import health
 import music
+from health import Health
 from music import LEVELS, Music
 
 
@@ -198,7 +202,8 @@ def test_the_combat_cue_comes_after_the_intro_and_before_the_questions(console) 
     ui.set_cue_handler(lambda name: order.append(f"cue:{name} after {len(console.lines)} lines"))
     try:
         console.script("1", "1", "1", "1", "1", "1", "1", "1")  # answers, right or wrong
-        encounters.run(game, boss)
+        with contextlib.suppress(health.OutOfHearts, EOFError):  # wrong ones are asked again
+            encounters.run(game, boss)
     finally:
         ui.set_cue_handler(None)
     combat = [entry for entry in order if entry.startswith("cue:combat")]
@@ -225,7 +230,8 @@ def test_boss_music_starts_with_the_encounter_and_stops_when_it_ends(console) ->
     ui.set_cue_handler(lambda name: heard.append(f"{name}@{len(console.lines)}"))
     try:
         console.script("1", "1", "1", "1", "1", "1", "1", "1")
-        encounters.run(game, boss)
+        with contextlib.suppress(health.OutOfHearts, EOFError):  # wrong ones are asked again
+            encounters.run(game, boss)
     finally:
         ui.set_cue_handler(None)
     names = [entry.split("@")[0] for entry in heard]
@@ -365,12 +371,13 @@ def test_losing_does_not_play_the_victory_jingle(console) -> None:
     import ui
     from game import Game
 
-    game = Game(player_name="T", current="student_society")
+    game = Game(player_name="T", current="student_society", hearts=Health(health.BOSS))
     heard: list[str] = []
     ui.set_cue_handler(heard.append)
     try:
         console.script("no")
-        assert not encounters.run(game, _one_question_boss("yes"))
+        with pytest.raises(health.OutOfHearts):  # the one heart left goes on the wrong answer
+            encounters.run(game, _one_question_boss("yes"))
     finally:
         ui.set_cue_handler(None)
     assert "victory" not in heard
