@@ -1386,6 +1386,10 @@ class TerminalWindow:
         ui.set_map_handler(lambda: (screen.story_over(), self.out_queue.put(_ShowMap())))
         ui.set_speaker_handler(lambda who, mood: self._speaker_from_game(screen, who, mood))
         ui.set_flowing(True)  # the window holds each line itself: no second wait before the next
+        # the box wraps every line to its own width in pixels (see _wrap_to_width). Cutting
+        # lines at ui.py's 80 characters first would break each one twice, leaving a word or
+        # two stranded on a row of its own
+        ui.WIDTH = 10_000
 
         # ui.py's _type_line() has its OWN independent skip check that
         # peeks at the real console's keyboard buffer (msvcrt on Windows) -

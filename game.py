@@ -33,20 +33,18 @@ STARTING_HEARTS = 3
 #: What the player reads when the last heart goes (#108, E5.3). The team's
 #: decision: running out ends the run. Hearts are worth something only if
 #: losing them costs the play-through.
-OUT_OF_HEARTS = """\
-Your last heart goes out.
-
-The corridor tilts, the lights thin to nothing, and the floor of the 2nd floor
-of THUAS Delft comes up to meet you. Whatever this building is, it is finished
-with you for tonight.\
-"""
+OUT_OF_HEARTS = (
+    "Your last heart goes out.",
+    "The corridor tilts, the lights thin to nothing, and the floor of the 2nd floor of "
+    "THUAS Delft comes up to meet you. Whatever this building is, it is finished with you "
+    "for tonight.",
+)
 
 #: What the player reads when they wake up at their last save instead (#217).
-BACK_AT_THE_SAVE = """\
-...and then you are standing up again, a little earlier, a little further back,
-with every heart back where it belongs. The building is not finished with you
-after all.\
-"""
+BACK_AT_THE_SAVE = (
+    "...and then you are standing up again, a little earlier, a little further back, with "
+    "every heart back where it belongs. The building is not finished with you after all."
+)
 
 #: What is not rolled back when the player is sent back to their last save:
 #: who they are, and how long they have been playing - time spent is spent.
