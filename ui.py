@@ -22,12 +22,8 @@ if TYPE_CHECKING:  # pragma: no cover - import only needed for type checking
 #: nobody has to hand-wrap the text they write.
 WIDTH = 80
 
-#: How long :func:`narrate` waits after each character, in seconds. This is
-#: what makes the text look like it is being typed rather than dumped.
-CHAR_DELAY = 0.02
-
 #: The typing speeds the player can pick (Options / the pause menu): a name, and the wait after
-#: each character in seconds. "Instant" shows the story all at once. Normal is the default.
+#: each character in seconds. "Instant" shows the story all at once. Slow is the default.
 SPEEDS: tuple[tuple[str, float], ...] = (
     ("Slow", 0.0417),
     ("Normal", 0.0167),
@@ -53,7 +49,13 @@ def pace_for(who: str | None, mood: str) -> float:
 
 
 _NORMAL_SPEED = 1
-_speed_index = _NORMAL_SPEED
+#: The speed a game starts at, and the one "type the story out again" goes back to.
+_DEFAULT_SPEED = 0
+_speed_index = _DEFAULT_SPEED
+
+#: How long :func:`narrate` waits after each character, in seconds. This is
+#: what makes the text look like it is being typed rather than dumped.
+CHAR_DELAY = SPEEDS[_DEFAULT_SPEED][1]
 
 #: How long :func:`narrate` waits between two parts of a text, in seconds, when
 #: the room does not ask for a pause of its own.
@@ -378,7 +380,7 @@ def set_instant(instant: bool) -> None:
     if instant:
         _use_speed(len(SPEEDS) - 1)
     elif _instant:
-        _use_speed(_NORMAL_SPEED)  # back to typing it out, at the normal speed
+        _use_speed(_DEFAULT_SPEED)  # back to typing it out, at the starting speed
 
 
 def ask(prompt: str = "> ", timeout: float | None = None) -> str:
@@ -667,6 +669,6 @@ def use_io(
     global _write, _read, _sleep, _clock, _held, _flowing, _pace
     _write, _read, _sleep, _clock = write, read, sleep, clock
     _held = 0.0
-    _use_speed(_NORMAL_SPEED)
+    _use_speed(_DEFAULT_SPEED)
     _flowing = False
     _pace = 1.0

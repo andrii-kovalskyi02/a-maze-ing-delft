@@ -72,9 +72,9 @@ def test_a_terminal_still_waits_before_a_menu(console) -> None:
 
 
 def test_the_typing_speed_goes_round_slow_normal_fast_instant(console) -> None:
-    assert ui.text_speed() == "Normal"
+    assert ui.text_speed() == "Slow"
     seen = [ui.cycle_text_speed() for _ in range(4)]
-    assert seen == ["Fast", "Instant", "Slow", "Normal"]
+    assert seen == ["Normal", "Fast", "Instant", "Slow"]
 
 
 def test_each_speed_types_at_its_own_pace(console) -> None:
@@ -92,14 +92,14 @@ def test_the_old_instant_switch_still_works(console) -> None:
     ui.set_instant(True)
     assert ui.text_speed() == "Instant"
     ui.set_instant(False)
-    assert ui.text_speed() == "Normal"
+    assert ui.text_speed() == "Slow"
     assert not ui.is_instant()
 
 
-def test_a_new_game_starts_at_the_normal_speed(console) -> None:
+def test_a_new_game_starts_at_the_slow_speed(console) -> None:
     ui.cycle_text_speed()
     ui.use_io(console.write, console.read, sleep=console.pauses.append)
-    assert ui.text_speed() == "Normal"
+    assert ui.text_speed() == "Slow"
 
 
 def test_a_speakers_mood_changes_how_fast_they_type(console) -> None:

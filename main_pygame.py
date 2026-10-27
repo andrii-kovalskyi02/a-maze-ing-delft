@@ -59,6 +59,7 @@ import pygame
 
 import progress
 import ui  # the real console ui.py - nothing here reimplements any of it
+import world
 from leaderboard import scoreboard
 from main import main as run_console_game
 from music import Music
@@ -297,6 +298,13 @@ _SPEAKER_HEIGHT = 0.15
 _SPEAKER_IN_SECONDS = 0.3
 _SPEAKER_OUT_SECONDS = 0.16
 _SPEAKER_SHAKE = {"speaking": 0.6, "smiling": 0.6, "upset": 1.0}  # how hard each mood shakes
+# the story stacks up in the box like a conversation, and whoever says the next lines is named
+# above them in this colour: a boss by its own name, the backpack as below, anything nobody in
+# particular says as the narrator. _box_lines marks those rows with this name instead of a colour
+_SPEAKER_LABEL = "speaker_label"
+_SPEAKER_LABEL_COLOR = "khaki"
+_NARRATOR_NAME = "Narrator"
+_SPEAKER_NAMES = {"backpack": "Evil Backpack"}
 _MENU_ICON_FILE = "settings_icon.png"  # the cog in the top left corner that says "press Esc"
 _MAP_ICON_FILE = "floor_map_icon.png"  # a messy doodle of a map, not the map itself
 _MAP_ICON_HEIGHT = 0.1
@@ -624,6 +632,18 @@ class TerminalWindow:
         self.speaker: tuple[str, str] | None = None  # (who, mood) while someone is talking
         self.speaker_since = 0.0
         self.speaker_left_at: float | None = None  # when they stopped, while the cloud shrinks away
+        # every boss's name, by the speaker it talks as - for the name above its lines
+        self.speaker_names = {
+            room.boss.speaker: room.boss.name[:1].upper() + room.boss.name[1:]
+            for room in world.all_rooms()
+            if room.boss is not None and room.boss.speaker is not None
+        }
+        self.speaker_names.update(_SPEAKER_NAMES)
+        # the name last put above the story on this page, so it is only shown when it changes
+        self.page_speaker: str | None = None
+        # where the last typed line of the story ends in self.lines: a question starts its page here
+        self._story_end = 0
+        self._typed_line = False  # whether the line being built is being typed out
         self._speaker_face_cache: dict[tuple, pygame.Surface] = {}  # faces scaled to each size
         self._box_rect: tuple[int, int, int, int] | None = None  # where the dialogue box was drawn
         self.fade_started: float | None = None  # when the room change began, if one is going on
@@ -749,6 +769,10 @@ class TerminalWindow:
         is what stops the game thread racing ahead typing the next lines in the
         background while the player is still reading the one before. The pause
         menu stops the second from running down while it is open.
+
+        The line stays in the box: the next one is typed under it, so the story
+        stacks up like a conversation until a question, a pickup or a new room
+        starts a fresh page.
         """
         if self.quitting:
             return  # leaving: don't hold anything up on the way to the save
@@ -761,7 +785,6 @@ class TerminalWindow:
                     deadline = time.monotonic() + self.AUTO_ADVANCE_SECONDS  # held while paused
                 elif time.monotonic() >= deadline:
                     break
-        self.out_queue.put(_PAGE_BREAK)  # the text box starts a fresh page for what comes next
         self.waiting_to_advance = False
 
     @staticmethod
@@ -1391,7 +1414,7 @@ class TerminalWindow:
             while True:
                 chunk = self.out_queue.get_nowait()
                 if chunk is _PAGE_BREAK:
-                    self.box_start = len(self.lines)  # the line before it is filed: a fresh page
+                    self._new_page()  # the line before it is filed: a fresh page
                     continue
                 if isinstance(chunk, _SpeakerChange):
                     self._speaker_changed(chunk)
@@ -1410,17 +1433,24 @@ class TerminalWindow:
                             self.lines = []
                             self._prompt_start = None
                             self._last_blank_index = None
-                            self.box_start = 0
+                            self._story_end = 0
+                            self._new_page()
                         else:
                             self.lines.append((self.current_line, "white"))
                             if self.current_line.startswith("Hearts:"):
                                 self.hearts_line = self.current_line
                             if self.current_line == "":
                                 self._last_blank_index = len(self.lines) - 1
+                            if self._typed_line:
+                                self._story_end = len(self.lines)
                         self.current_line = ""
                         # each new line starts fresh - needs its own press to skip
                         self.skip_event.clear()
                     else:
+                        if not self.current_line:
+                            self._typed_line = len(chunk) == 1
+                            if self._typed_line:
+                                self._name_the_speaker()  # a line of the story is starting
                         self.current_line += character
                         if len(chunk) == 1:  # one letter at a time means it is being typed out
                             self._blip(character)
@@ -1432,9 +1462,30 @@ class TerminalWindow:
             # a new question just started - remember where it began, to collapse it later
             self._prompt_start = self._last_blank_index if self._last_blank_index is not None else 0
             self._prompt_pending = False
+            if self.box_start < self._story_end <= len(self.lines):
+                self._new_page(self._story_end)  # the question gets the box to itself
             # an untimed menu starts on its first choice, so Enter alone answers it. A timed
             # boss question starts with nothing chosen, so a stray Enter can't answer it
             self.menu_selected = 0 if self._menu_options() and self.deadline is None else None
+
+    def _new_page(self, start: int | None = None) -> None:
+        """Start the box's page at line ``start`` (the end of the story so far, by default)."""
+        self.box_start = len(self.lines) if start is None else start
+        self.page_speaker = None
+
+    def _name_the_speaker(self) -> None:
+        """Put the name of whoever is talking above their lines, if it is someone new.
+
+        Only in a room: the first screen, before any room, is not a conversation.
+        """
+        if self.room_header is None:
+            return
+        talking = self.speaker is not None and self.speaker_left_at is None
+        who = self.speaker[0] if talking and self.speaker else None
+        name = _NARRATOR_NAME if who is None else self.speaker_names.get(who, who)
+        if name != self.page_speaker:
+            self.lines.append((name, _SPEAKER_LABEL))
+            self.page_speaker = name
 
     def _handle_events(self) -> None:
         # file whatever the game has printed first: a key pressed in the very frame a question
@@ -1593,7 +1644,7 @@ class TerminalWindow:
         self.in_queue.put(answer)
         # start the box fresh for whatever comes next, instead
         # of leaving the answered question sitting in it
-        self.box_start = len(self.lines)
+        self._new_page()
 
     def _quit(self, save: bool = True) -> None:
         """Leave the game and close the window, saving first unless ``save`` is False.
@@ -1816,7 +1867,7 @@ class TerminalWindow:
                 else:
                     shown.append((label, _OPTION, True))
                 continue
-            shown.append((text, color, True))
+            shown.append((text, color, color != _SPEAKER_LABEL))  # a name is smaller than its lines
         if self.waiting_to_advance:
             # the game thread is genuinely blocked right now (see
             # wait_for_line_advance) - nothing more can arrive until the
@@ -2032,9 +2083,9 @@ class TerminalWindow:
                 wrapped = wrapped[-_BOX_MAX_ROWS:]
                 countdown = None
 
+        colors = {**_OPTION_COLORS, _SPEAKER_LABEL: _SPEAKER_LABEL_COLOR}
         surfaces = [
-            self._render_text(text, _OPTION_COLORS.get(color, color), big)
-            for text, color, big in wrapped
+            self._render_text(text, colors.get(color, color), big) for text, color, big in wrapped
         ]
         # the choices share one column, centred in the box: the same left edge for every
         # one of them, with the ">" in a gutter beside it so the words never shift
