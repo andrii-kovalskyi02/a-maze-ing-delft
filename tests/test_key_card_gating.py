@@ -68,8 +68,8 @@ def test_lobby_is_locked_without_the_yellow_card(console) -> None:
     assert "yellow key card" in console.output.lower()
 
 
-def test_the_red_card_opens_exactly_one_door_and_is_kept(console) -> None:
-    """The red key card opens the red corridor, stays in the backpack, and opens no other door."""
+def test_the_red_card_opens_exactly_one_door_and_is_used_up(console) -> None:
+    """The red key card opens the red corridor, leaves the backpack, and the door stays open."""
     game = start()
     game.move_to("corridor_blue")
     game.carrying.add("red_card")
@@ -79,7 +79,7 @@ def test_the_red_card_opens_exactly_one_door_and_is_kept(console) -> None:
     game.turn()
 
     assert game.current == "corridor_red"
-    assert "red_card" in game.carrying
+    assert "red_card" not in game.carrying
     assert "corridor_red" in game.unlocked
     assert "red key card up to the reader" in console.output.lower()
 

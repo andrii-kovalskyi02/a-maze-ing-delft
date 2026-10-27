@@ -68,6 +68,7 @@ ITEM_CATALOGUE: dict[str, Item] = {
             key="blue_card",
             name="blue key card",
             description="A staff key card giving you access to the Teachers room",
+            single_use=True,  # a door once opened stays open (Game.unlocked)
         ),
         Item(
             key="storage_key",
@@ -78,11 +79,13 @@ ITEM_CATALOGUE: dict[str, Item] = {
             key="red_card",
             name="red key card",
             description="A staff key card with a red stripe. It opens the Red corridor.",
+            single_use=True,
         ),
         Item(
             key="yellow_card",
             name="yellow key card",
             description="A staff key card with a yellow stripe. It opens the door to the lobby.",
+            single_use=True,
         ),
         Item(
             key="axe_key",
