@@ -170,9 +170,18 @@ def _hash(password: str, salt: bytes) -> bytes:
 
 
 def player_exists(name: str) -> bool:
-    """Return True if ``name`` is taken - by a password, a save or a score."""
+    """Return True if ``name`` is taken - by a save or a score.
+
+    A password alone does not take a name: a player who chose one and left without saving has
+    nothing to protect, and is not in the "who is playing?" list either. The next person to pick
+    that name starts afresh and chooses a new password.
+    """
     with connect() as connection:
-        row = connection.execute("SELECT 1 FROM players WHERE name = ?", (name,)).fetchone()
+        row = connection.execute(
+            "SELECT 1 FROM players WHERE name = ? AND ("
+            " id IN (SELECT player_id FROM game_states) OR id IN (SELECT player_id FROM scores))",
+            (name,),
+        ).fetchone()
     return row is not None
 
 

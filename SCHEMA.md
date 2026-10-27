@@ -23,7 +23,9 @@ the scoreboard is one query instead of code we write and test ourselves.
 
 A new name chooses a password (`set_password()`). A taken name - one with a save or a score - needs
 its password (`password_matches()`) before anyone can play as it. Because names are unique, the
-scoreboard never shows two players with the same name.
+scoreboard never shows two players with the same name. A password on its own does not take a name
+(`player_exists()`): a player who chose one and quit without saving is in no list, so the next
+person to pick that name starts afresh and their new password replaces the old one.
 
 Keeping the player apart from their save and score means the name lives in one place only.
 
