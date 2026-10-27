@@ -110,7 +110,7 @@ ITEM_CATALOGUE: dict[str, Item] = {
         ),
         Item(
             key="lab_2001_key",
-            name="LAB 2.001 key",
+            name="lab 2.001 key",
             description="A key labeled 'LAB 2.001' that unlocks the door to LAB 2.001.",
             single_use=False,
         ),
