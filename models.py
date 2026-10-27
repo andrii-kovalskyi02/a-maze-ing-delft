@@ -129,6 +129,8 @@ class Item:
         value: For a digit of the exit code, the character it shows. The door's
             code is assembled from these, so changing a digit here changes the
             code and nothing else - see ``digits.py``.
+        use_text: What is told when the item opens a locked door. ``{item}`` and
+            ``{door}`` are filled in. Leave it out for a plain "You use the ...".
     """
 
     key: str
@@ -137,6 +139,7 @@ class Item:
     single_use: bool = False
     colour: str | None = None
     value: str | None = None
+    use_text: str = "You use the {item}, and the door to {door} opens."
 
 
 @dataclass(frozen=True, slots=True)

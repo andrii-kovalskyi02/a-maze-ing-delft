@@ -112,15 +112,14 @@ def do_go(game: Game) -> None:
         return
 
     if destination.requires is not None and destination.key not in game.unlocked:
+        # the player sees what got them in, and that a used-up item has gone
         item = get_item(destination.requires)
+        ui.say()
+        ui.narrate(item.use_text.format(item=item.name, door=destination.name))
         if item.single_use:
             game.carrying.consume(destination.requires)
-        if destination.requires in ("red_card", "yellow_card"):
-            ui.say()
-            ui.narrate(
-                f"You hold the {item.name} up to the reader. "
-                f"It beeps, and the door to {destination.name} slides open."
-            )
+            ui.narrate(f"The {item.name} is used up. It is no longer in your backpack.")
+        ui.keep_up()  # how they got in stays on screen until they go on
         game.unlocked.add(destination.key)
 
     game.move_to(destination.key)

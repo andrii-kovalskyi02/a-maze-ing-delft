@@ -82,6 +82,7 @@ def test_the_red_card_opens_exactly_one_door_and_is_used_up(console) -> None:
     assert "red_card" not in game.carrying
     assert "corridor_red" in game.unlocked
     assert "red key card up to the reader" in console.output.lower()
+    assert "the red key card is used up" in console.output.lower()
 
     # The door stays open: back to blue and into red again
     game.move_to("corridor_blue")

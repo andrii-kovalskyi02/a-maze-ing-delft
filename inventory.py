@@ -15,6 +15,9 @@ from collections.abc import Iterator
 
 from models import Item
 
+#: What a key card does when it opens a door: every one of them works the same reader.
+_CARD_READER = "You hold the {item} up to the reader. It beeps, and the door to {door} slides open."
+
 #: Every item in the game, keyed by the word the room refers to it by.
 ITEM_CATALOGUE: dict[str, Item] = {
     item.key: item
@@ -69,6 +72,7 @@ ITEM_CATALOGUE: dict[str, Item] = {
             name="blue key card",
             description="A staff key card giving you access to the Teachers room",
             single_use=True,  # a door once opened stays open (Game.unlocked)
+            use_text=_CARD_READER,
         ),
         Item(
             key="storage_key",
@@ -80,18 +84,21 @@ ITEM_CATALOGUE: dict[str, Item] = {
             name="red key card",
             description="A staff key card with a red stripe. It opens the Red corridor.",
             single_use=True,
+            use_text=_CARD_READER,
         ),
         Item(
             key="yellow_card",
             name="yellow key card",
             description="A staff key card with a yellow stripe. It opens the door to the lobby.",
             single_use=True,
+            use_text=_CARD_READER,
         ),
         Item(
             key="axe_key",
-            name="Axe",
-            description="A sturdy axe made out of good material",
-            single_use=False,
+            name="axe",
+            description="A sturdy axe made out of good material.",
+            single_use=True,
+            use_text="You swing the {item} at the door to {door}. The wood splinters and gives.",
         ),
         Item(
             key="digit_2",
