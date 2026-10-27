@@ -2540,7 +2540,7 @@ class TerminalWindow:
             # before the first room - see _draw_intro
             self._draw_intro()
         else:
-            surface = self._render_text(self.room_header, "black")
+            surface = self._render_text(self.room_header, "khaki")
             self.screen.blit(surface, (self._centered_x(surface), self.margin))
             if box:
                 self._draw_dialogue_box()
