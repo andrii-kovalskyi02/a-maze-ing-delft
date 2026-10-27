@@ -86,13 +86,13 @@ def _play(game: Game, boss: Boss, from_question: int | None) -> bool:
     ui.say()
     ui.say(f"Hearts: {game.hearts}")
 
-    for number, question in enumerate(boss.questions, start=1):
-        if from_question is not None and number - 1 < from_question:
+    for number, question in enumerate(boss.questions):
+        if from_question is not None and number < from_question:
             continue  # answered before the game was saved
-        game.in_question = number - 1
+        game.in_question = number
         # A wrong answer costs a heart and the same question comes back, until it is answered
         # right or the last heart goes (health.OutOfHearts ends the fight there and then).
-        while not _ask_question(number, len(boss.questions), question):
+        while not _ask_question(number + 1, len(boss.questions), question):
             if boss.single_attempt:
                 # the story's own loss (US1c): there is no second go at this one
                 ui.say()
