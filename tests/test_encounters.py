@@ -19,7 +19,7 @@ import persistence
 import rooms  # noqa: F401  (importing rooms registers them)
 import ui
 import world
-from game import Game
+from game import STARTING_ROOM, Game
 from health import Health
 from models import Area, Boss, Question, Room, typing_attack
 
@@ -214,21 +214,20 @@ def _arena(monkeypatch) -> Room:
     return arena
 
 
-def test_running_out_of_hearts_with_no_save_ends_the_run(console, monkeypatch) -> None:
-    """#217, E5.3: with nothing to go back to, the last heart ends the run at once.
-
-    Nothing more is scripted: one more menu would read past the end of the
-    script and say "nobody at the keyboard" instead.
-    """
+def test_running_out_of_hearts_with_no_save_starts_the_game_over(console, monkeypatch) -> None:
+    """With nothing to go back to, the last heart sends the player to the very start."""
     game = Game(player_name="Tester", current=_arena(monkeypatch).key)
     game.hearts = Health(health.BOSS)
+    game.carrying.add("brass_key")
 
     console.script("1", "1", "wrong")  # look around, get closer, answer wrong
     game.run()
 
-    assert not game.running
     assert "last heart" in console.output
-    assert "nobody at the keyboard" not in console.output
+    assert "waking up again" in console.output
+    assert game.current == STARTING_ROOM
+    assert game.hearts == Health()
+    assert "brass_key" not in game.carrying
 
 
 def test_running_out_of_hearts_goes_back_to_the_save_on_full_hearts(console, monkeypatch) -> None:

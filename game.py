@@ -30,9 +30,8 @@ STARTING_ROOM = "classroom_2035"
 #: is in ``health.py`` (#108); this is the number the story gives them.
 STARTING_HEARTS = 3
 
-#: What the player reads when the last heart goes (#108, E5.3). The team's
-#: decision: running out ends the run. Hearts are worth something only if
-#: losing them costs the play-through.
+#: What the player reads when the last heart goes (#108, E5.3). They are then
+#: sent back to their last save, or to the very start if they have none.
 OUT_OF_HEARTS = (
     "Your last heart goes out.",
     "The corridor tilts, the lights thin to nothing, and the floor of the 2nd floor of "
@@ -44,6 +43,12 @@ OUT_OF_HEARTS = (
 BACK_AT_THE_SAVE = (
     "...and then you are standing up again, a little earlier, a little further back, with "
     "every heart back where it belongs. The building is not finished with you after all."
+)
+
+#: What the player reads when they had no save and wake up at the very start instead.
+BACK_AT_THE_START = (
+    "...and then you are waking up again, cheek on the desk, as if the whole night has not "
+    "happened yet. The building is not finished with you after all."
 )
 
 #: What is not rolled back when the player is sent back to their last save:
@@ -265,23 +270,25 @@ class Game:
         Called by the main loop the moment :class:`~health.OutOfHearts` is
         raised, wherever that heart was lost. If the player has a save, they
         are sent back to it on full hearts, so dying costs the progress since
-        then rather than the whole run. Without one, the run is over.
+        then rather than the whole run. Without one, they start the game over.
         """
         ui.say()
         ui.narrate(OUT_OF_HEARTS)
         saved = persistence.load_game(self.player_name) if self.player_name else None
+        woke_up_to = BACK_AT_THE_SAVE
         if saved is None:
-            self.running = False
-            return
+            saved = Game(player_name=self.player_name)
+            woke_up_to = BACK_AT_THE_START
 
         for each in fields(self):
             if each.name not in _KEPT_ON_RESPAWN:
                 setattr(self, each.name, getattr(saved, each.name))
         self.hearts = Health()
         self.update_elapsed_time()
-        persistence.save_game(self)
+        if self.player_name:
+            persistence.save_game(self)
         ui.say()
-        ui.narrate(BACK_AT_THE_SAVE)
+        ui.narrate(woke_up_to)
         self.enter()
 
     def quit(self) -> None:
