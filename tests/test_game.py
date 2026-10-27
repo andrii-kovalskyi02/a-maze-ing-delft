@@ -99,17 +99,29 @@ def test_nothing_can_be_taken_in_the_starting_room(console) -> None:
 
 def test_the_only_way_out_is_the_corridor(console) -> None:
     game = start()
-    console.script(option(game, "Go through a door"), "1")
+    console.script(option(game, "Go through a door"))
     game.turn()
     assert game.current == "corridor_blue"
     assert world.get("classroom_2035").exits == ("corridor_blue",)
 
 
+def test_single_door_skips_which_door_prompt(console) -> None:
+    """Going through a door with only one exit moves immediately without asking."""
+    game = start()
+    assert len(world.exits_of(game.room)) == 1
+    console.script(option(game, "Go through a door"))
+    game.turn()
+    assert game.current == "corridor_blue"
+    assert "which door?" not in console.output
+
+
 def test_backing_out_of_a_door_changes_nothing(console) -> None:
     game = start()
+    game.move_to("corridor_blue")
     console.script(option(game, "Go through a door"), "0")
     game.turn()
-    assert game.current == "classroom_2035"
+    assert game.current == "corridor_blue"
+    assert "which door?" in console.output
 
 
 def test_a_locked_door_turns_the_player_away(console) -> None:

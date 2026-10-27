@@ -70,11 +70,17 @@ def do_look_around(game: Game) -> None:
 def do_go(game: Game) -> None:
     """Offer the doors out of this room, and walk through the chosen one."""
     doors = world.exits_of(game.room)
-    chosen = ui.choose("Which door?", [_door_label(game, d) for d in doors], back="Stay here")
-    if chosen is None:
+    if not doors:
         return
 
-    destination = doors[chosen]
+    if len(doors) == 1:
+        destination = doors[0]
+    else:
+        chosen = ui.choose("Which door?", [_door_label(game, d) for d in doors], back="Stay here")
+        if chosen is None:
+            return
+        destination = doors[chosen]
+
     if game.items_here():
         narrator.remark(game, "left_behind")
 
