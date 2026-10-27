@@ -8,6 +8,8 @@ the engine should fail because somebody improved a joke.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 import commands
@@ -249,3 +251,25 @@ def test_running_out_of_hearts_goes_back_to_the_save_on_full_hearts(console, mon
     reloaded = persistence.load_game("Tester")
     assert reloaded is not None
     assert reloaded.hearts == Health()
+
+
+def test_pausing_mid_question_resumes_on_that_question(console, monkeypatch) -> None:
+    questions = (Question("1 + 1?", ("2",)), Question("2 + 2?", ("4",)))
+    arena = _arena(monkeypatch)
+    monkeypatch.setitem(world._ROOMS, arena.key, replace(arena, boss=boss(questions=questions)))
+    game = Game(player_name="Tester", current=arena.key)
+    console.script("1", "1", "2", "pause")  # look around, get closer, answer 1, pause at 2
+    game.run()
+
+    saved = persistence.load_game("Tester")
+    assert saved is not None and saved.in_question == 1
+
+    console.lines.clear()
+    console.script("4")  # straight back to question 2: no menu, no intro
+    saved.resumed = True
+    saved.run()
+    assert "question 1 of 2" not in console.output
+    assert "question 2 of 2" in console.output
+    assert "it looks at you." not in console.output
+    assert arena.key in saved.defeated
+    assert saved.in_question is None

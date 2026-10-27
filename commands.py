@@ -379,13 +379,24 @@ def _fight(room: Room) -> Callable[[Game], None]:
     """Return an action that starts ``room``'s boss encounter."""
 
     def action(game: Game) -> None:
-        if room.boss is None:
-            return
-        won = encounters.run(game, room.boss)
-        if won or room.boss.single_attempt:
-            game.defeated.add(room.key)
+        _run_fight(game, room, None)
 
     return action
+
+
+def back_into_the_fight(game: Game) -> None:
+    """Carry on the fight a game was saved in the middle of, at the question it was on."""
+    _run_fight(game, game.room, game.in_question)
+
+
+def _run_fight(game: Game, room: Room, from_question: int | None) -> None:
+    """Run ``room``'s boss encounter, and remember it as resolved if it is."""
+    if room.boss is None:
+        game.in_question = None  # nobody here to fight any more (an old save, a changed room)
+        return
+    won = encounters.run(game, room.boss, from_question)
+    if won or room.boss.single_attempt:
+        game.defeated.add(room.key)
 
 
 def _door_label(game: Game, door: Room) -> str:

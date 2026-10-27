@@ -49,11 +49,16 @@ TOO_SLOW = "Too slow."
 TRY_AGAIN = "Not quite. Try that one again."
 
 
-def run(game: Game, boss: Boss) -> bool:
+def run(game: Game, boss: Boss, from_question: int | None = None) -> bool:
     """Play out ``boss``'s challenge.
 
     A wrong answer does not end the fight: it costs a heart and the same question is asked
     again, until the player gets it right or runs out of hearts.
+
+    While a question is being asked, ``game.in_question`` says which one, so a save made
+    right then (pause, the pause menu) comes back to it. ``from_question`` is that number,
+    for a game resumed in the middle of a fight: the intro has been heard already, so it
+    goes straight back to that question.
 
     Returns:
         True if the player answered every question correctly. False only for a fight the
@@ -64,20 +69,27 @@ def run(game: Game, boss: Boss) -> bool:
     """
     ui.cue("boss_music_on")  # the boss music starts as you get closer
     try:
-        return _play(game, boss)
+        return _play(game, boss, from_question)
     finally:
+        game.in_question = None  # however it ended, no question is being asked any more
         ui.cue("boss_music_off")  # and stops when the encounter is over, however it ended
 
 
-def _play(game: Game, boss: Boss) -> bool:
+def _play(game: Game, boss: Boss, from_question: int | None) -> bool:
     """The encounter itself, from the boss's intro to its win or lose text."""
     ui.say()
-    _tell(boss, boss.intro, "speaking")
+    if from_question is None:
+        _tell(boss, boss.intro, "speaking")
+    else:
+        ui.narrate(f"You are back in front of {boss.name}, right where you left off.")
     ui.cue("combat")  # the questions are about to begin
     ui.say()
     ui.say(f"Hearts: {game.hearts}")
 
     for number, question in enumerate(boss.questions, start=1):
+        if from_question is not None and number - 1 < from_question:
+            continue  # answered before the game was saved
+        game.in_question = number - 1
         # A wrong answer costs a heart and the same question comes back, until it is answered
         # right or the last heart goes (health.OutOfHearts ends the fight there and then).
         while not _ask_question(number, len(boss.questions), question):

@@ -62,6 +62,7 @@ somebody is still playing.
 | `taken_items` | TEXT (JSON list of pairs) | `[room, item]` for every item picked up |
 | `approached` | TEXT (JSON list) | Encounters the player has walked up to |
 | `elapsed_time` | REAL | Seconds played in earlier sessions |
+| `in_question` | INTEGER | The boss question (from 0) being asked when the game was saved, or empty outside a fight. The game resumes straight on that question |
 
 Written by `save_game()` (Options -> Save, or typing `pause`), read by
 `load_game()` once the player has logged in, and deleted by `delete_save()`

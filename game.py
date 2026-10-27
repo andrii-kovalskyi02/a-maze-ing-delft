@@ -108,6 +108,9 @@ class Game:
     #: True once the player has looked around in the room they are in. The next "Look around"
     #: becomes "Interact" and skips the telling. It starts again in every room they walk into.
     looked_around: bool = False
+    #: The number (from 0) of the boss question being asked right now, or None outside a
+    #: fight. Saved with the game, so a game saved mid-question resumes on that question.
+    in_question: int | None = None
 
     def __post_init__(self) -> None:
         """Use the name the player logged in with, and hand them their starting items."""
@@ -236,6 +239,9 @@ class Game:
 
     def turn(self) -> None:
         """Offer the menu once, and carry out whatever the player picks."""
+        if self.in_question is not None:
+            commands.back_into_the_fight(self)  # saved mid-question: straight back to it
+            return
         menu = commands.build_menu(self)
         chosen = ui.choose("What do you do?", [item.label for item in menu])
         digits_before = len(digits.carried(self))

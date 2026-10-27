@@ -49,7 +49,8 @@ _GAME_STATES = """
         taken_items TEXT NOT NULL,
         approached TEXT NOT NULL,
         elapsed_time REAL NOT NULL,
-        saved_at TEXT
+        saved_at TEXT,
+        in_question INTEGER
     )
 """
 
@@ -104,6 +105,9 @@ def create_tables() -> None:
                 _move_to_player_ids(connection, table, create)
             else:
                 connection.execute(create)
+        # saves from before a game could be saved mid-question are not in a fight
+        if "in_question" not in _columns(connection, "game_states"):
+            connection.execute("ALTER TABLE game_states ADD COLUMN in_question INTEGER")
 
         # the shared scoreboard (leaderboard/online.py): runs waiting to be uploaded, and the last
         # top list seen
@@ -251,9 +255,10 @@ def save_game(game: Game) -> None:
                 taken_items,
                 approached,
                 elapsed_time,
+                in_question,
                 saved_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(player_id) DO UPDATE SET
                 current_room = excluded.current_room,
                 inventory = excluded.inventory,
@@ -265,6 +270,7 @@ def save_game(game: Game) -> None:
                 taken_items = excluded.taken_items,
                 approached = excluded.approached,
                 elapsed_time = excluded.elapsed_time,
+                in_question = excluded.in_question,
                 saved_at = CURRENT_TIMESTAMP
             """,
             (
@@ -279,6 +285,7 @@ def save_game(game: Game) -> None:
                 json.dumps(taken_items),
                 json.dumps(sorted(game.approached)),
                 game.elapsed_time,
+                game.in_question,
             ),
         )
 
@@ -298,7 +305,8 @@ def load_game(player_name: str) -> Game | None:
                 defeated_challenges,
                 taken_items,
                 approached,
-                elapsed_time
+                elapsed_time,
+                in_question
             FROM game_states
             JOIN players ON players.id = game_states.player_id
             WHERE players.name = ?
@@ -323,6 +331,7 @@ def load_game(player_name: str) -> Game | None:
         taken_json,
         approached_json,
         elapsed_time,
+        in_question,
     ) = row
 
     game = Game(
@@ -335,6 +344,7 @@ def load_game(player_name: str) -> Game | None:
         taken={(room, item) for room, item in json.loads(taken_json)},
         approached=set(json.loads(approached_json)),
         elapsed_time=elapsed_time,
+        in_question=in_question,
     )
 
     from inventory import ITEM_CATALOGUE
