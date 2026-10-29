@@ -22,6 +22,17 @@ pip install -r requirements-dev.txt
 python main.py
 ```
 
+The game also runs in its own window, with music, sound and the floor map
+drawn as a picture. That needs Pygame (`pip install pygame-ce`):
+
+```bash
+python main_pygame.py
+```
+
+On Windows, double-clicking `run_game.bat` installs Pygame the first time and starts
+the window version. To try out a single room without saving anything, run
+`python play_room.py <room>` (for example `python play_room.py lab_2003`).
+
 ## Working on it
 
 **Read [CONTRIBUTING.md](CONTRIBUTING.md) before your first pull request.** It has the
@@ -34,22 +45,32 @@ as a worked example.
 ## How the code is laid out
 
 ```
-main.py          start the game
+main.py          start the game in the terminal
+main_pygame.py   run the same game inside a Pygame window (music, sounds, pictures)
+play_room.py     start in one chosen room, to try it out; nothing is saved
+run_game.bat     Windows: install Pygame if needed and start the window version
 models.py        the data types a room is built from (Room, Item, Boss, ...)
 world.py         the world graph: every room, and the locks between them
 game.py          the one main loop, and everything true about a play-through
 commands.py      the menu, and what each choice does
 inventory.py     the item catalogue and what the player carries
 encounters.py    running a boss's questions
+digits.py        the four digits of the exit code, and the door that asks for them
+health.py        the player's hearts, counted in halves
+narrator.py      the Evil Backpack, talking over the game
 memories.py      the details the Memory Keeper asks about at the end
 persistence.py   the database: saved games and the scoreboard (see SCHEMA.md)
 leaderboard/     the top 5 shown in the game, and the optional shared online one (see SCHEMA.md)
+profiles.py      which player names are allowed, and how a saved game is described
 progress.py      completion % and play time, shared by status and the scoreboard
 ui.py            all screen output, keyboard input, and the numbered menu
-floor_map.py     the map (issue #120, not built yet)
+floor_map.py     the map: an ASCII plan of the 2nd floor showing where you are (#120)
+music.py         background music for the Pygame window
+assets/          pictures, fonts, music and sounds used by the Pygame window
 rooms/           one file per room - this is where the team works
 tests/
   test_room_contract.py   runs against every registered room, automatically
+  test_*.py               one file per engine module (no tests for single rooms)
 ```
 
 The engine owns the loop so that no room has to. That is what lets several people
