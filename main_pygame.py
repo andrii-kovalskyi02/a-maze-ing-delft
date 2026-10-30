@@ -1776,10 +1776,17 @@ class TerminalWindow:
             # a typo'd filename, or the image just hasn't been added yet -
             # show nothing rather than crash the whole game over a picture
             return None
-        image = pygame.image.load(path).convert_alpha()
-        # stretches to fill this computer's screen exactly, whatever its
-        # resolution happens to be
-        return pygame.transform.scale(image, (self.width, self.height))
+        image = pygame.image.load(path).convert()
+        # fills the whole screen without stretching: scaled up or down just
+        # enough to cover it, keeping its shape, and the overflow trimmed
+        # evenly off both sides. smoothscale blends pixels instead of just
+        # picking some, so the picture stays sharp rather than jagged
+        scale = max(self.width / image.get_width(), self.height / image.get_height())
+        size = (round(image.get_width() * scale), round(image.get_height() * scale))
+        image = pygame.transform.smoothscale(image, size)
+        left = (size[0] - self.width) // 2
+        top = (size[1] - self.height) // 2
+        return image.subsurface((left, top, self.width, self.height)).copy()
 
     @staticmethod
     def _load_main_font(size: int) -> pygame.font.Font:
