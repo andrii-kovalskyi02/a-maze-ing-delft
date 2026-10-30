@@ -177,31 +177,21 @@ _SKULL = "\ue000"
 # both icons are drawn in this red, whatever colour the text around them is
 _ICON_COLOR = (235, 45, 45)
 
-# the dialogue box is your hand-drawn chat box (assets/chat_box.png). It is cut into pieces so
-# it can be stretched to any size without thinning its lines: the columns are the left leg, the
-# gap (stretched to fit the words below), the foot, a stretchy middle and the right end; the rows
-# are the top edge, a stretchy middle, and the bottom edge with its legs. The numbers are pixel
-# positions in the drawing, which is 450 x 248
-_CHAT_BOX_FILE = "chat_box.png"
-# the picture is drawn at this many times the size the numbers below are written for, so it
-# stays smooth when it is scaled up: every rectangle taken from it is multiplied by this
-_CHAT_BOX_UPSCALE = 4
-_CHAT_BOX_X_CUTS = (0, 75, 146, 200, 330, 450)
-_CHAT_BOX_Y_CUTS = (0, 45, 150, 248)
-_CHAT_BOX_FOOT_HEIGHT = 79  # how tall the leg and foot are: the words are sized to fit between them
-_CHAT_BOX_LINE_Y = 190  # where the bottom edge runs
-_CHAT_BOX_WORDS_Y = 208  # the middle of the leg and foot, where the words sit
-# When there is nothing to skip, the gap and the little brackets of the leg and foot are
-# erased from a copy of the drawing and its bottom edge is drawn right across, using a short,
-# straight piece of that same edge (x, y, width, height in the drawing) stretched out - so the
-# closed box looks like the rest of your drawing, not like a patch.
-_CHAT_BOX_EDGE_PIECE = (196, 181, 15, 17)
-_CHAT_BOX_EDGE_START_X = 22  # where the new edge begins: inside the left side of the drawing
-_CHAT_BOX_EDGE_END_X = 211  # ...and where it joins the drawing's own bottom edge again
-# what to erase (x, y, width, height in the drawing): the leg's hook below the line, then the
-# foot and everything between the leg and the foot
-_CHAT_BOX_ERASE = ((0, 198, 76, 50), (76, 150, 124, 98))
-# shown in the gap at the bottom left of the box while the story is being told
+# two hand-drawn frames: the chat box (assets/chat_box.png, a speech bubble with a tail) is the
+# dialogue box, for the narrator and bosses alike, and the text box (assets/text_box.png, two
+# square brackets) frames the little "SPACE to skip" tag under it. Each is cut into 3 columns
+# by 3 rows so it can be stretched to any size without thinning its lines: the corners keep
+# their size and only the straight parts in between are stretched. The cuts
+# are pixel positions in each drawing
+_TEXT_BOX_FILE = "text_box.png"  # 682 x 327
+_TEXT_BOX_CUTS = ((0, 211, 463, 682), (0, 30, 297, 327))
+_CHAT_BOX_FILE = "chat_box.png"  # 472 x 405
+_CHAT_BOX_CUTS = ((0, 40, 300, 472), (0, 30, 270, 405))  # the tail is in the bottom right piece
+_CHAT_BOX_LINE_Y = 290  # where the bubble's bottom edge runs, above its tail
+# how big the drawings are drawn: this many pixels of drawing per pixel of text height
+_BOX_ART_PER_TEXT = 1 / 60
+# shown in a small text box on the bottom left corner of the dialogue box while the story is
+# being told
 _SKIP_HINT_TEXT = "SPACE to skip"
 # ...and in its place once the story has been told, until the player presses to go on
 _CONTINUE_HINT_TEXT = "SPACE to go on"
@@ -236,15 +226,13 @@ _PAUSE_ACCENT = (240, 200, 80)
 # background image per room, keyed by the exact "== Room Name ==" header
 # text the game prints when you walk in (see TerminalWindow._is_room_header)
 # - a room with no entry here just shows a plain black background, same as
-# every room did before this existed. Photos are reused across rooms that
-# are the same kind of real-world space (every classroom, both plain
-# hallways, both labs, both teachers' rooms and the front desk office, every
-# project room). The storage room is left without a photo on purpose.
+# every room did before this existed. Most rooms have their own drawing;
+# both teachers' rooms share one.
 _ROOM_IMAGES = {
     "== classroom.2015 ==": "classroom_2015.png",
-    "== Classroom 2021 ==": "classroom_2035.jpg",
+    "== Classroom 2021 ==": "classroom_2021.png",
     "== Classroom 2.015 ==": "classroom_2015.png",
-    "== Classroom 2.021 ==": "classroom_2035.jpg",
+    "== Classroom 2.021 ==": "classroom_2021.png",
     "== Classroom 2.035 ==": "classroom_2035.png",
     "== Classroom 2.031 ==": "classroom_2031.jpg",
     "== The Blue corridor ==": "corridor_blue.png",
@@ -253,18 +241,18 @@ _ROOM_IMAGES = {
     "== LAB 2.003 ==": "lab_2003.png",  # the name the room has now
     "== Forest room ==": "lab_2001.png",  # lab_2001
     "== LAB 2.001 ==": "lab_2001.png",  # the name the forest room has now
-    "== Teachers room ==": "teacher_room.jpg",
-    "== Teachers room 4 ==": "teacher_room.jpg",
+    "== Teachers room ==": "teacher_room.png",
+    "== Teachers room 4 ==": "teacher_room.png",
     "== Front Desk Office ==": "front_desk_office.png",
-    "== Storage Room ==": "storage.jpg",
+    "== Storage Room ==": "storage.png",
     "== Lobby ==": "lobby.png",
-    "== Main Teachers Room ==": "teacher_room.jpg",  # both teachers rooms share one picture
-    "== Teachers Room 4 ==": "teacher_room.jpg",
-    "== Project Room 1 ==": "project_room.jpg",  # shared with Project Room 2
-    "== Project room 1 ==": "project_room.jpg",
-    "== Project Room 2 ==": "project_room.jpg",
-    "== Student society ==": "student_society.jpg",
-    "== Equinox Student Society ==": "student_society.jpg",  # the name the room has now
+    "== Main Teachers Room ==": "teacher_room.png",  # both teachers rooms share one picture
+    "== Teachers Room 4 ==": "teacher_room.png",
+    "== Project Room 1 ==": "projectroom_1.png",
+    "== Project room 1 ==": "projectroom_1.png",
+    "== Project Room 2 ==": "projectroom_2.png",
+    "== Student society ==": "student_society.png",
+    "== Equinox Student Society ==": "student_society.png",  # the name the room has now
     "== Project Room 3 ==": "projectroom_3.png",
 }
 
@@ -609,17 +597,13 @@ class TerminalWindow:
         self.pause_hearts_size = hearts_size
         self.pause_hearts_font = self._load_heart_font(hearts_size)
         self.pause_hearts_text_font = self._load_main_font(hearts_size)
-        # the hand-drawn chat box, and the sizes it has been stretched to so far
-        chat_box_path = os.path.join(_ASSETS_DIR, _CHAT_BOX_FILE)
-        self.chat_box_art: pygame.Surface | None = (
-            pygame.image.load(chat_box_path).convert_alpha()
-            if os.path.exists(chat_box_path)
-            else None
-        )
-        self.chat_box_closed_art: pygame.Surface | None = (
-            self._make_closed_chat_box(self.chat_box_art) if self.chat_box_art else None
-        )
-        self._chat_box_cache: dict[tuple, pygame.Surface] = {}
+        # the two hand-drawn box frames, and the sizes they have been stretched to so far
+        self.box_art: dict[str, pygame.Surface] = {}
+        for box_file in (_TEXT_BOX_FILE, _CHAT_BOX_FILE):
+            box_path = os.path.join(_ASSETS_DIR, box_file)
+            if os.path.exists(box_path):
+                self.box_art[box_file] = pygame.image.load(box_path).convert_alpha()
+        self._box_frame_cache: dict[tuple, pygame.Surface] = {}
         # the drawn floor map, and the size it was last scaled to
         map_path = os.path.join(_ASSETS_DIR, _MAP_FILE)
         self.map_art: pygame.Surface | None = (
@@ -2012,136 +1996,85 @@ class TerminalWindow:
         lines.append(current)
         return lines
 
-    @staticmethod
-    def _make_closed_chat_box(art: pygame.Surface) -> pygame.Surface:
-        """A copy of the drawing with the gap and brackets erased and the edge run across."""
-        closed = art.copy()
-        up = _CHAT_BOX_UPSCALE
-        for rect in _CHAT_BOX_ERASE:
-            closed.fill((0, 0, 0, 0), tuple(v * up for v in rect))
-        x, y, width, height = (v * up for v in _CHAT_BOX_EDGE_PIECE)
-        edge = pygame.transform.smoothscale(
-            art.subsurface((x, y, width, height)),
-            ((_CHAT_BOX_EDGE_END_X - _CHAT_BOX_EDGE_START_X) * up, height),
-        )
-        closed.blit(edge, (_CHAT_BOX_EDGE_START_X * up, y))
-        return closed
+    def _box_frame(self, file: str, width: int, height: int, scale: float) -> pygame.Surface:
+        """A hand-drawn frame (see _TEXT_BOX_CUTS) stretched to width x height.
 
-    def _chat_box_inside(
-        self, width: int, height: int, gap: int, scale: float, closed: bool
-    ) -> pygame.Surface:
-        """The dark tint for everything inside the drawn lines, following their wobbly shape.
-
-        Found by flooding the outside of the outline: whatever the flood cannot reach is
-        inside, so no small gap is left between the tint and the lines. With the gap open (not
-        ``closed``) a line is shut across the bottom of the gap, level with the bottom of the
-        leg, so the gap counts as inside too.
+        The corners keep their size (times ``scale``) and only the middle column and row
+        are stretched, so the lines stay as thick as drawn.
         """
-        key = ("inside", width, height, gap, round(scale, 3), closed)
-        inside = self._chat_box_cache.get(key)
-        if inside is None:
-            outline = self._chat_box_outline(width, height, gap, scale, closed)
-            lines = pygame.mask.from_surface(outline, 100)
-            xs = _CHAT_BOX_X_CUTS
-            left_cap, foot_cap = round((xs[1] - xs[0]) * scale), round((xs[3] - xs[2]) * scale)
-            leg = pygame.Mask((left_cap, height))
-            leg.draw(lines, (0, 0))
-            shut_row = max(rect.bottom for rect in leg.get_bounding_rects()) - 1
-            shut_end = left_cap + gap + foot_cap
-            if not closed:  # shut the bottom of the gap, along the lowest point of the leg
-                for x in range(shut_end):
-                    lines.set_at((x, shut_row), 1)
-            lines.invert()  # now the empty pixels are set...
-            outside = lines.connected_component((0, 0))  # ...and this is the ones the flood reaches
-            outside.invert()
-            # stop at the lines instead of running under them, so nothing shows past their edge
-            outside.erase(pygame.mask.from_surface(outline, 20), (0, 0))
-            if not closed:
-                for x in range(shut_end):
-                    outside.set_at((x, shut_row), 0)
-            inside = outside.to_surface(
-                setcolor=(10, 10, 10, _BOX_PANEL_ALPHA), unsetcolor=(0, 0, 0, 0)
-            )
-            self._chat_box_cache[key] = inside
-        return inside
-
-    def _chat_box_outline(
-        self, width: int, height: int, gap: int, scale: float, closed: bool = False
-    ) -> pygame.Surface:
-        """Your drawn chat box, stretched to width x height without thinning its lines.
-
-        The drawing is cut into 5 columns by 3 rows (see _CHAT_BOX_X_CUTS). The leg, the
-        foot, the right end and the top and bottom edges keep their size (all scaled by
-        ``scale``); the gap is stretched to ``gap`` pixels and the stretchy middle takes
-        up the rest. Only straight lines are ever stretched, so they stay as thick as drawn.
-        With ``closed`` it uses the copy of the drawing that has no gap or brackets (see
-        _make_closed_chat_box), for when there are no words to put there.
-        """
-        key = (width, height, gap, round(scale, 3), closed)
-        outline = self._chat_box_cache.get(key)
-        if outline is not None:
-            return outline
-        art = self.chat_box_closed_art if closed else self.chat_box_art
-        xs, ys = _CHAT_BOX_X_CUTS, _CHAT_BOX_Y_CUTS
-        natural = [round((xs[i + 1] - xs[i]) * scale) for i in range(5)]
-        columns = [
-            natural[0],
-            gap,
-            natural[2],
-            max(1, width - natural[0] - gap - natural[2] - natural[4]),
-            natural[4],
-        ]
+        key = (file, width, height, round(scale, 3))
+        frame = self._box_frame_cache.get(key)
+        if frame is not None:
+            return frame
+        art = self.box_art[file]
+        xs, ys = _TEXT_BOX_CUTS if file == _TEXT_BOX_FILE else _CHAT_BOX_CUTS
+        left, right = round((xs[1] - xs[0]) * scale), round((xs[3] - xs[2]) * scale)
         top, bottom = round((ys[1] - ys[0]) * scale), round((ys[3] - ys[2]) * scale)
+        columns = [left, max(1, width - left - right), right]
         rows = [top, max(1, height - top - bottom), bottom]
-        outline = pygame.Surface((width, height), pygame.SRCALPHA)
+        frame = pygame.Surface((width, height), pygame.SRCALPHA)
         x = 0
         for column, column_width in enumerate(columns):
             y = 0
             for row, row_height in enumerate(rows):
-                up = _CHAT_BOX_UPSCALE
                 piece = art.subsurface(
-                    (
-                        xs[column] * up,
-                        ys[row] * up,
-                        (xs[column + 1] - xs[column]) * up,
-                        (ys[row + 1] - ys[row]) * up,
-                    )
+                    (xs[column], ys[row], xs[column + 1] - xs[column], ys[row + 1] - ys[row])
                 )
-                outline.blit(
+                frame.blit(
                     pygame.transform.smoothscale(piece, (max(1, column_width), max(1, row_height))),
                     (x, y),
                 )
                 y += row_height
             x += column_width
-        if len(self._chat_box_cache) > 80:
-            self._chat_box_cache.clear()
-        self._chat_box_cache[key] = outline
-        return outline
+        if len(self._box_frame_cache) > 80:
+            self._box_frame_cache.clear()
+        self._box_frame_cache[key] = frame
+        return frame
+
+    def _box_inside(self, frame: pygame.Surface) -> pygame.Surface:
+        """The dark panel for everything inside a frame's drawn lines, following their shape.
+
+        Found by flooding the outside from a corner: whatever the flood cannot reach is inside.
+        """
+        key = ("inside", id(frame))
+        inside = self._box_frame_cache.get(key)
+        if inside is None:
+            lines = pygame.mask.from_surface(frame, 100)
+            lines.invert()  # now the empty pixels are set...
+            outside = lines.connected_component((0, 0))  # ...and these are the ones it reaches
+            outside.draw(pygame.mask.from_surface(frame, 20), (0, 0))  # never under the lines
+            outside.invert()
+            inside = outside.to_surface(
+                setcolor=(10, 10, 10, _BOX_PANEL_ALPHA), unsetcolor=(0, 0, 0, 0)
+            )
+            self._box_frame_cache[key] = inside
+        return inside
 
     def _draw_dialogue_box(self) -> None:
-        """Draw the dialogue box, lower-centre: your hand-drawn chat box with the text in it.
+        """Draw the dialogue box, lower-centre: a hand-drawn frame with the text in it.
 
-        Shows only _box_lines(). While the story is being told, "SPACE to skip" is written
-        in the gap at the bottom left of the box.
+        Shows only _box_lines() in the chat box. While the story is being told, "SPACE to
+        skip" sits in a small text box on its bottom edge.
         """
         max_box_width = int(self.width * _BOX_WIDTH_FRACTION)
         min_box_width = int(self.width * _BOX_MIN_WIDTH_FRACTION)
 
-        # the drawing is scaled so the words fit between its leg and foot
         hint_text = _CONTINUE_HINT_TEXT if self.waiting_for_press else _SKIP_HINT_TEXT
         hint = self._render_text(hint_text, "white", True)
-        scale = hint.get_height() * 1.5 / _CHAT_BOX_FOOT_HEIGHT
-        xs, ys = _CHAT_BOX_X_CUTS, _CHAT_BOX_Y_CUTS
+        # the drawing is scaled to the size of the text
+        scale = hint.get_height() * _BOX_ART_PER_TEXT
+        xs, ys = _CHAT_BOX_CUTS
         left_cap = round((xs[1] - xs[0]) * scale)
-        foot_cap = round((xs[3] - xs[2]) * scale)
-        right_cap = round((xs[5] - xs[4]) * scale)
+        right_cap = round((xs[3] - xs[2]) * scale)
         top_cap = round((ys[1] - ys[0]) * scale)
-        bottom_cap = round((ys[3] - ys[2]) * scale)
-        gap = hint.get_width() + round(24 * scale)
+        # "SPACE to skip" is written smaller, in a little text box just inside the bottom edge
+        tag_text = self._render_text(hint_text, "white", False)
+        tag_height = tag_text.get_height() + self.margin // 2
+        bottom_cap = round((ys[3] - ys[2]) * scale) + self.margin // 2 + tag_height
         # room for the lines of the drawing around the text
-        left_pad = round(42 * scale) + self.margin // 2
-        right_pad = round(20 * scale) + self.margin // 2
-        top_pad = max(top_cap, round(40 * scale)) + self.margin // 2
+        left_pad = round(40 * scale) + self.margin
+        right_pad = round(40 * scale) + self.margin
+        top_pad = top_cap + self.margin // 2
 
         # wrap against the MAX width regardless of how wide the box ends up
         # drawn - a long paragraph should still wrap at the same column it
@@ -2207,27 +2140,18 @@ class TerminalWindow:
             content_width = max(content_width, countdown_x + countdown_surface.get_width())
         if option_rows:
             content_width = max(content_width, gutter + column_width + tail)
-        # ...and never narrower than the drawing's own pieces: leg, gap, foot and right end
-        drawing_width = left_cap + gap + foot_cap + right_cap + round(20 * scale)
+        # ...and never narrower than the drawing's own corners
+        drawing_width = left_cap + right_cap + round(20 * scale)
         box_width = min(max_box_width, max(min_box_width, content_width + left_pad + right_pad))
         box_width = max(box_width, drawing_width)
 
         box = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
         panel = (*(10, 10, 10), _BOX_PANEL_ALPHA)
-        # words in the gap only while the story is being told - otherwise the gap is closed
-        showing_hint = (
-            self.chat_box_art is not None
-            and self.narrating
-            and not (self.skipping or self.game_over or self.quitting)
-        )
-        if self.chat_box_art is not None:
-            # a dark panel right up to the drawn lines - and under the words in the gap
-            inside = self._chat_box_inside(box_width, box_height, gap, scale, not showing_hint)
-            box.blit(inside, (0, 0))
-            outline = self._chat_box_outline(
-                box_width, box_height, gap, scale, closed=not showing_hint
-            )
-            box.blit(outline, (0, 0))
+        if _CHAT_BOX_FILE in self.box_art:
+            # a dark panel inside the drawn lines, tail and all, then the lines
+            frame = self._box_frame(_CHAT_BOX_FILE, box_width, box_height, scale)
+            box.blit(self._box_inside(frame), (0, 0))
+            box.blit(frame, (0, 0))
         else:  # the drawing is missing: a plain box, as before
             box.fill(panel)
             pygame.draw.rect(box, "white", box.get_rect(), 1)
@@ -2263,16 +2187,35 @@ class TerminalWindow:
                 box.blit(countdown_surface, (left_pad + countdown_x, y))
             y += row_height
 
-        if showing_hint:
-            words_y = box_height - bottom_cap + round((_CHAT_BOX_WORDS_Y - ys[2]) * scale)
-            box.blit(
-                hint, (left_cap + (gap - hint.get_width()) // 2, words_y - hint.get_height() // 2)
-            )
-
         x = (self.width - box_width) // 2
         y = self.height - box_height - self.margin * 3
         self._box_rect = (x, y, box_width, box_height)
         self.screen.blit(box, (x, y))
+
+        # "SPACE to skip" only while the story is being told, in its own little text box
+        # in the bottom left corner of the bubble, clear of the tail on the right
+        if self.narrating and not (self.skipping or self.game_over or self.quitting):
+            tag_scale = scale * 0.25
+            tag_xs = _TEXT_BOX_CUTS[0]
+            tag_width = max(
+                tag_text.get_width() + self.margin,
+                round((tag_xs[1] + tag_xs[3] - tag_xs[2]) * tag_scale) + 2,
+            )
+            tag_x = x + left_pad
+            tag_y = y + box_height - round((ys[3] - _CHAT_BOX_LINE_Y) * scale) - tag_height
+            tag_y -= self.margin // 4
+            if _TEXT_BOX_FILE in self.box_art:
+                self.screen.blit(
+                    self._box_frame(_TEXT_BOX_FILE, tag_width, tag_height, tag_scale),
+                    (tag_x, tag_y),
+                )
+            self.screen.blit(
+                tag_text,
+                (
+                    tag_x + (tag_width - tag_text.get_width()) // 2,
+                    tag_y + (tag_height - tag_text.get_height()) // 2,
+                ),
+            )
 
     def _draw_intro(self) -> None:
         """Draw the very first screen, before the player has entered any room.
