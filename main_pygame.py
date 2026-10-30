@@ -241,23 +241,23 @@ _PAUSE_ACCENT = (240, 200, 80)
 # hallways, both labs, both teachers' rooms and the front desk office, every
 # project room). The storage room is left without a photo on purpose.
 _ROOM_IMAGES = {
-    "== classroom.2015 ==": "classroom_2035.jpg",
+    "== classroom.2015 ==": "classroom_2015.png",
     "== Classroom 2021 ==": "classroom_2035.jpg",
-    "== Classroom 2.015 ==": "classroom_2035.jpg",
+    "== Classroom 2.015 ==": "classroom_2015.png",
     "== Classroom 2.021 ==": "classroom_2035.jpg",
-    "== Classroom 2.035 ==": "classroom_2035.jpg",
+    "== Classroom 2.035 ==": "classroom_2035.png",
     "== Classroom 2.031 ==": "classroom_2031.jpg",
-    "== The Blue corridor ==": "blue_corridor_hall.jpg",
-    "== The Red corridor ==": "red_corridor.jpg",
-    "== LAB2.003 ==": "lab.jpg",
-    "== LAB 2.003 ==": "lab.jpg",  # the name the room has now
-    "== Forest room ==": "forest_lab.jpg",  # lab_2001
-    "== LAB 2.001 ==": "forest_lab.jpg",  # the name the forest room has now
+    "== The Blue corridor ==": "corridor_blue.png",
+    "== The Red corridor ==": "corridor_red.png",
+    "== LAB2.003 ==": "lab_2003.png",
+    "== LAB 2.003 ==": "lab_2003.png",  # the name the room has now
+    "== Forest room ==": "lab_2001.png",  # lab_2001
+    "== LAB 2.001 ==": "lab_2001.png",  # the name the forest room has now
     "== Teachers room ==": "teacher_room.jpg",
     "== Teachers room 4 ==": "teacher_room.jpg",
-    "== Front Desk Office ==": "front_desk_office.jpg",
+    "== Front Desk Office ==": "front_desk_office.png",
     "== Storage Room ==": "storage.jpg",
-    "== Lobby ==": "lobby.jpg",
+    "== Lobby ==": "lobby.png",
     "== Main Teachers Room ==": "teacher_room.jpg",  # both teachers rooms share one picture
     "== Teachers Room 4 ==": "teacher_room.jpg",
     "== Project Room 1 ==": "project_room.jpg",  # shared with Project Room 2
@@ -265,7 +265,7 @@ _ROOM_IMAGES = {
     "== Project Room 2 ==": "project_room.jpg",
     "== Student society ==": "student_society.jpg",
     "== Equinox Student Society ==": "student_society.jpg",  # the name the room has now
-    "== Project Room 3 ==": "project_room_3.jpg",
+    "== Project Room 3 ==": "projectroom_3.png",
 }
 
 # the background behind the very first screen - the name prompt and intro
@@ -559,6 +559,10 @@ class TerminalWindow:
 
     def __init__(self) -> None:
         """Set up the window itself, and all the state tracked between frames."""
+        if sys.platform == "win32":
+            # with Windows display scaling (125%, 150%, ...) pygame would
+            # otherwise be told a shrunken screen size and only fill part of it
+            ctypes.windll.user32.SetProcessDPIAware()
         pygame.init()
         self.music = Music(
             {name: os.path.join(_ASSETS_DIR, file) for name, file in _MUSIC_FILES.items()}
@@ -575,9 +579,10 @@ class TerminalWindow:
             self.width, self.height = 1280, 720
             self.screen = pygame.display.set_mode((self.width, self.height))
         else:
-            info = pygame.display.Info()
-            self.width, self.height = info.current_w, info.current_h
-            self.screen = pygame.display.set_mode((self.width, self.height), pygame.FULLSCREEN)
+            # (0, 0) asks for the screen's own size; reading it back from the
+            # window afterwards gives the size we really got to draw on
+            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+            self.width, self.height = self.screen.get_size()
         pygame.display.set_caption("a-maze-ing-delft")
 
         # how much bigger or smaller this screen is than the reference one -
