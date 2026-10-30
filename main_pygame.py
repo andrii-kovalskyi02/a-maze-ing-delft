@@ -246,18 +246,26 @@ _ROOM_IMAGES = {
     "== Classroom 2.015 ==": "classroom_2035.jpg",
     "== Classroom 2.021 ==": "classroom_2035.jpg",
     "== Classroom 2.035 ==": "classroom_2035.jpg",
-    "== Classroom 2.031 ==": "classroom_2035.jpg",
+    "== Classroom 2.031 ==": "classroom_2031.jpg",
     "== The Blue corridor ==": "blue_corridor_hall.jpg",
-    "== The Red corridor ==": "hallway.jpg",
+    "== The Red corridor ==": "red_corridor.jpg",
     "== LAB2.003 ==": "lab.jpg",
+    "== LAB 2.003 ==": "lab.jpg",  # the name the room has now
     "== Forest room ==": "forest_lab.jpg",  # lab_2001
+    "== LAB 2.001 ==": "forest_lab.jpg",  # the name the forest room has now
     "== Teachers room ==": "teacher_room.jpg",
     "== Teachers room 4 ==": "teacher_room.jpg",
-    "== Front Desk Office ==": "teacher_room.jpg",
+    "== Front Desk Office ==": "front_desk_office.jpg",
+    "== Storage Room ==": "storage.jpg",
+    "== Lobby ==": "lobby.jpg",
+    "== Main Teachers Room ==": "teacher_room.jpg",  # both teachers rooms share one picture
+    "== Teachers Room 4 ==": "teacher_room.jpg",
+    "== Project Room 1 ==": "project_room.jpg",  # shared with Project Room 2
     "== Project room 1 ==": "project_room.jpg",
     "== Project Room 2 ==": "project_room.jpg",
     "== Student society ==": "student_society.jpg",
-    "== Project Room 3 ==": "project_room.jpg",
+    "== Equinox Student Society ==": "student_society.jpg",  # the name the room has now
+    "== Project Room 3 ==": "project_room_3.jpg",
 }
 
 # the background behind the very first screen - the name prompt and intro
