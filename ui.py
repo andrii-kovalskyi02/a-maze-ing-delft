@@ -23,7 +23,7 @@ if TYPE_CHECKING:  # pragma: no cover - import only needed for type checking
 WIDTH = 80
 
 #: The typing speeds the player can pick (Options / the pause menu): a name, and the wait after
-#: each character in seconds. "Instant" shows the story all at once. Normal is the default.
+#: each character in seconds. "Instant" shows the story all at once. Slow is the default.
 SPEEDS: tuple[tuple[str, float], ...] = (
     ("Slow", 0.0417),
     ("Normal", 0.0167),
@@ -50,7 +50,7 @@ def pace_for(who: str | None, mood: str) -> float:
 
 _NORMAL_SPEED = 1
 #: The speed a game starts at, and the one "type the story out again" goes back to.
-_DEFAULT_SPEED = _NORMAL_SPEED
+_DEFAULT_SPEED = 0
 _speed_index = _DEFAULT_SPEED
 
 #: How long :func:`narrate` waits after each character, in seconds. This is
