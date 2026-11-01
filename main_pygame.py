@@ -258,8 +258,8 @@ _ROOM_IMAGES = {
     "== Front Desk Office ==": "front_desk_office.jpg",
     "== Storage Room ==": "storage.jpg",
     "== Lobby ==": "lobby.jpg",
-    "== Main Teachers Room ==": "teacher_room.jpg",  # both teachers rooms share one picture
-    "== Teachers Room 4 ==": "teacher_room.jpg",
+    "== Main Teachers Room ==": "teacher_room.jpg",
+    "== Teachers Room 4 ==": "teacher_room_4.jpg",
     "== Project Room 1 ==": "project_room.jpg",  # shared with Project Room 2
     "== Project room 1 ==": "project_room.jpg",
     "== Project Room 2 ==": "project_room.jpg",
