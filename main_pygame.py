@@ -246,13 +246,13 @@ _ROOM_IMAGES = {
     "== Front Desk Office ==": "front_desk_office.png",
     "== Storage Room ==": "storage.png",
     "== Lobby ==": "lobby.png",
-    "== Main Teachers Room ==": "teacher_room.jpg",
-    "== Teachers Room 4 ==": "teacher_room_4.jpg",
+    "== Main Teachers Room ==": "teacher_room.png",
+    "== Teachers Room 4 ==": "teacher_room_4.png",
     "== Project Room 1 ==": "projectroom_1.png",
     "== Project room 1 ==": "projectroom_1.png",
     "== Project Room 2 ==": "projectroom_2.png",
     "== Student society ==": "student_society.png",
-    "== Equinox Student Society ==": "student_society.jpg",  # the name the room has now
+    "== Equinox Student Society ==": "student_society.png",  # the name the room has now
     "== Project Room 3 ==": "projectroom_3.png",
 }
 
