@@ -1,9 +1,4 @@
-"""The room test kit.
-
-Every room registered in ``rooms/__init__.py`` is checked here
-automatically.  You do not add anything to this file when you add a room - if
-your room breaks one of these rules, the failure names your room.
-"""
+"""Rules every registered room must follow; a failure names the room that broke one."""
 
 from __future__ import annotations
 

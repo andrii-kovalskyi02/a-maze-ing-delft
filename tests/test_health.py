@@ -1,8 +1,6 @@
 """Hearts, in halves (enabler #108, E5.1).
 
-The design document spends hearts in halves, so the one thing these tests care
-about is that half a heart is *exactly* half a heart, however many times it is
-taken and given back.
+Half a heart must stay exactly half a heart, however often it is taken and given back.
 """
 
 from __future__ import annotations

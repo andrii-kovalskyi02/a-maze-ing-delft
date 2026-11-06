@@ -16,8 +16,8 @@ the scoreboard is one query instead of code we write and test ourselves.
 |---|---|---|
 | `id` | INTEGER, **primary key** | The player's number. Saves and scores point at this, not at the name |
 | `name` | TEXT, **unique**, ignoring capitals | The name typed at the start. Two players can never share one |
-| `salt` | BLOB | Random bytes, different for every player, mixed into the hash |
-| `password_hash` | BLOB | The password, hashed (PBKDF2-SHA256). Never the password itself |
+| `salt` | BLOB | Only without Supabase: random bytes, different for every player, mixed into the hash |
+| `password_hash` | BLOB | Only without Supabase: the password, hashed (PBKDF2-SHA256) |
 | `tag` | TEXT | 8 random letters and digits, made by SQLite. Tells two players with one name apart online |
 | `created_at` | TEXT | When the name was first used (filled in by SQLite) |
 
@@ -97,8 +97,8 @@ LIMIT 5
 
 ### The shared scoreboard (`leaderboard/online.py`)
 
-Optional. When `SUPABASE_URL` and `SUPABASE_KEY` are filled in at the top of `leaderboard/online.py`, finished
-runs are also uploaded to a `scores` table on Supabase (create it with `leaderboard/scores_online.sql`), and
+Optional. When `SUPABASE_URL` and `SUPABASE_KEY` are filled in at the top of `cloud.py`, finished
+runs are also uploaded to a `scores` table on Supabase (create it with `supabase/scores.sql`), and
 the scoreboard shows everyone's best five. Two more local tables back this up:
 
 | Table | What it holds |
@@ -106,12 +106,40 @@ the scoreboard shows everyone's best five. Two more local tables back this up:
 | `pending_scores` | Finished runs not uploaded yet (no connection); sent the next time the server answers |
 | `online_top` | The last top list seen, shown when the server cannot be reached |
 
-Names are unique on one computer, but two computers can each have a "Kru". So every uploaded run
+Names are registered online now (see below), but runs from before that can share a name. So every uploaded run
 carries its player's `tag` (`player_tag` on Supabase). When two different players with one name are
 both in the top five, the first four letters of their tags are shown after the name: `Kru #a3f9`
 and `Kru #07bc`. The tag is random rather than made from the name, because a hash of the name would
 be the same for both "Kru"s. A Supabase table made before tags existed needs the column added once
-(the `alter table` line at the bottom of `scores_online.sql`) before this version of the game uploads.
+(the `alter table` line at the bottom of `supabase/scores.sql`) before this version of the game uploads.
+
+### Accounts online (`accounts.py`)
+
+When Supabase is set up, passwords are not kept in `game.db` at all. A name is registered in a
+`players` table on Supabase (create it with `supabase/accounts.sql`), so it is the same player on
+every computer and nobody else can take it.
+
+| Column | Type | What it holds |
+|---|---|---|
+| `name` | text, **primary key**, unique ignoring capitals | The player's name |
+| `password_hash` | text | The password, hashed with bcrypt on the server |
+| `failed_attempts` | int | Wrong passwords in a row |
+| `locked_until` | timestamptz | Set for a minute after five wrong passwords in a row |
+| `created_at` | timestamptz | When the name was registered |
+
+Row level security is on with no policies, so the table cannot be read or written with the public
+key. The game only calls three database functions, which run with the table owner's rights:
+
+| Function | What it does |
+|---|---|
+| `player_exists(player_name)` | Whether the name is registered |
+| `register_player(player_name, password)` | Registers the name; false if it is taken |
+| `check_password(player_name, password)` | `'ok'`, `'wrong'`, or `'locked'` |
+
+The password itself travels to the server over HTTPS and is never stored anywhere in plain text.
+If the server cannot be reached, the game says so and asks for a name again: a password that cannot
+be checked is not accepted. Without Supabase the local `salt` and `password_hash` columns described
+above are used instead.
 
 ## Two copies of the game at once
 

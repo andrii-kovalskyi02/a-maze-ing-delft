@@ -1,22 +1,14 @@
 """The player's hearts (enabler #108).
 
-The design document gives the player three hearts and then spends them in
-halves: a side quest you run out of time on costs half a heart, a boss costs a
-whole one. So hearts are counted here in **halves, as whole numbers** - three
-hearts is ``6``, not ``3.0``. Nothing in this file is ever a float, which is
-the point: half a heart plus half a heart is exactly one heart, every time, and
-no rounding can ever leave the player on 2.9999 hearts.
-
-What costs and what heals is written down once, in the constants below, so the
-numbers can be balanced by editing this file and nothing else::
+Hearts are spent in halves (a side quest costs half a heart, a boss a whole one), so they are
+counted in **halves, as whole numbers**: three hearts is ``6``. With no floats, rounding can
+never leave the player on 2.9999 hearts. What costs and what heals is in the constants below::
 
     hearts = Health()            # three hearts
     hearts = hearts.lose(BOSS)   # got a boss question wrong
     hearts = hearts.gain(BOSS)   # beat a boss: a full heart back
 
-:class:`Health` is frozen, like everything else in ``models.py``: losing a
-heart gives you a new Health rather than changing the old one, so nothing can
-quietly drain the player's hearts from the other side of the engine.
+:class:`Health` is frozen: losing a heart returns a new Health instead of changing the old one.
 """
 
 from __future__ import annotations

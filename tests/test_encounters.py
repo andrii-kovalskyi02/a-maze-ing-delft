@@ -1,9 +1,7 @@
 """The boss engine (enabler #104) and what a fight costs (#108, E5.2).
 
-Every boss in the design document has a quirk, and E4.3 asks for a test per
-quirk. They are all here, written against made-up bosses rather than against
-anybody's room: a room's questions are its owner's to rewrite, and no test of
-the engine should fail because somebody improved a joke.
+One test per boss behaviour (E4.3), written against made-up bosses so that rewriting a room's
+questions never breaks an engine test.
 """
 
 from __future__ import annotations

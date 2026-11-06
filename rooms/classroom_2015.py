@@ -6,7 +6,6 @@ from models import Area, Boss, Inspectable, Question, Room, says
 from world import register
 
 ROOM = Room(
-    # room ID
     key="classroom_2015",
     name="Classroom 2.015",
     area=Area.RED,
@@ -48,9 +47,6 @@ ROOM = Room(
         ),
     ),
     items=(),
-    #   I still need to make it so that the boss fight starts after inspecting furniture-pile
-    #   Bosstrigger
-    #
     boss=Boss(
         name="The drunk german",
         speaker="german",
@@ -134,4 +130,3 @@ ROOM = Room(
 )
 
 register(ROOM)
-# register(classroom_2015)

@@ -1,9 +1,7 @@
 """The game itself: the player's state and the one main loop (enabler #92).
 
-There is exactly one loop in this project and it is here. Rooms never call
-``input``, never print a menu and never loop; they describe themselves and the
-engine does the rest. That is what lets six people build rooms at the same
-time.
+Rooms never call ``input``, print a menu or loop; they describe themselves and the engine does
+the rest.
 """
 
 from __future__ import annotations
@@ -26,8 +24,7 @@ from models import Item, Room
 #: Where a new game starts (US1a).
 STARTING_ROOM = "classroom_2035"
 
-#: US1a establishes that the player starts on three hearts. How they are spent
-#: is in ``health.py`` (#108); this is the number the story gives them.
+#: The hearts a new game starts with (US1a). How they are spent is in ``health.py``.
 STARTING_HEARTS = 3
 
 #: What the player reads when the last heart goes (#108, E5.3). They are then
@@ -255,9 +252,8 @@ class Game:
     def autosave(self) -> None:
         """Save without stopping, so a digit once found is never lost (#216).
 
-        Checked once per turn rather than wherever a digit is handed out - a
-        boss, an item on the floor, a door - so a room that hands one out a
-        new way is saved the same way without having to remember to.
+        Checked once per turn rather than wherever a digit is handed out, so any new way of
+        handing one out is covered too.
         """
         self.update_elapsed_time()
         persistence.save_game(self)

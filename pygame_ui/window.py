@@ -80,7 +80,7 @@ class TerminalWindow:
             # (0, 0) asks for the screen's own size
             self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         self.width, self.height = self.screen.get_size()
-        pygame.display.set_caption("a-maze-ing-delft")
+        pygame.display.set_caption("After Hours")
 
         # how much bigger or smaller this screen is than the reference one
         self.scale = self.height / REFERENCE_HEIGHT

@@ -7,6 +7,7 @@ import urllib.error
 
 import pytest
 
+import cloud
 import persistence
 from game import Game
 from leaderboard import online, scoreboard
@@ -19,7 +20,7 @@ class FakeServer:
         self.rows: list[dict] = []
         self.up = True
 
-    def __call__(self, method: str, path: str, body: dict | None = None) -> bytes:
+    def __call__(self, method: str, path: str, body: dict | None = None, **_options) -> bytes:
         if not self.up:
             raise urllib.error.URLError("no connection")
         if method == "POST":
@@ -34,9 +35,9 @@ class FakeServer:
 @pytest.fixture
 def server(monkeypatch) -> FakeServer:
     fake = FakeServer()
-    monkeypatch.setattr(online, "SUPABASE_URL", "https://example.supabase.co")
-    monkeypatch.setattr(online, "SUPABASE_KEY", "public-key")
-    monkeypatch.setattr(online, "_send", fake)
+    monkeypatch.setattr(cloud, "SUPABASE_URL", "https://example.supabase.co")
+    monkeypatch.setattr(cloud, "SUPABASE_KEY", "public-key")
+    monkeypatch.setattr(cloud, "send", fake)
     monkeypatch.setattr(online, "sync_in_background", online.sync)  # no threads in tests
     return fake
 

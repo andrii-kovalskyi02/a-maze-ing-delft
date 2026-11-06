@@ -1,36 +1,16 @@
 """The Evil Backpack, talking over the game (enabler #103).
 
-US1c hands the player a backpack with eyes, legs and opinions. From then on it
-is not just where the items live - it is the voice of the game. There is no
-written list of rules in this project any more (#122 closed it): the menu says
-what you can do, and anything the player needs telling *later* is told by this
-character instead of by a document.
+From classroom 2.031 (US1c) on, the backpack is the voice of the game:
 
-Three rules hold the whole thing together:
+1. **Rooms never call it.** The engine reports what happened (an item taken, a door that
+   refused the player again) and the backpack answers or stays quiet.
+2. **It does not exist before classroom 2.031.** :func:`remark` is silent until the player is
+   carrying it.
+3. **It is a character, not a hint system.** It boasts and complains, but never solves a room.
 
-1. **Rooms never call it.** The engine reports what happened - an item taken,
-   a door that refused you again - and the backpack answers or stays quiet.
-   A room author cannot make it talk, and does not have to remember to.
-2. **It does not exist before classroom 2.031.** There is no backpack in the
-   player's hands until they lose to it, so :func:`remark` is silent until
-   they are carrying one. Nothing before that room can lean on it.
-3. **It is a character, not a hint system.** It boasts, complains about being
-   carried, and is smug about its own questions. If the player genuinely
-   cannot work out what to do, that is the menu's fault and belongs in an
-   issue - not in a line here that quietly solves the room for them.
-
-Everything it says is data, in :data:`REMARKS` below. Tuning its voice means
-editing that dictionary and nothing else.
-
-Silence
--------
-
-Every remark has an ``every``: say this on every ``n``-th time it happens.
-That is what keeps it from becoming wallpaper - a backpack that comments on
-all forty items you pick up is one the player stops reading by the third room.
-
-The tests silence it completely (see ``conftest.py``), so no other test
-depends on a line somebody may want to rewrite tomorrow.
+Everything it says is in :data:`REMARKS`. Each remark has an ``every``: it is said on every
+``n``-th time its event happens, so the backpack does not comment on everything. The tests
+silence it (see ``conftest.py``).
 """
 
 from __future__ import annotations

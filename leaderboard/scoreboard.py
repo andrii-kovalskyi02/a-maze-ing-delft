@@ -1,7 +1,7 @@
 """The top 5 players on the 2nd floor (US5, issue #89).
 
 Sorted by how much of the floor they finished, highest first, and then by how
-long they took, fastest first - the order the Project Guide asks for. It is
+long they took, fastest first. It is
 shown when the player walks out of the building, from the Options menu, and
 by typing ``scoreboard`` at any prompt. The runs themselves are stored by
 persistence.py (#121). When the shared scoreboard is set up (leaderboard/online.py), it shows

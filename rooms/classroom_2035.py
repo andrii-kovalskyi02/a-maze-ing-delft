@@ -1,8 +1,5 @@
 """US1a - Classroom 2.035, where the player wakes up (issue #1).
 
-This is the worked example. If you are about to build a room, read this file
-next to ``_template.py``: this is what a finished one looks like.
-
 The three inspectable objects here - the clock, the laptop and the desk - are
 **load-bearing** for the ending, each in a different way. ``memories.py``
 explains which is which and holds their wording, so this room and Project
@@ -25,9 +22,8 @@ if TYPE_CHECKING:  # pragma: no cover - import only needed for type checking
 def wake_up(game: Game) -> None:
     """Run the wake-up sequence, once, the first time the player arrives.
 
-    Most rooms need nothing like this. This one does, because the game has to
-    explain why a student is asleep in a classroom in an empty, silent building, and it
-    is where the player is told how the game is played.
+    It explains why the player is asleep in an empty, silent building, and tells them how the
+    game is played.
     """
     ui.say()
     ui.narrate("Your cheek is stuck to the desk. The whole building is far too quiet.")

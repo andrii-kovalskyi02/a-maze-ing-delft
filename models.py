@@ -1,11 +1,7 @@
 """The data types every room is built from.
 
-A room in this game is *data*, not control flow.  You describe what your room
-is, and the engine decides what happens when the player types something.  That
-is why every type here is a frozen dataclass: once a room is built it cannot be
-changed by accident from somewhere else in the code.
-
-See CONTRIBUTING.md for the step-by-step recipe for adding a room.
+A room is data, not control flow: it says what it contains and the engine decides what
+happens. Every type here is a frozen dataclass, so a room cannot be changed once it is built.
 """
 
 from __future__ import annotations
@@ -66,7 +62,7 @@ type Text = str | tuple[str | float | Unless | Says, ...]
 
 
 def plain(text: Text | None) -> str:
-    """Return ``text`` as one plain string, pauses dropped. Handy in tests."""
+    """Return ``text`` as one plain string, pauses dropped."""
     if text is None:
         return ""
     if isinstance(text, str):
@@ -263,7 +259,7 @@ class Boss:
 
 @dataclass(frozen=True, slots=True)
 class Room:
-    """One room of the building.  This is the building block you fill in.
+    """One room of the building.
 
     Args:
         key: The unique id of the room, e.g. ``"classroom_2035"``.  Other rooms
@@ -293,12 +289,8 @@ class Room:
         is_exit: If True, this is the way out of the building. The engine
             asks for the four-digit code here instead of an item, and walking
             through ends the game - see ``digits.py`` (enabler #116).
-        is_hallway: If True, this room is a corridor/lobby the player is
-            expected to pass through repeatedly, so its door label never
-            grows the "(you have been there)" tag - that tag is only useful
-            for rooms with a story to remember, not a hallway you walk
-            through every trip. Defaults to False, which keeps the normal
-            behaviour of tagging any previously visited room.
+        is_hallway: If True, this room is a corridor or lobby the player passes through
+            often, so its door label never gets the "(you have been there)" tag.
     """
 
     key: str

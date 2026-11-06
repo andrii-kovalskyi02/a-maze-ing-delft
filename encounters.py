@@ -1,13 +1,10 @@
 """Running a boss encounter (enabler #104).
 
-Six rooms, six bosses, six different behaviours - and one engine, because the
-alternative is six copies of this file with small differences nobody can keep
-straight by week 5. Everything that makes a boss *itself* is declared in the
-room, as data on :class:`~models.Boss`, and this file is the only place that
-knows how a fight is actually run:
+Everything that makes a boss different is declared in its room, as data on
+:class:`~models.Boss`; this file is the only place that knows how a fight is run:
 
 =========================== ============================================
-What the design doc asks for How it is declared
+Behaviour                    How it is declared
 =========================== ============================================
 multiple choice, 3 or 4      ``Question(choices=(...))``
 open answer                  ``Question(answers=(...))`` and no choices
@@ -19,15 +16,9 @@ a fight you cannot win       ``Boss(single_attempt=True)`` - US1c
 a side quest, not a boss     ``Boss(side_quest=True)``
 =========================== ============================================
 
-Adding a boss therefore needs no change in here at all. If you find yourself
-wanting one, say so in the issue first - it almost always means a new field
-belongs on ``Boss``, where every other room can use it too.
-
-Hearts (#108) are spent here, because this is where the player can get
-something wrong: a wrong answer or a missed timer costs a whole heart against
-a boss and half a one on a side quest, and beating it gives the same back. A
-scripted loss - the Evil Backpack, who cannot be beaten - costs nothing, since
-losing to him is the story doing what it meant to do.
+Hearts (#108) are spent here: a wrong answer or a missed timer costs a whole heart against a
+boss and half a one on a side quest, and winning gives the same back. A scripted loss (the Evil
+Backpack, who cannot be beaten) costs nothing.
 """
 
 from __future__ import annotations

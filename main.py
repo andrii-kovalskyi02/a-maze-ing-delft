@@ -5,23 +5,26 @@ from __future__ import annotations
 import os
 import tempfile
 
+import accounts
+import cloud
 import persistence
 import profiles
 import rooms  # noqa: F401  (importing rooms registers them)
 import ui
 import world
 from game import Game
-from leaderboard import online
 
 #: Set this to a room key (e.g. ``lab_2001``) to start straight in that room, to try it out.
 START_ROOM_VARIABLE = "AMAZE_START_ROOM"
 
 BANNER = """
 ****************************************************************************
-*                       A-maze-ing Delft - THUAS Delft                     *
+*                         After Hours - THUAS Delft                        *
 *           Something is wrong in here. Find the code. Get out.            *
 ****************************************************************************
 """.strip()
+
+UNREACHABLE = "Could not reach the server to check your password. Check your connection."
 
 
 def ask_name() -> str:
@@ -38,8 +41,11 @@ def ask_name() -> str:
         ui.say(problem)
 
 
-def choose_password(name: str) -> None:
-    """Ask for a new password twice, until it is good and both times match, and keep it."""
+def choose_password(name: str) -> bool:
+    """Ask for a new password twice, until it is good and both times match, and keep it.
+
+    False if somebody else registered ``name`` online in the meantime.
+    """
     while True:
         password = ui.ask_secret("Choose a password: ")
         problem = profiles.check_password(password)
@@ -47,9 +53,11 @@ def choose_password(name: str) -> None:
             ui.say(problem)
         elif ui.ask_secret("Type it again: ") != password:
             ui.say("Those two were not the same. Try again.")
+        elif accounts.set_password(name, password):
+            return True
         else:
-            persistence.set_password(name, password)
-            return
+            ui.say(f"Somebody has just taken the name {name}. Pick another one.")
+            return False
 
 
 def log_in(name: str) -> bool:
@@ -57,14 +65,16 @@ def log_in(name: str) -> bool:
 
     A player from before passwords existed has none yet: they choose one now.
     """
-    if not persistence.has_password(name):
+    if not accounts.has_password(name):
         ui.say(f"{name} has no password yet. Choose one, so nobody else can play as you.")
-        choose_password(name)
-        return True
+        return choose_password(name)
     while True:
-        if persistence.password_matches(name, ui.ask_secret("Password: ")):
-            return True
-        ui.say("Wrong password.")
+        try:
+            if accounts.password_matches(name, ui.ask_secret("Password: ")):
+                return True
+            ui.say("Wrong password.")
+        except accounts.Locked:
+            ui.say("Too many wrong passwords. Wait a minute before trying again.")
         if ui.choose("What now?", ["Try again", "Use a different name"]) != 0:
             return False
 
@@ -90,26 +100,38 @@ def new_player() -> Game:
     """Ask for a name and start that player's game.
 
     Names are unique, so the scoreboard never shows two players with one name. A new name gets a
-    password. A name that is taken - by a save or a score - needs its password, so nobody's save
-    or score is ever taken over.
+    password. A name that is taken - by a save, a score, or online - needs its password, so
+    nobody's save or score is ever taken over.
     """
     while True:
         name = ask_name()
-        if not persistence.player_exists(name):
+        try:
+            game = _sign_in(name)
+        except accounts.Unreachable:
             ui.say()
-            ui.say(f"Welcome, {name}! Choose a password, so nobody else can play as you.")
-            choose_password(name)
-            return new_game(name)
-        saved = persistence.load_game(name)
+            ui.say(UNREACHABLE)
+            continue
+        if game is not None:
+            return game
+
+
+def _sign_in(name: str) -> Game | None:
+    """Register ``name`` or log in as it; return their game, or None to ask for another name."""
+    if not accounts.taken(name):
         ui.say()
-        if saved is None:
-            ui.say(f"The name {name} is already taken.")
-        else:
-            ui.say(f"There is already a saved game for {name}:")
-            ui.say(profiles.describe(saved))
-        is_me = ui.choose("Is that you?", ["Yes, that's me", "No, use a different name"]) == 0
-        if is_me and log_in(name):
-            return new_game(name) if saved is None else resume(saved)
+        ui.say(f"Welcome, {name}! Choose a password, so nobody else can play as you.")
+        return new_game(name) if choose_password(name) else None
+    saved = persistence.load_game(name)
+    ui.say()
+    if saved is None:
+        ui.say(f"The name {name} is already taken.")
+    else:
+        ui.say(f"There is already a saved game for {name}:")
+        ui.say(profiles.describe(saved))
+    is_me = ui.choose("Is that you?", ["Yes, that's me", "No, use a different name"]) == 0
+    if is_me and log_in(name):
+        return new_game(name) if saved is None else resume(saved)
+    return None
 
 
 def pick_player() -> Game:
@@ -122,8 +144,13 @@ def pick_player() -> Game:
     if saves:
         labels = [profiles.describe(game) for game in saves] + ["New player"]
         index = ui.choose("Who is playing?", labels)
-        if index is not None and index < len(saves) and log_in(saves[index].name):
-            return resume(saves[index])
+        if index is not None and index < len(saves):
+            try:
+                if log_in(saves[index].name):
+                    return resume(saves[index])
+            except accounts.Unreachable:
+                ui.say()
+                ui.say(UNREACHABLE)
     return new_player()
 
 
@@ -147,7 +174,7 @@ def developer_start() -> Game | None:
     if os.path.exists(persistence.DATABASE_NAME):
         os.remove(persistence.DATABASE_NAME)
     persistence.create_tables()
-    online.SUPABASE_URL = ""
+    cloud.SUPABASE_URL = ""
     ui.say(f"Developer start in {key}. Nothing from this run is saved or put on the leaderboard.")
     ui.say()
     return Game(player_name="Developer", current=key)

@@ -7,10 +7,7 @@ The list is short on purpose. It is built from what the player has actually
 earned, so the opening room offers only what the story gives them: look
 around, and walk out of the door. The backpack appears once they have one
 (US1c) and the map appears once they have taken the floor plan (US1b).
-
-Looking around leads to interacting with what is in the room - the objects,
-anything worth taking, and whatever is waiting for them - as the design doc
-puts it: `look around -> interact <item, boss>`.
+Looking around leads to interacting with what is in the room: its objects, items and boss.
 """
 
 from __future__ import annotations

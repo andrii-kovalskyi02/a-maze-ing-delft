@@ -23,7 +23,7 @@ def test_an_unlocked_room_needs_nothing() -> None:
 
 
 def test_registering_the_same_key_twice_is_refused() -> None:
-    """A duplicate key would silently hide one teammate's room behind another's."""
+    """A duplicate key would silently hide one room behind another."""
     duplicate = Room(
         key="classroom_2035",
         name="Not really",

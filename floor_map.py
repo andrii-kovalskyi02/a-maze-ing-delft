@@ -1,34 +1,14 @@
 """The map: an ASCII plan of the 2nd floor (issue #120).
 
-The plan is a drawing of the real 2nd floor of THUAS Delft, traced from the
-floor plan in the design document, so a player who knows the building
-recognises it. It is a fixed picture: :data:`PLAN` below *is* the map, and
-anybody can edit it with nothing but a text editor.
+The plan is a drawing of the real 2nd floor of THUAS Delft: :data:`PLAN` below is the map.
+The only thing that changes while playing is that the player's room is shaded, by
+:func:`_shade`: it finds the room's label (from :data:`ON_THE_PLAN`) in the drawing and floods
+outwards until it hits a wall character. Doorways are drawn ``X``, which counts as a wall, so the
+shading never leaks into the next room, and no line or column numbers are needed anywhere.
 
-What the code adds is the one thing that changes while you play: the room the
-player is standing in is shaded. Nothing else is - every other room looks the
-same whether it has been visited, is locked, or has not been built yet. That
-shading is done by :func:`_shade`, which is worth understanding before you
-touch this file:
-
-* It looks up the room's name in :data:`ON_THE_PLAN`, and finds that text in
-  the drawing.
-* From there it spreads outwards square by square - up, down, left, right -
-  and stops at any wall character. A doorway is drawn ``X``, and ``X`` counts
-  as a wall, so the shading can never leak into the room next door.
-
-That is why there are no line and column numbers anywhere in this file. Move a
-room, redraw a wall, add a whole wing: the shading follows the picture,
-because the picture is the only place the layout is written down.
-
-Adding a room to the plan is therefore two steps: draw its box, and add one
-line to :data:`ON_THE_PLAN`. A room that is registered in ``world`` but is not
-on the plan is not a crash - the plan simply says so underneath itself, which
-makes it a to-do list for the team. The other way round is fine and expected:
-the plan shows the whole floor, including rooms nobody has built yet.
-
-Every line is kept inside :data:`ui.WIDTH`, so the plan survives being printed
-through :func:`ui.say`.
+Adding a room to the plan means drawing its box and adding one line to :data:`ON_THE_PLAN`. A
+registered room that is missing from the plan is listed underneath it. Every line fits in
+:data:`ui.WIDTH`, so the plan can be printed with :func:`ui.say`.
 """
 
 from __future__ import annotations
@@ -167,8 +147,7 @@ def _called(key: str) -> str:
 def _shade(sheet: list[list[str]], label: str | None, texture: str) -> None:
     """Fill the room labelled ``label`` with ``texture``.
 
-    Does nothing at all if the room is not on the plan, so a room somebody is
-    still building never breaks the map.
+    Does nothing if the room is not on the plan.
     """
     found = _find(sheet, label)
     if found is None or label is None:
