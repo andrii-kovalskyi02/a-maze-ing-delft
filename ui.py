@@ -72,6 +72,10 @@ _instant = False
 #: True while the window paces the story line by line itself - see :func:`set_flowing`.
 _flowing = False
 
+#: Where the window takes the story's characters one at a time, or None for a terminal -
+#: see :func:`set_typist`.
+_typist: Callable[[str], object] | None = None
+
 #: Swapped out by the tests and the window. Each may be plain or async. Use say/narrate/ask.
 _write: Callable[[str], object] = print
 _read: Callable[[str], object] = input
@@ -268,6 +272,12 @@ async def _type_line(line: str) -> bool:
     Returns:
         True if the player pressed a key to skip the rest of the story.
     """
+    if _typist is not None:  # a window: it types the line out, and skips it, itself
+        for character in line:
+            await _done(_typist(character))
+            await _done(_sleep(CHAR_DELAY * _pace))
+        await _done(_typist("\n"))
+        return False
     if not _at_a_real_terminal():
         # The tests, or output piped into a file: nobody is there to watch.
         await _done(_write(line))
@@ -390,6 +400,15 @@ def set_flowing(flowing: bool) -> None:
     """
     global _flowing
     _flowing = flowing
+
+
+def set_typist(typist: Callable[[str], object] | None) -> None:
+    """Hand the story to a window one character at a time (plain or async), or None for a terminal.
+
+    The window draws each character as it comes; :func:`narrate` waits between them as usual.
+    """
+    global _typist
+    _typist = typist
 
 
 def text_speed() -> str:
@@ -709,8 +728,9 @@ def use_io(
     clock: Callable[[], float] = time.monotonic,
 ) -> None:
     """Replace the input, output, waiting and timing functions; each may be plain or async."""
-    global _write, _read, _sleep, _clock, _held, _flowing, _pace
+    global _write, _read, _sleep, _clock, _held, _flowing, _pace, _typist
     _write, _read, _sleep, _clock = write, read, sleep, clock
+    _typist = None
     _held = 0.0
     _use_speed(_DEFAULT_SPEED)
     _flowing = False
