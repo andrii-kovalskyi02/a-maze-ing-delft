@@ -9,7 +9,6 @@ game_bridge); it only ever waits in the ``wait_*`` methods, and the loop draws m
 from __future__ import annotations
 
 import asyncio
-import ctypes
 import math
 import os
 import re
@@ -18,6 +17,7 @@ import time
 
 import pygame
 
+import browser
 import ui
 from music import Music
 from pygame_ui import assets, game_bridge
@@ -40,7 +40,7 @@ FPS = 60
 
 # the background music: the intro loop on the first screen (while the name is typed), the
 # exploring loop once the game has started, and the boss loop near a boss
-MUSIC_FILES = {"intro": "music_intro.wav", "explore": "music_explore.wav", "boss": "music_boss.wav"}
+MUSIC_FILES = {"intro": "music_intro.ogg", "explore": "music_explore.ogg", "boss": "music_boss.ogg"}
 
 # every size on screen is measured against this screen height and scaled to the real one, so the
 # window has the same proportions on every resolution. 900 is what Pygame reports on the machine
@@ -71,10 +71,13 @@ class TerminalWindow:
         if sys.platform == "win32":
             # with Windows display scaling (125%, 150%, ...) pygame would otherwise be told a
             # shrunken screen size and only fill part of it
+            import ctypes
+
             ctypes.windll.user32.SetProcessDPIAware()
         pygame.init()
-        if os.environ.get("AMAZE_WINDOWED") == "1":
-            # a normal 1280x720 window instead of fullscreen - handy next to an editor, or demos
+        if os.environ.get("AMAZE_WINDOWED") == "1" or browser.IN_BROWSER:
+            # a normal 1280x720 window instead of fullscreen - handy next to an editor, or demos.
+            # In a browser this is the canvas, which the page scales to fit
             self.screen = pygame.display.set_mode((1280, 720))
         else:
             # (0, 0) asks for the screen's own size

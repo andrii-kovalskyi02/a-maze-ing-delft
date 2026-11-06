@@ -62,6 +62,19 @@ pytest                                  # run the test suite
 ruff check . && ruff format --check .   # lint and formatting, the same checks CI runs
 ```
 
+### In a web browser
+
+The same game also runs in the browser, built with [pygbag](https://pygame-web.github.io/):
+
+```bash
+python web/build.py --serve      # build it and play at http://localhost:8000
+python web/build.py              # build only: upload build/web-src/build/web to any static host
+```
+
+In the browser, saves live in the browser's `localStorage`, and accounts and the leaderboard use
+the browser's own `fetch` (see `browser.py`). Add `--offline` to build a version that never talks
+to Supabase.
+
 ### Accounts, the leaderboard and Supabase
 
 Accounts and the shared leaderboard run on [Supabase](https://supabase.com) (hosted Postgres).
@@ -136,6 +149,8 @@ narrator.py      the Evil Backpack, talking over the game
 memories.py      the details the Memory Keeper asks about at the end
 accounts.py      registering a name and checking its password (on Supabase, or locally)
 cloud.py         the connection to Supabase
+browser.py       what is different in a web browser: fetch, and saves kept in localStorage
+web/             the browser build: its start-up file and the build script
 persistence.py   the local SQLite database: saved games and the scoreboard (see SCHEMA.md)
 leaderboard/     the top 5 shown in the game, and the shared online one
 supabase/        the SQL that sets up the Supabase project
