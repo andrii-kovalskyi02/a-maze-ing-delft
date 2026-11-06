@@ -47,6 +47,7 @@ as a worked example.
 ```
 main.py          start the game in the terminal
 main_pygame.py   run the same game inside a Pygame window (music, sounds, pictures)
+pygame_ui/       the Pygame window itself, one module per part (see its __init__.py)
 play_room.py     start in one chosen room, to try it out; nothing is saved
 run_game.bat     Windows: install Pygame if needed and start the window version
 models.py        the data types a room is built from (Room, Item, Boss, ...)
