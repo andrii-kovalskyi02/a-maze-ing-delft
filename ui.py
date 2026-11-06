@@ -1,8 +1,6 @@
 """All screen output and keyboard input goes through here.
 
-Keeping ``print`` and ``input`` in one small module means the tests can play
-the game without a human at the keyboard.  Never call ``print`` or ``input``
-directly from a room.
+Keeping ``print`` and ``input`` in one module lets the tests play the game without a keyboard.
 """
 
 from __future__ import annotations
@@ -18,8 +16,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:  # pragma: no cover - import only needed for type checking
     from models import Text
 
-#: Room descriptions are wrapped to this width so they stay readable, and so
-#: nobody has to hand-wrap the text they write.
+#: Text is wrapped to this many columns.
 WIDTH = 80
 
 #: The typing speeds the player can pick (Options / the pause menu): a name, and the wait after
@@ -120,7 +117,6 @@ class TimedOut(Exception):
 def say(text: str = "") -> None:
     """Show ``text`` to the player, wrapped to :data:`WIDTH` columns.
 
-    Write your room text as one long string; the wrapping happens here.
     Blank lines and leading indentation are preserved.
     """
     for line in _wrap(text):
@@ -341,8 +337,8 @@ def _pressed_a_key() -> bool:
     they pressed is read and thrown away, so it does not turn up later as an
     answer to a menu.
 
-    Both halves are guarded, because the team is on macOS, Linux and Windows,
-    and neither way of peeking exists on all three. If neither works, nothing
+    Both halves are guarded, because neither way of peeking exists on macOS, Linux and Windows
+    alike. If neither works, nothing
     is skipped and the story is simply typed out as before.
     """
     try:

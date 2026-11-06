@@ -1,8 +1,4 @@
-"""The smallest room that keeps the game playable while the foundation lands.
-
-Whoever picks up US1b writes the real text, makes the floor plan a
-forced pickup on the first look around, and adds the key-card gating.
-"""
+"""US1b - the Blue corridor, where the floor plan hangs on the wall."""
 
 from __future__ import annotations
 

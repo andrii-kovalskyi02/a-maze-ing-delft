@@ -1,12 +1,8 @@
 """The item catalogue and what the player is carrying (enabler #100).
 
-This is deliberately *not* called the backpack. The player has no backpack
-when the game starts: they pick one up in classroom 2.031 (US1c), where the
-Evil Backpack becomes their inventory and their narrator. Until then they are
-simply carrying things in their hands.
-
-Rooms refer to items by their key only, so the description of an item lives in
-exactly one place: ``ITEM_CATALOGUE`` below. Add your room's items here.
+It is not called the backpack because the player has none at the start: the Evil Backpack
+becomes their inventory in classroom 2.031 (US1c). Rooms refer to items by key only; every item
+is described once, in ``ITEM_CATALOGUE`` below.
 """
 
 from __future__ import annotations

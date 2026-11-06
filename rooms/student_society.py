@@ -54,7 +54,6 @@ ROOM = Room(
         ),
     ),
     items=(),
-    # Automated kicker table for now, more complex mini-game later on?
     boss=Boss(
         name="The Game Night Host",
         speaker="host",

@@ -12,15 +12,10 @@ yellow LAB 2.001 - the forest boss            US1p
 final  Project room 3 - the Memory Keeper     US1l
 ====== ====================================== ======
 
-A digit is an ordinary :class:`~models.Item` that happens to carry a
-``colour`` and a ``value`` - see ``ITEM_CATALOGUE`` in ``inventory.py``. That
-is the whole trick: picking one up, carrying it and looking at it in the
-backpack all work already, and "you cannot collect the same digit twice" is
-true because the inventory never holds two of anything.
-
-The code itself is not written down anywhere. It is assembled from the digits
-in :data:`ORDER`, so whoever owns a room decides what their digit shows and
-the door follows. Nobody has to keep two numbers in sync.
+A digit is an ordinary :class:`~models.Item` with a ``colour`` and a ``value`` (see
+``ITEM_CATALOGUE`` in ``inventory.py``), so it is picked up and carried like any other item, and
+cannot be collected twice. The code is not written down anywhere: it is assembled from the
+digits in :data:`ORDER`.
 """
 
 from __future__ import annotations

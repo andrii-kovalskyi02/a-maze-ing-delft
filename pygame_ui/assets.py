@@ -13,39 +13,27 @@ import pygame
 
 ASSETS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets")
 
-# background picture per room, keyed by the exact "== Room Name ==" header the game prints when
-# you walk in. A room with no entry here gets a plain black background
+# background picture per room, keyed by the "== Room Name ==" header the game prints on entry.
+# A room with no entry gets a plain black background
 ROOM_IMAGES = {
-    "== classroom.2015 ==": "classroom_2015.png",
-    "== Classroom 2021 ==": "classroom_2021.png",
     "== Classroom 2.015 ==": "classroom_2015.png",
     "== Classroom 2.021 ==": "classroom_2021.png",
-    "== Classroom 2.035 ==": "classroom_2035.png",
     "== Classroom 2.031 ==": "classroom_2031.jpg",
+    "== Classroom 2.035 ==": "classroom_2035.png",
     "== The Blue corridor ==": "corridor_blue.png",
     "== The Red corridor ==": "corridor_red.png",
-    "== LAB2.003 ==": "lab_2003.png",
-    "== LAB 2.003 ==": "lab_2003.png",  # the name the room has now
-    "== Forest room ==": "lab_2001.png",  # lab_2001
-    "== LAB 2.001 ==": "lab_2001.png",  # the name the forest room has now
-    "== Teachers room ==": "teacher_room.png",
-    "== Teachers room 4 ==": "teacher_room.png",
     "== Front Desk Office ==": "front_desk_office.png",
-    "== Storage Room ==": "storage.png",
+    "== LAB 2.001 ==": "lab_2001.png",
+    "== LAB 2.003 ==": "lab_2003.png",
     "== Lobby ==": "lobby.png",
+    "== Project Room 1 ==": "projectroom_1.png",
+    "== Project Room 2 ==": "projectroom_2.png",
+    "== Project Room 3 ==": "projectroom_3.png",
+    "== Storage Room ==": "storage.png",
+    "== Equinox Student Society ==": "student_society.png",
     "== Main Teachers Room ==": "teacher_room.png",
     "== Teachers Room 4 ==": "teacher_room_4.png",
-    "== Project Room 1 ==": "projectroom_1.png",
-    "== Project room 1 ==": "projectroom_1.png",
-    "== Project Room 2 ==": "projectroom_2.png",
-    "== Student society ==": "student_society.png",
-    "== Equinox Student Society ==": "student_society.png",  # the name the room has now
-    "== Project Room 3 ==": "projectroom_3.png",
 }
-
-# the background of the very first screen (the name prompt). It is plain black for now; this is
-# the photo to pass to load_cover() when it comes back
-INTRO_IMAGE = "intro.jpg"
 
 
 def path(*parts: str) -> str:
