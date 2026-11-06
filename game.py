@@ -232,7 +232,7 @@ class Game:
         persistence.record_score(self.name, percent, self.elapsed_time)
         if online.enabled():
             await ui.say("Your time is going on the shared leaderboard.")
-        online.submit(self.name, percent, self.elapsed_time)
+        await online.submit(self.name, percent, self.elapsed_time)
         persistence.delete_save(self.player_name)
         await scoreboard.show()
         self.running = False

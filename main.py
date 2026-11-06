@@ -54,7 +54,7 @@ async def choose_password(name: str) -> bool:
             await ui.say(problem)
         elif await ui.ask_secret("Type it again: ") != password:
             await ui.say("Those two were not the same. Try again.")
-        elif accounts.set_password(name, password):
+        elif await accounts.set_password(name, password):
             return True
         else:
             await ui.say(f"Somebody has just taken the name {name}. Pick another one.")
@@ -66,12 +66,12 @@ async def log_in(name: str) -> bool:
 
     A player from before passwords existed has none yet: they choose one now.
     """
-    if not accounts.has_password(name):
+    if not await accounts.has_password(name):
         await ui.say(f"{name} has no password yet. Choose one, so nobody else can play as you.")
         return await choose_password(name)
     while True:
         try:
-            if accounts.password_matches(name, await ui.ask_secret("Password: ")):
+            if await accounts.password_matches(name, await ui.ask_secret("Password: ")):
                 return True
             await ui.say("Wrong password.")
         except accounts.Locked:
@@ -118,7 +118,7 @@ async def new_player() -> Game:
 
 async def _sign_in(name: str) -> Game | None:
     """Register ``name`` or log in as it; return their game, or None to ask for another name."""
-    if not accounts.taken(name):
+    if not await accounts.taken(name):
         await ui.say()
         await ui.say(f"Welcome, {name}! Choose a password, so nobody else can play as you.")
         return await new_game(name) if await choose_password(name) else None

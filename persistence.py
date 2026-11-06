@@ -21,6 +21,8 @@ import sqlite3
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
+import browser
+
 if TYPE_CHECKING:
     from game import Game
 
@@ -70,18 +72,26 @@ def connect() -> Iterator[sqlite3.Connection]:
 
     When the block ends the changes are saved (committed), or thrown away if it ended with an
     error, and the file is closed either way. Python's own ``with sqlite3.connect(...)`` commits
-    but never closes, which is why this is here.
+    but never closes, which is why this is here. In a web browser a changed file is also copied
+    somewhere it lasts (see ``browser.py``).
     """
     connection = sqlite3.connect(DATABASE_NAME, timeout=BUSY_TIMEOUT)
     try:
         with connection:  # commits, or rolls back after an error
             yield connection
+        changed = connection.total_changes > 0
     finally:
         connection.close()
+    if changed:
+        browser.keep_file(DATABASE_NAME)
 
 
 def create_tables() -> None:
-    """Create the players, save and scoreboard tables if they do not exist."""
+    """Create the players, save and scoreboard tables if they do not exist.
+
+    In a web browser this first brings back the database from the last visit.
+    """
+    browser.restore_file(DATABASE_NAME)
     with connect() as connection:
         # salt and password_hash are empty for a player from before passwords existed. tag is
         # 8 random letters and digits, made by SQLite for every new player: it tells two players

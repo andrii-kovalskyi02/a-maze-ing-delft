@@ -26,7 +26,7 @@ class FakeAccounts:
         self.wrong_in_a_row = 0
         self.up = True
 
-    def __call__(self, method: str, path: str, body: dict | None = None, **_options) -> bytes:
+    async def __call__(self, method: str, path: str, body: dict | None = None, **_options) -> bytes:
         if not self.up:
             raise urllib.error.URLError("no connection")
         assert method == "POST" and body is not None
@@ -105,4 +105,4 @@ def test_a_password_that_cannot_be_checked_is_not_accepted(console, server) -> N
 def test_an_unreachable_server_is_reported_not_raised(server) -> None:
     server.up = False
     with pytest.raises(accounts.Unreachable):
-        accounts.password_matches("Krug", PASSWORD)
+        asyncio.run(accounts.password_matches("Krug", PASSWORD))
