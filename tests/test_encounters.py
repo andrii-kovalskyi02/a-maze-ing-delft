@@ -6,6 +6,7 @@ questions never breaks an engine test.
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 
 import pytest
@@ -36,21 +37,21 @@ def boss(**changes) -> Boss:
 
 def test_a_boss_tells_its_intro_once(console) -> None:
     console.script("2")
-    encounters.run(Game(), boss())
+    asyncio.run(encounters.run(Game(), boss()))
     assert console.output.count("it looks at you.") == 1
 
 
 def test_an_open_question_ignores_case_and_spacing(console) -> None:
     """E4.1: the one place the player types words must not be picky about them."""
     console.script("  TWO ")
-    assert encounters.run(Game(), boss(questions=(Question("1 + 1?", ("two",)),)))
+    assert asyncio.run(encounters.run(Game(), boss(questions=(Question("1 + 1?", ("two",)),))))
 
 
 def test_a_multiple_choice_question_is_answered_with_a_number(console) -> None:
     """E4.1: 3 or 4 options, picked by number like everything else."""
     question = Question("Colour?", ("blue",), choices=("red", "blue", "green", "grey"))
     console.script("2")
-    assert encounters.run(Game(), boss(questions=(question,)))
+    assert asyncio.run(encounters.run(Game(), boss(questions=(question,))))
 
 
 def test_a_question_with_no_right_answer_cannot_be_won(console) -> None:
@@ -58,14 +59,14 @@ def test_a_question_with_no_right_answer_cannot_be_won(console) -> None:
     question = Question("What is the deep state of ↸∷ᒷᔑᒲ?", answers=())
     console.script("anything at all")
     with pytest.raises(health.OutOfHearts):
-        encounters.run(Game(hearts=Health(health.BOSS)), boss(questions=(question,)))
+        asyncio.run(encounters.run(Game(hearts=Health(health.BOSS)), boss(questions=(question,))))
 
 
 def test_an_untimed_question_can_be_thought_about_for_as_long_as_you_like(console) -> None:
     """US1c: the Evil Backpack's questions have no clock on them."""
     console.script("2")
     console.take_seconds(600)
-    assert encounters.run(Game(), boss())
+    assert asyncio.run(encounters.run(Game(), boss()))
 
 
 def test_a_timed_question_is_lost_by_being_slow(console) -> None:
@@ -75,7 +76,7 @@ def test_a_timed_question_is_lost_by_being_slow(console) -> None:
     console.take_seconds(11)
 
     with pytest.raises(health.OutOfHearts):
-        encounters.run(Game(hearts=Health(health.BOSS)), boss(questions=(question,)))
+        asyncio.run(encounters.run(Game(hearts=Health(health.BOSS)), boss(questions=(question,))))
     assert encounters.TOO_SLOW.casefold() in console.output
 
 
@@ -83,14 +84,14 @@ def test_a_timed_question_is_won_by_being_quick(console) -> None:
     question = typing_attack("photosynthesis", seconds=10)
     console.script("photosynthesis")
     console.take_seconds(9)
-    assert encounters.run(Game(), boss(questions=(question,)))
+    assert asyncio.run(encounters.run(Game(), boss(questions=(question,))))
 
 
 def test_a_wrong_answer_to_a_boss_costs_a_whole_heart(console) -> None:
     """E5.2: the penalty the design document gives for a boss."""
     game = Game()
     console.script("wrong", "2")
-    assert encounters.run(game, boss())
+    assert asyncio.run(encounters.run(game, boss()))
     assert f"hearts: {Health().lose(health.BOSS)}".casefold() in console.output
 
 
@@ -98,7 +99,7 @@ def test_a_wrong_answer_to_a_side_quest_costs_half_a_heart(console) -> None:
     """E5.2: a side quest is worth half of what a boss is."""
     game = Game()
     console.script("wrong", "2")
-    assert encounters.run(game, boss(side_quest=True))
+    assert asyncio.run(encounters.run(game, boss(side_quest=True)))
     assert f"hearts: {Health().lose(health.SIDE_QUEST)}".casefold() in console.output
 
 
@@ -108,7 +109,7 @@ def test_running_out_of_time_costs_the_same_as_getting_it_wrong(console) -> None
     console.script("photosynthesis")
     console.take_seconds(30)
     with pytest.raises(health.OutOfHearts):
-        encounters.run(game, boss(questions=(typing_attack("photosynthesis", 5),)))
+        asyncio.run(encounters.run(game, boss(questions=(typing_attack("photosynthesis", 5),))))
 
 
 def test_being_cut_off_by_the_clock_costs_the_same_as_getting_it_wrong(
@@ -122,7 +123,7 @@ def test_being_cut_off_by_the_clock_costs_the_same_as_getting_it_wrong(
     monkeypatch.setattr(ui, "ask", clock_runs_out)
     game = Game(hearts=Health(health.BOSS))
     with pytest.raises(health.OutOfHearts):
-        encounters.run(game, boss(questions=(typing_attack("photosynthesis", 5),)))
+        asyncio.run(encounters.run(game, boss(questions=(typing_attack("photosynthesis", 5),))))
     assert encounters.TOO_SLOW.casefold() in console.output
 
 
@@ -132,7 +133,7 @@ def test_quit_can_be_typed_in_the_middle_of_a_fight(console) -> None:
     ui.set_quit_handler(commands.confirm_quit)
     try:
         with pytest.raises(ui.QuitRequested):
-            encounters.run(Game(), boss())
+            asyncio.run(encounters.run(Game(), boss()))
     finally:
         ui.set_quit_handler(None)
 
@@ -141,12 +142,12 @@ def test_beating_a_boss_gives_a_heart_back(console) -> None:
     """E5.2: a full heart for a boss, half for a side quest, capped at three."""
     game = Game(hearts=Health(2))
     console.script("2")
-    assert encounters.run(game, boss())
+    assert asyncio.run(encounters.run(game, boss()))
     assert game.hearts == Health(2).gain(health.BOSS)
 
     game = Game(hearts=Health(2))
     console.script("2")
-    assert encounters.run(game, boss(side_quest=True))
+    assert asyncio.run(encounters.run(game, boss(side_quest=True)))
     assert game.hearts == Health(2).gain(health.SIDE_QUEST)
 
 
@@ -159,7 +160,7 @@ def test_a_fight_the_story_means_you_to_lose_costs_nothing(console) -> None:
         single_attempt=True,
         lose_reward="backpack",
     )
-    assert not encounters.run(game, unwinnable)
+    assert not asyncio.run(encounters.run(game, unwinnable))
     assert game.hearts == Health()
     assert "backpack" in game.carrying
 
@@ -167,7 +168,7 @@ def test_a_fight_the_story_means_you_to_lose_costs_nothing(console) -> None:
 def test_hearts_are_shown_before_the_fight_starts(console) -> None:
     """#108: the player sees what they are risking before they risk it."""
     console.script("2")
-    encounters.run(Game(), boss())
+    asyncio.run(encounters.run(Game(), boss()))
     assert f"hearts: {Health()}".casefold() in console.output
 
 
@@ -176,7 +177,7 @@ def test_losing_the_last_heart_stops_the_fight_there_and_then(console) -> None:
     game = Game(hearts=Health(health.BOSS))
     console.script("wrong")
     with pytest.raises(health.OutOfHearts):
-        encounters.run(game, boss())
+        asyncio.run(encounters.run(game, boss()))
     assert game.hearts.is_empty
     assert "you lose." in console.output
 
@@ -186,14 +187,14 @@ def test_a_run_with_hearts_left_carries_on(console) -> None:
     game = Game()
     console.script("wrong")
     with pytest.raises(EOFError):  # it asks the same question again: nobody left to answer
-        encounters.run(game, boss())
+        asyncio.run(encounters.run(game, boss()))
     assert not game.hearts.is_empty
 
 
 def test_a_wrong_answer_asks_the_same_question_again(console) -> None:
     questions = (Question("1 + 1?", ("2",)), Question("2 + 2?", ("4",)))
     console.script("2", "wrong", "4")
-    assert encounters.run(Game(), boss(questions=questions))
+    assert asyncio.run(encounters.run(Game(), boss(questions=questions)))
     assert console.output.count("question 2 of 2") == 2
     assert encounters.TRY_AGAIN.casefold() in console.output
 
@@ -219,7 +220,7 @@ def test_running_out_of_hearts_with_no_save_starts_the_game_over(console, monkey
     game.carrying.add("brass_key")
 
     console.script("1", "1", "wrong")  # look around, get closer, answer wrong
-    game.run()
+    asyncio.run(game.run())
 
     assert "last heart" in console.output
     assert "waking up again" in console.output
@@ -239,7 +240,7 @@ def test_running_out_of_hearts_goes_back_to_the_save_on_full_hearts(console, mon
     game = Game(player_name="Tester", current=arena.key, hearts=Health(health.BOSS))
     game.carrying.add("brass_key")  # picked up after the save: lost with the death
     console.script("1", "1", "wrong")
-    game.run()
+    asyncio.run(game.run())
 
     assert "last heart" in console.output
     assert game.current == "classroom_2035"
@@ -256,7 +257,7 @@ def test_pausing_mid_question_resumes_on_that_question(console, monkeypatch) -> 
     monkeypatch.setitem(world._ROOMS, arena.key, replace(arena, boss=boss(questions=questions)))
     game = Game(player_name="Tester", current=arena.key)
     console.script("1", "1", "2", "pause")  # look around, get closer, answer 1, pause at 2
-    game.run()
+    asyncio.run(game.run())
 
     saved = persistence.load_game("Tester")
     assert saved is not None and saved.in_question == 1
@@ -264,7 +265,7 @@ def test_pausing_mid_question_resumes_on_that_question(console, monkeypatch) -> 
     console.lines.clear()
     console.script("4")  # straight back to question 2: no menu, no intro
     saved.resumed = True
-    saved.run()
+    asyncio.run(saved.run())
     assert "question 1 of 2" not in console.output
     assert "question 2 of 2" in console.output
     assert "it looks at you." not in console.output
@@ -282,7 +283,7 @@ def test_a_digit_won_in_a_resumed_fight_is_saved(console, monkeypatch) -> None:
 
     console.script("4")  # back on question 2, answered right: the digit is handed over
     game.resumed = True
-    game.run()
+    asyncio.run(game.run())
 
     saved = persistence.load_game("Tester")
     assert saved is not None

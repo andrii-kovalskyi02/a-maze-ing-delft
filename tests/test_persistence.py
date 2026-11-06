@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 import persistence
@@ -89,7 +91,7 @@ def test_picking_up_a_digit_saves_the_game(console, monkeypatch) -> None:
     """#216: a digit, once found, survives a crash or a closed window."""
     game = _game_in_a_room_holding("digit_4", monkeypatch)
     console.script("1", "1")  # look around, take it
-    game.turn()
+    asyncio.run(game.turn())
 
     loaded = persistence.load_game("Tester")
     assert loaded is not None
@@ -101,7 +103,7 @@ def test_picking_up_anything_else_does_not_save(console, monkeypatch) -> None:
     """#216: only a digit is worth an autosave; the rest waits for "pause"."""
     game = _game_in_a_room_holding("brass_key", monkeypatch)
     console.script("1", "1")
-    game.turn()
+    asyncio.run(game.turn())
 
     assert persistence.load_game("Tester") is None
 

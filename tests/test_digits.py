@@ -6,6 +6,8 @@ the room owner's business, and these tests keep working while they decide.
 
 from __future__ import annotations
 
+import asyncio
+
 import commands
 import digits
 import rooms  # noqa: F401  (importing rooms registers them)
@@ -75,7 +77,7 @@ def test_the_exit_stays_shut_until_the_code_is_complete(console) -> None:
     game = Game(current="corridor_blue")
     door = world.get("stair_exit")
 
-    assert not commands._code_opens_the_exit(game, door)
+    assert not asyncio.run(commands._code_opens_the_exit(game, door))
     assert "still missing" in console.output
 
 
@@ -84,9 +86,9 @@ def test_the_complete_code_opens_the_exit_and_ends_the_game(console) -> None:
     game = carrying_everything()
     door = world.get("stair_exit")
 
-    assert commands._code_opens_the_exit(game, door)
-    game.move_to(door.key)
-    game.finish()
+    assert asyncio.run(commands._code_opens_the_exit(game, door))
+    asyncio.run(game.move_to(door.key))
+    asyncio.run(game.finish())
 
     assert not game.running
     assert "out of the building" in console.output

@@ -118,7 +118,7 @@ def speak_up() -> None:
     _enabled = True
 
 
-def remark(game: Game, event: str, **about: str) -> None:
+async def remark(game: Game, event: str, **about: str) -> None:
     """Let the backpack say something about ``event``, if it feels like it.
 
     Called by the engine when something happens to the player. Does nothing
@@ -146,6 +146,6 @@ def remark(game: Game, event: str, **about: str) -> None:
     # never hears the same complaint twice running.
     spoken = times // remark_for_event.every - 1
     line = remark_for_event.lines[spoken % len(remark_for_event.lines)]
-    ui.say()
+    await ui.say()
     with ui.speaking(BACKPACK, remark_for_event.mood):
-        ui.narrate(line.format(**about))
+        await ui.narrate(line.format(**about))

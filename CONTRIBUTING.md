@@ -100,12 +100,13 @@ for it anywhere but `narrator.py`.
 
 Two escape hatches exist for the rare case:
 
-- `on_first_enter=<function>` - runs once when the player first walks in.
+- `on_first_enter=<async function>` - runs once when the player first walks in.
   `classroom_2035.py` uses it for the wake-up scene.
 - `Boss(...)` - a challenge with questions. Declared as data; the engine runs it.
 
-To print from either of those, use `ui.say(...)`, never `print(...)`. That is
-what lets the tests play your room without a human at the keyboard.
+To print from either of those, use `await ui.say(...)` or `await ui.narrate(...)`, never
+`print(...)`. That is what lets the tests play your room without a human at the keyboard, and the
+game keep drawing (in the window or a browser) while it waits for the player.
 
 ## What the engine gives you
 

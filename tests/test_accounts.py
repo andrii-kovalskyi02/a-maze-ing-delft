@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import sqlite3
 import urllib.error
@@ -56,7 +57,7 @@ def server(monkeypatch) -> FakeAccounts:
 
 def test_a_new_name_is_registered_online_and_nothing_is_kept_here(console, server) -> None:
     console.script("Kru", PASSWORD, PASSWORD, "quit", "1")
-    main.main()
+    asyncio.run(main.main())
     assert server.passwords == {"kru": PASSWORD}
     connection = sqlite3.connect(persistence.DATABASE_NAME)
     stored = connection.execute("SELECT password_hash FROM players").fetchall()
@@ -67,7 +68,7 @@ def test_a_new_name_is_registered_online_and_nothing_is_kept_here(console, serve
 def test_a_name_registered_on_another_computer_needs_its_password(console, server) -> None:
     server.passwords["kru"] = PASSWORD
     console.script("Kru", "1", "wrong", "1", PASSWORD, "quit", "1")
-    main.main()
+    asyncio.run(main.main())
     assert "already taken" in console.output
     assert "wrong password." in console.output
     assert "starting a new game." in console.output
@@ -77,7 +78,7 @@ def test_a_save_is_resumed_once_the_server_says_the_password_is_right(console, s
     server.passwords["krug"] = PASSWORD
     persistence.save_game(Game(player_name="Krug", current="student_society"))
     console.script("1", PASSWORD, "quit", "1")
-    main.main()
+    asyncio.run(main.main())
     assert "welcome back, krug!" in console.output
 
 
@@ -87,7 +88,7 @@ def test_too_many_wrong_passwords_lock_the_name(console, server) -> None:
     persistence.save_game(Game(player_name="Krug", current="student_society"))
     console.script("1", PASSWORD, "2")  # then a different name: the script ends there
     with pytest.raises(EOFError):
-        main.main()
+        asyncio.run(main.main())
     assert "wait a minute" in console.output
     assert "welcome back" not in console.output
 
@@ -96,7 +97,7 @@ def test_a_password_that_cannot_be_checked_is_not_accepted(console, server) -> N
     server.up = False
     console.script("Kru")  # then the name is asked for again: the script ends there
     with pytest.raises(EOFError):
-        main.main()
+        asyncio.run(main.main())
     assert main.UNREACHABLE.lower() in console.output
     assert "starting a new game." not in console.output
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 
@@ -119,7 +120,7 @@ def test_the_scoreboard_shows_everyone_when_online_and_this_computer_when_not(se
 
 def test_walking_out_of_the_building_uploads_the_run(console, server) -> None:
     game = Game(player_name="Krug")
-    game.finish()
+    asyncio.run(game.finish())
     assert [row["name"] for row in server.rows] == ["Krug"]
     assert "shared leaderboard" in console.output.lower()
     assert "leaderboard - top 5" in console.output.lower()

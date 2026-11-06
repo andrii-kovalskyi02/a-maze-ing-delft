@@ -42,8 +42,8 @@ def lines() -> list[str]:
     return result
 
 
-def show(game: Game | None = None) -> None:
+async def show(game: Game | None = None) -> None:
     """Print the scoreboard. ``game`` is unused; it lets the menu call this."""
-    ui.say()
+    await ui.say()
     for line in lines():
-        ui.say(line)
+        await ui.say(line)

@@ -134,51 +134,51 @@ class Game:
             get_item(key) for key in self.room.items if (self.current, key) not in self.taken
         )
 
-    def take(self, key: str) -> Item:
+    async def take(self, key: str) -> Item:
         """Move the item ``key`` from this room into what the player carries."""
         self.taken.add((self.current, key))
         item = self.carrying.add(key)
-        narrator.remark(self, "took", what=item.name)
+        await narrator.remark(self, "took", what=item.name)
         return item
 
-    def move_to(self, key: str) -> None:
+    async def move_to(self, key: str) -> None:
         """Walk into the room ``key`` and let it introduce itself."""
         self.current = key
         self.looked_around = False
-        self.enter()
+        await self.enter()
 
-    def enter(self) -> None:
+    async def enter(self) -> None:
         """Print the current room, and run whatever happens on arrival."""
         room = self.room
         first_time = room.key not in self.visited
         self.visited.add(room.key)
 
-        ui.say()
-        ui.say(f"== {room.name} ==")
+        await ui.say()
+        await ui.say(f"== {room.name} ==")
         if self.resumed:
             self.resumed = False
             if narrator.BACKPACK in self.carrying:
-                self._greet_back(room)
+                await self._greet_back(room)
                 return
         if first_time:
-            ui.narrate(room.description)
-        elif room.return_description is not None:
-            ui.narrate(room.return_description)  # a room with nothing to say again says nothing
+            await ui.narrate(room.description)
+        elif room.return_description is not None:  # a room with nothing to say again says nothing
+            await ui.narrate(room.return_description)
         if not first_time:
-            ui.say("You have been here before.")
+            await ui.say("You have been here before.")
             if not room.is_hallway:
-                narrator.remark(self, "backtrack")
+                await narrator.remark(self, "backtrack")
 
         if first_time and room.on_first_enter is not None:
-            room.on_first_enter(self)
+            await room.on_first_enter(self)
 
-    def _greet_back(self, room: Room) -> None:
+    async def _greet_back(self, room: Room) -> None:
         """The backpack welcomes the player back to the room they saved in."""
         place = room.name
         if place.startswith("The "):
             place = "the " + place[4:]  # "in the Blue corridor", not "in The Blue corridor"
         with ui.speaking(narrator.BACKPACK, "speaking"):
-            ui.narrate(f'"Right where you left off... in {place}."')
+            await ui.narrate(f'"Right where you left off... in {place}."')
 
     def update_elapsed_time(self) -> None:
         """Add the current session duration to the total play time."""
@@ -216,7 +216,7 @@ class Game:
         self.save()
         self.running = False
 
-    def finish(self) -> None:
+    async def finish(self) -> None:
         """End the game: the player has walked out of the building (US1e).
 
         Shows the final status so the player sees how much of the floor they
@@ -224,32 +224,32 @@ class Game:
         shows it (US5). The save is removed, so a finished run cannot be resumed and finished
         again.
         """
-        ui.say()
-        ui.say("You are out of the building. Fresh air, at last.")
-        commands.do_status(self)
+        await ui.say()
+        await ui.say("You are out of the building. Fresh air, at last.")
+        await commands.do_status(self)
         self.update_elapsed_time()
         percent = progress.percent_explored(self)
         persistence.record_score(self.name, percent, self.elapsed_time)
         if online.enabled():
-            ui.say("Your time is going on the shared leaderboard.")
+            await ui.say("Your time is going on the shared leaderboard.")
         online.submit(self.name, percent, self.elapsed_time)
         persistence.delete_save(self.player_name)
-        scoreboard.show()
+        await scoreboard.show()
         self.running = False
 
-    def turn(self) -> None:
+    async def turn(self) -> None:
         """Offer the menu once, and carry out whatever the player picks."""
         digits_before = len(digits.carried(self))
         if self.in_question is not None:
-            commands.back_into_the_fight(self)  # saved mid-question: straight back to it
+            await commands.back_into_the_fight(self)  # saved mid-question: straight back to it
         else:
             menu = commands.build_menu(self)
-            chosen = ui.choose("What do you do?", [item.label for item in menu])
-            menu[chosen].action(self)
+            chosen = await ui.choose("What do you do?", [item.label for item in menu])
+            await menu[chosen].action(self)
         if self.running and len(digits.carried(self)) > digits_before:
-            self.autosave()
+            await self.autosave()
 
-    def autosave(self) -> None:
+    async def autosave(self) -> None:
         """Save without stopping, so a digit once found is never lost (#216).
 
         Checked once per turn rather than wherever a digit is handed out, so any new way of
@@ -257,10 +257,10 @@ class Game:
         """
         self.update_elapsed_time()
         persistence.save_game(self)
-        ui.say()
-        ui.say("Digit found - your progress has been saved.")
+        await ui.say()
+        await ui.say("Digit found - your progress has been saved.")
 
-    def collapse(self) -> None:
+    async def collapse(self) -> None:
         """The last heart has gone (#108, E5.3, #217).
 
         Called by the main loop the moment :class:`~health.OutOfHearts` is
@@ -268,8 +268,8 @@ class Game:
         are sent back to it on full hearts, so dying costs the progress since
         then rather than the whole run. Without one, they start the game over.
         """
-        ui.say()
-        ui.narrate(OUT_OF_HEARTS)
+        await ui.say()
+        await ui.narrate(OUT_OF_HEARTS)
         saved = persistence.load_game(self.player_name) if self.player_name else None
         woke_up_to = BACK_AT_THE_SAVE
         if saved is None:
@@ -283,17 +283,17 @@ class Game:
         self.update_elapsed_time()
         if self.player_name:
             persistence.save_game(self)
-        ui.say()
-        ui.narrate(woke_up_to)
-        self.enter()
+        await ui.say()
+        await ui.narrate(woke_up_to)
+        await self.enter()
 
-    def quit(self) -> None:
+    async def quit(self) -> None:
         """End the run without saving it (US2)."""
-        ui.say()
-        ui.say("You step away from the building. Game over.")
+        await ui.say()
+        await ui.say("You step away from the building. Game over.")
         self.running = False
 
-    def run(self) -> None:
+    async def run(self) -> None:
         """Play until the player quits, pauses, or until there is no more input."""
         ui.set_pause_handler(self.pause)
         ui.set_quit_handler(commands.confirm_quit)
@@ -303,23 +303,23 @@ class Game:
         ui.set_save_handler(self.save)
 
         try:
-            ui.say(HOW_TO_PLAY)
-            self.enter()
+            await ui.say(HOW_TO_PLAY)
+            await self.enter()
 
             while self.running:
                 try:
-                    self.turn()
+                    await self.turn()
                 except ui.PauseRequested:
-                    ui.say()
-                    ui.say("Game saved. See you next time!")
+                    await ui.say()
+                    await ui.say("Game saved. See you next time!")
                     self.running = False
                 except ui.QuitRequested:
-                    self.quit()
+                    await self.quit()
                 except OutOfHearts:
-                    self.collapse()
+                    await self.collapse()
                 except EOFError:
-                    ui.say()
-                    ui.say("There is nobody at the keyboard any more. Game over.")
+                    await ui.say()
+                    await ui.say("There is nobody at the keyboard any more. Game over.")
                     self.running = False
         finally:
             ui.set_pause_handler(None)

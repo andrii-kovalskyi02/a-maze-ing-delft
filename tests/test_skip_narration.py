@@ -7,6 +7,8 @@ the typing off for good.
 
 from __future__ import annotations
 
+import asyncio
+
 import commands
 import ui
 from game import Game
@@ -15,7 +17,7 @@ from game import Game
 def test_the_story_is_typed_out_by_default(console) -> None:
     """Nothing about the first run changes."""
     assert not ui.is_instant()
-    ui.narrate(("First.", 2.0, "Second."))
+    asyncio.run(ui.narrate(("First.", 2.0, "Second.")))
     assert console.lines == ["First.", "Second."]
     assert console.pauses == [2.0]
 
@@ -23,7 +25,7 @@ def test_the_story_is_typed_out_by_default(console) -> None:
 def test_instant_text_drops_every_pause(console) -> None:
     """A player who has read it all still gets every word - just at once."""
     ui.set_instant(True)
-    ui.narrate(("First.", 2.0, "Second."))
+    asyncio.run(ui.narrate(("First.", 2.0, "Second.")))
     assert console.lines == ["First.", "Second."]
     assert console.pauses == []
 
@@ -31,7 +33,7 @@ def test_instant_text_drops_every_pause(console) -> None:
 def test_instant_text_still_wraps(console) -> None:
     """Skipping the animation is not an excuse to print a 500-column line."""
     ui.set_instant(True)
-    ui.narrate("word " * 40)
+    asyncio.run(ui.narrate("word " * 40))
     assert all(len(line) <= ui.WIDTH for line in console.output.split("\n"))
 
 
@@ -40,11 +42,11 @@ def test_the_options_menu_turns_the_typing_off_and_on(console) -> None:
     game = Game()
 
     assert "instantly" in commands._text_speed_label()
-    commands.do_text_speed(game)
+    asyncio.run(commands.do_text_speed(game))
     assert ui.is_instant()
 
     assert "Type the story out" in commands._text_speed_label()
-    commands.do_text_speed(game)
+    asyncio.run(commands.do_text_speed(game))
     assert not ui.is_instant()
 
 
@@ -62,7 +64,7 @@ def test_a_key_press_dumps_the_rest_of_the_text(console, monkeypatch) -> None:
     # to be the path under test - see pretend_somebody_is_watching.
     written = pretend_somebody_is_watching(monkeypatch)
 
-    ui.narrate(("Skip me.", 5.0, "And me."))
+    asyncio.run(ui.narrate(("Skip me.", 5.0, "And me.")))
 
     # The line being typed finishes in one go, at the press...
     assert "".join(written) == "Skip me.\n"
@@ -87,7 +89,7 @@ def test_the_story_is_typed_a_character_at_a_time(console, monkeypatch) -> None:
     monkeypatch.setattr(ui, "_pressed_a_key", lambda: False)
     written = pretend_somebody_is_watching(monkeypatch)
 
-    ui.narrate("Hi.")
+    asyncio.run(ui.narrate("Hi."))
 
     assert written == ["H", "i", ".", "\n"]
 

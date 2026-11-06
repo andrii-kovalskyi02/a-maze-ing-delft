@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 import rooms  # noqa: F401  (importing rooms registers them)
@@ -34,5 +36,5 @@ def test_without_text_look_around_still_offers_what_is_there(console, monkeypatc
     assert "Look around" in [item.label for item in build_menu(game)]
 
     console.script("1", "0")
-    do_look_around(game)
+    asyncio.run(do_look_around(game))
     assert "notice poster" in console.output

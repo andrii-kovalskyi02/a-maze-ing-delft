@@ -7,6 +7,8 @@ silences the backpack for every other test, so this file turns it back on.
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 import commands
@@ -35,13 +37,13 @@ def test_it_says_nothing_before_classroom_2031(console) -> None:
     """#103: there is no backpack yet, so there is nobody to say anything."""
     game = Game()
     for _ in range(10):
-        narrator.remark(game, "hurt", who="somebody")
+        asyncio.run(narrator.remark(game, "hurt", who="somebody"))
     assert console.lines == []
 
 
 def test_it_speaks_once_it_is_being_carried(console) -> None:
     game = carrying_the_backpack()
-    narrator.remark(game, "hurt", who="the Test Boss")
+    asyncio.run(narrator.remark(game, "hurt", who="the Test Boss"))
     assert console.lines
 
 
@@ -52,10 +54,10 @@ def test_it_keeps_quiet_most_of_the_time(console) -> None:
     assert every > 1, "the point of 'took' is that it is not every time"
 
     for _ in range(every - 1):
-        narrator.remark(game, "took", what="a thing")
+        asyncio.run(narrator.remark(game, "took", what="a thing"))
     assert console.lines == []
 
-    narrator.remark(game, "took", what="a thing")
+    asyncio.run(narrator.remark(game, "took", what="a thing"))
     assert console.lines
 
 
@@ -65,7 +67,7 @@ def test_it_does_not_repeat_itself(console) -> None:
     said = []
     for _ in range(len(REMARKS["hurt"].lines)):
         console.lines.clear()
-        narrator.remark(game, "hurt", who="the Test Boss")
+        asyncio.run(narrator.remark(game, "hurt", who="the Test Boss"))
         said.append("\n".join(console.lines))
     assert len(set(said)) == len(said)
 
@@ -75,13 +77,13 @@ def test_it_can_be_silenced_completely(console) -> None:
     game = carrying_the_backpack()
     narrator.silence()
     for _ in range(10):
-        narrator.remark(game, "hurt", who="somebody")
+        asyncio.run(narrator.remark(game, "hurt", who="somebody"))
     assert console.lines == []
 
 
 def test_an_event_nobody_wrote_lines_for_is_not_a_crash(console) -> None:
     """The engine may report something before the backpack has an opinion on it."""
-    narrator.remark(carrying_the_backpack(), "an_event_from_the_future")
+    asyncio.run(narrator.remark(carrying_the_backpack(), "an_event_from_the_future"))
     assert console.lines == []
 
 
@@ -101,7 +103,7 @@ def test_a_room_never_has_to_call_it(console) -> None:
     game = carrying_the_backpack()
     took = REMARKS["took"]
     for _ in range(took.every):
-        game.take("evacuation_plan")
+        asyncio.run(game.take("evacuation_plan"))
         game.taken.clear()
     assert console.lines
 
@@ -109,17 +111,19 @@ def test_a_room_never_has_to_call_it(console) -> None:
 def test_the_backpack_has_nothing_to_say_about_arriving(console) -> None:
     """US1c: it does not comment on the fight that handed it over."""
     console.script("anything")
-    encounters.run(
-        Game(),
-        Boss(
-            name="the Evil Backpack",
-            intro="Hello.",
-            questions=(Question("No answer exists.", answers=()),),
-            win_text="You win.",
-            lose_text="*it attaches itself to you*",
-            lose_reward="backpack",
-            single_attempt=True,
-        ),
+    asyncio.run(
+        encounters.run(
+            Game(),
+            Boss(
+                name="the Evil Backpack",
+                intro="Hello.",
+                questions=(Question("No answer exists.", answers=()),),
+                win_text="You win.",
+                lose_text="*it attaches itself to you*",
+                lose_reward="backpack",
+                single_attempt=True,
+            ),
+        )
     )
     assert "and you thought my questions" not in console.output
 
@@ -131,9 +135,9 @@ def test_the_backpack_notices_a_door_that_keeps_refusing(console, monkeypatch) -
     game.current = "corridor_blue"
 
     console.script("2", "2")  # the teachers' room, twice, with no blue card
-    commands.do_go(game)
+    asyncio.run(commands.do_go(game))
     first_try = list(console.lines)
-    commands.do_go(game)
+    asyncio.run(commands.do_go(game))
 
     assert "still locked." not in "\n".join(first_try).casefold()
     assert "still locked." in console.output

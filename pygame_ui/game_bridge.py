@@ -1,6 +1,7 @@
 """The bridge between the console game and the window: a fake stdout, a fake stdin, a thread.
 
-The game runs main.py unchanged on a background thread (the GAME THREAD). Whatever it prints
+The game runs main.py's async main() on a background thread (the GAME THREAD), with its own
+asyncio loop. Whatever it prints
 lands in the window's ``out_queue``; whatever the player answers goes back through ``in_queue``.
 Next to the text, a few markers go through ``out_queue`` too, so they land in text order:
 PAGE_BREAK, SpeakerChange, ShowMap and Cue.
@@ -8,6 +9,7 @@ PAGE_BREAK, SpeakerChange, ShowMap and Cue.
 
 from __future__ import annotations
 
+import asyncio
 import os
 import queue
 import sys
@@ -219,7 +221,7 @@ def start_game(window: TerminalWindow) -> None:
     # would then take it for an instant line that needs no pause
     ui._pressed_a_key = lambda: False
 
-    def read_line_with_clock(prompt: str, timeout: float | None) -> str:
+    async def read_line_with_clock(prompt: str, timeout: float | None) -> str:
         # every answer passes through ui._read_line (ui.choose() does not go through ask()):
         # Space-skipping stops here, and a timed question starts its clock
         window.skip_event.clear()
@@ -242,7 +244,7 @@ def _speaker_changed(window: TerminalWindow, screen: StreamToQueue, who: str | N
 
 def _run_game(window: TerminalWindow) -> None:
     try:
-        run_console_game()
+        asyncio.run(run_console_game())
     except (EOFError, ui.PauseRequested, ui.QuitRequested):
         # "pause" (or Escape) or a confirmed quit during the very first room's arrival, before
         # game.py's own loop is there to catch it - a clean end
