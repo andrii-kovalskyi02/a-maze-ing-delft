@@ -1,4 +1,4 @@
-# How to work on A-maze-ing Delft
+# How to work on After Hours
 
 Read this once before your first pull request. It is short on purpose.
 

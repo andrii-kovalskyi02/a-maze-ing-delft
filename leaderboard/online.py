@@ -1,20 +1,18 @@
 """The shared scoreboard: finished runs are uploaded, and everyone's best five are shown (US5).
 
-The scores live in a free Supabase table (see ``scores_online.sql``); this module talks to it
-over plain HTTPS with nothing but the standard library, so the game still needs no extras.
+The scores live in a Supabase table (see ``supabase/scores.sql``), reached through ``cloud.py``.
 
 Nothing here may get in the player's way:
 
-- With no address set below, the whole thing is off and the scoreboard stays local.
+- With no Supabase address set in ``cloud.py``, this is off and the scoreboard stays local.
 - A run is first written to a local outbox, then uploaded. If there is no connection it stays in
   the outbox and goes up the next time the game manages to reach the server.
 - The last top list seen is kept on disk, so the scoreboard still shows something offline.
 - Every network problem is swallowed; the worst that happens is an out-of-date scoreboard.
 
-Names are unique on one computer, but not across computers: two "Kru"s can each play on their own.
-So every run carries its player's tag (random, see ``persistence.create_tables``), and when two
-different players with one name are both in the top list they are shown as "Kru #a3f9" and
-"Kru #07bc".
+Runs from before names were registered online can share a name, so every run carries its player's
+tag (random, see ``persistence.create_tables``), and two different players with one name in the top
+list are shown as "Kru #a3f9" and "Kru #07bc".
 """
 
 from __future__ import annotations
@@ -25,19 +23,11 @@ import threading
 import time
 import urllib.error
 import urllib.parse
-import urllib.request
 import uuid
 
+import cloud
 import persistence
 
-#: The project address from Supabase (Project Settings > API), e.g. "https://abcd1234.supabase.co".
-#: Leave it empty to keep the scoreboard on this computer only.
-SUPABASE_URL = "https://ahzmeymxnsbhtdwdibhg.supabase.co"
-#: The public key from the same page (called "anon" or "publishable"). It is safe to commit, because
-#: the table only lets people read and add scores. Never put the secret / service_role key here.
-SUPABASE_KEY = "sb_publishable_IxX7Ql4UqujXXE9NEsFXnw_MClEkPnj"
-
-TIMEOUT = 4.0  # seconds to wait for the server before giving up
 FETCH_ROWS = 50  # how many rows to ask for, so a player with several runs does not crowd the top
 TAG_SHOWN = 4  # how many letters of a tag are shown after a name that two players share
 REFRESH_EVERY = 30.0  # seconds between background refreshes
@@ -47,23 +37,7 @@ _last_sync: float | None = None
 
 def enabled() -> bool:
     """Whether the shared scoreboard is set up."""
-    return bool(SUPABASE_URL and SUPABASE_KEY)
-
-
-def _send(method: str, path: str, body: dict | None = None) -> bytes:
-    """Make one request to the scores table and return the reply. Raises on any problem."""
-    headers = {
-        "apikey": SUPABASE_KEY,
-        "Content-Type": "application/json",
-        "Prefer": "return=minimal",
-    }
-    if SUPABASE_KEY.startswith("eyJ"):  # an older, token-style key also goes in this header
-        headers["Authorization"] = f"Bearer {SUPABASE_KEY}"
-    data = json.dumps(body).encode() if body is not None else None
-    url = f"{SUPABASE_URL.rstrip('/')}/rest/v1/{path}"
-    request = urllib.request.Request(url, data=data, method=method, headers=headers)
-    with urllib.request.urlopen(request, timeout=TIMEOUT) as response:  # noqa: S310 - https address from above
-        return response.read()
+    return cloud.enabled()
 
 
 def _upload(run_id: str, name: str, tag: str | None, percent: int, seconds: float) -> bool:
@@ -76,7 +50,7 @@ def _upload(run_id: str, name: str, tag: str | None, percent: int, seconds: floa
         "seconds": seconds,
     }
     try:
-        _send("POST", "scores", row)
+        cloud.send("POST", "scores", row)
     except urllib.error.HTTPError as error:
         return error.code == 409  # that run id is already there: uploaded earlier
     except (OSError, ValueError):
@@ -106,7 +80,7 @@ def fetch_top(limit: int = 5) -> list[tuple[str, int, float]] | None:
         }
     )
     try:
-        rows = json.loads(_send("GET", f"scores?{query}"))
+        rows = json.loads(cloud.send("GET", f"scores?{query}"))
     except (OSError, ValueError):
         return None
     best: dict[tuple[str, str], tuple[str, str, int, float]] = {}

@@ -15,11 +15,11 @@ from collections.abc import Iterator
 
 import pytest
 
+import cloud
 import narrator
 import persistence
 import rooms  # noqa: F401  (importing rooms registers them)
 import ui
-from leaderboard import online
 
 
 @pytest.fixture(autouse=True)
@@ -36,8 +36,8 @@ def own_database(tmp_path, monkeypatch) -> None:
 
 @pytest.fixture(autouse=True)
 def no_shared_scoreboard(monkeypatch) -> None:
-    """Keep every test off the internet: the shared scoreboard is off unless a test turns it on."""
-    monkeypatch.setattr(online, "SUPABASE_URL", "")
+    """Keep every test off the internet: Supabase is off unless a test turns it on."""
+    monkeypatch.setattr(cloud, "SUPABASE_URL", "")
 
 
 @pytest.fixture(autouse=True)
