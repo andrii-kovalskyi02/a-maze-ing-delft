@@ -10,6 +10,8 @@ Acceptance criteria:
 
 from __future__ import annotations
 
+import asyncio
+
 import rooms  # noqa: F401
 import world
 from commands import build_menu
@@ -20,7 +22,7 @@ from models import Area
 def start() -> Game:
     """Return a fresh game ready for turns."""
     game = Game()
-    game.enter()
+    asyncio.run(game.enter())
     return game
 
 
@@ -44,11 +46,11 @@ def door_option(game: Game, door_key: str) -> str:
 def test_red_corridor_is_locked_without_the_red_card(console) -> None:
     """Entering the red corridor without the red key card is blocked with a clear message."""
     game = start()
-    game.move_to("corridor_blue")
+    asyncio.run(game.move_to("corridor_blue"))
 
     console.lines.clear()
     console.script(option(game, "Go through a door"), door_option(game, "corridor_red"))
-    game.turn()
+    asyncio.run(game.turn())
 
     assert game.current == "corridor_blue"
     assert "red key card" in console.output.lower()
@@ -58,11 +60,11 @@ def test_lobby_is_locked_without_the_yellow_card(console) -> None:
     """Entering the lobby from the red corridor without the yellow key card is blocked."""
     game = start()
     game.unlocked.add("corridor_red")
-    game.move_to("corridor_red")
+    asyncio.run(game.move_to("corridor_red"))
 
     console.lines.clear()
     console.script(option(game, "Go through a door"), door_option(game, "lobby"))
-    game.turn()
+    asyncio.run(game.turn())
 
     assert game.current == "corridor_red"
     assert "yellow key card" in console.output.lower()
@@ -71,12 +73,12 @@ def test_lobby_is_locked_without_the_yellow_card(console) -> None:
 def test_the_red_card_opens_exactly_one_door_and_is_used_up(console) -> None:
     """The red key card opens the red corridor, leaves the backpack, and the door stays open."""
     game = start()
-    game.move_to("corridor_blue")
+    asyncio.run(game.move_to("corridor_blue"))
     game.carrying.add("red_card")
 
     console.lines.clear()
     console.script(option(game, "Go through a door"), door_option(game, "corridor_red"))
-    game.turn()
+    asyncio.run(game.turn())
 
     assert game.current == "corridor_red"
     assert "red_card" not in game.carrying
@@ -85,17 +87,17 @@ def test_the_red_card_opens_exactly_one_door_and_is_used_up(console) -> None:
     assert "the red key card is used up" in console.output.lower()
 
     # The door stays open: back to blue and into red again
-    game.move_to("corridor_blue")
+    asyncio.run(game.move_to("corridor_blue"))
     console.lines.clear()
     console.script(option(game, "Go through a door"), door_option(game, "corridor_red"))
-    game.turn()
+    asyncio.run(game.turn())
     assert game.current == "corridor_red"
 
     # The red card does not open the lobby
     assert "lobby" not in game.unlocked
     console.lines.clear()
     console.script(option(game, "Go through a door"), door_option(game, "lobby"))
-    game.turn()
+    asyncio.run(game.turn())
     assert game.current == "corridor_red"
     assert "yellow key card" in console.output.lower()
 
@@ -104,21 +106,21 @@ def test_the_yellow_card_opens_the_lobby(console) -> None:
     """The yellow key card, found in the red area, opens the lobby."""
     game = start()
     game.unlocked.add("corridor_red")
-    game.move_to("corridor_red")
+    asyncio.run(game.move_to("corridor_red"))
     game.carrying.add("yellow_card")
 
     console.lines.clear()
     console.script(option(game, "Go through a door"), door_option(game, "lobby"))
-    game.turn()
+    asyncio.run(game.turn())
 
     assert game.current == "lobby"
     assert "lobby" in game.unlocked
     assert "yellow key card up to the reader" in console.output.lower()
 
-    game.move_to("corridor_red")
+    asyncio.run(game.move_to("corridor_red"))
     console.lines.clear()
     console.script(option(game, "Go through a door"), door_option(game, "lobby"))
-    game.turn()
+    asyncio.run(game.turn())
     assert game.current == "lobby"
 
 

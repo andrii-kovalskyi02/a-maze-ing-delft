@@ -17,9 +17,9 @@ list are shown as "Kru #a3f9" and "Kru #07bc".
 
 from __future__ import annotations
 
+import asyncio
 import json
 import sqlite3
-import threading
 import time
 import urllib.error
 import urllib.parse
@@ -33,6 +33,7 @@ TAG_SHOWN = 4  # how many letters of a tag are shown after a name that two playe
 REFRESH_EVERY = 30.0  # seconds between background refreshes
 
 _last_sync: float | None = None
+_running: set[asyncio.Task] = set()
 
 
 def enabled() -> bool:
@@ -40,7 +41,7 @@ def enabled() -> bool:
     return cloud.enabled()
 
 
-def _upload(run_id: str, name: str, tag: str | None, percent: int, seconds: float) -> bool:
+async def _upload(run_id: str, name: str, tag: str | None, percent: int, seconds: float) -> bool:
     """Send one run. True if the server has it now (also when it already had it)."""
     row = {
         "run_id": run_id,
@@ -50,7 +51,7 @@ def _upload(run_id: str, name: str, tag: str | None, percent: int, seconds: floa
         "seconds": seconds,
     }
     try:
-        cloud.send("POST", "scores", row)
+        await cloud.send("POST", "scores", row)
     except urllib.error.HTTPError as error:
         return error.code == 409  # that run id is already there: uploaded earlier
     except (OSError, ValueError):
@@ -58,15 +59,15 @@ def _upload(run_id: str, name: str, tag: str | None, percent: int, seconds: floa
     return True
 
 
-def flush_pending() -> None:
+async def flush_pending() -> None:
     """Upload every run waiting in the outbox, stopping at the first failure (no connection)."""
     for run_id, name, tag, percent, seconds in persistence.pending_scores():
-        if not _upload(run_id, name, tag, percent, seconds):
+        if not await _upload(run_id, name, tag, percent, seconds):
             return
         persistence.delete_pending_score(run_id)
 
 
-def fetch_top(limit: int = 5) -> list[tuple[str, int, float]] | None:
+async def fetch_top(limit: int = 5) -> list[tuple[str, int, float]] | None:
     """Return everyone's best ``limit`` players as (name, percent, seconds), or None if unreachable.
 
     Highest percent first, then fastest, one line per player (their best run). A player is a name
@@ -80,7 +81,7 @@ def fetch_top(limit: int = 5) -> list[tuple[str, int, float]] | None:
         }
     )
     try:
-        rows = json.loads(cloud.send("GET", f"scores?{query}"))
+        rows = json.loads(await cloud.send("GET", f"scores?{query}"))
     except (OSError, ValueError):
         return None
     best: dict[tuple[str, str], tuple[str, str, int, float]] = {}
@@ -101,13 +102,13 @@ def fetch_top(limit: int = 5) -> list[tuple[str, int, float]] | None:
     return shown
 
 
-def sync(limit: int = 5) -> None:
+async def sync(limit: int = 5) -> None:
     """Upload what is waiting, then keep the latest top list. Never raises."""
     if not enabled():
         return
     try:
-        flush_pending()
-        top = fetch_top(limit)
+        await flush_pending()
+        top = await fetch_top(limit)
         if top is not None:
             persistence.save_online_top(top)
     except sqlite3.Error:
@@ -115,16 +116,26 @@ def sync(limit: int = 5) -> None:
 
 
 def sync_in_background() -> None:
-    """Do :func:`sync` on another thread, at most once every ``REFRESH_EVERY`` seconds."""
+    """Start :func:`sync` alongside the game, at most once every ``REFRESH_EVERY`` seconds.
+
+    It runs whenever the game is waiting, and only while the game is running: with no asyncio
+    loop going (a test that only reads the scoreboard) nothing is started.
+    """
     global _last_sync  # noqa: PLW0603
     now = time.monotonic()
     if not enabled() or (_last_sync is not None and now - _last_sync < REFRESH_EVERY):
         return
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
     _last_sync = now
-    threading.Thread(target=sync, daemon=True).start()
+    task = loop.create_task(sync())
+    _running.add(task)  # asyncio only keeps a weak reference to a task: keep it until it ends
+    task.add_done_callback(_running.discard)
 
 
-def submit(name: str, percent: int, seconds: float) -> None:
+async def submit(name: str, percent: int, seconds: float) -> None:
     """Put a finished run on the shared scoreboard (and refresh the top list), if it is set up.
 
     This waits for the server for a few seconds at most, so the new score is on the board that is
@@ -136,4 +147,4 @@ def submit(name: str, percent: int, seconds: float) -> None:
         persistence.add_pending_score(str(uuid.uuid4()), name, percent, seconds)
     except sqlite3.Error:
         return
-    sync()
+    await sync()

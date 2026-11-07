@@ -1,12 +1,18 @@
 """All screen output and keyboard input goes through here.
 
 Keeping ``print`` and ``input`` in one module lets the tests play the game without a keyboard.
+
+Everything that shows the player something or waits for them is ``async``: the game runs as one
+asyncio task, so a window (or a browser) keeps drawing while the game waits. The functions that do
+the actual writing, reading and waiting (see :func:`use_io`) may be plain or ``async``.
 """
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import getpass
+import inspect
 import sys
 import textwrap
 import time
@@ -66,23 +72,28 @@ _instant = False
 #: True while the window paces the story line by line itself - see :func:`set_flowing`.
 _flowing = False
 
-#: Swapped out by the tests. Do not call these directly; use say/narrate/ask.
-_write: Callable[[str], None] = print
-_read: Callable[[str], str] = input
-_sleep: Callable[[float], None] = time.sleep
+#: Where the window takes the story's characters one at a time, or None for a terminal -
+#: see :func:`set_typist`.
+_typist: Callable[[str], object] | None = None
+
+#: Swapped out by the tests and the window. Each may be plain or async. Use say/narrate/ask.
+_write: Callable[[str], object] = print
+_read: Callable[[str], object] = input
+_sleep: Callable[[float], object] = asyncio.sleep
 
 _clock: Callable[[], float] = time.monotonic
 
 #: What to do when the player types one of the words that work at any prompt
 #: (see :func:`ask`). None while no game is running - at the name prompt, say.
+#: The page, map, quit and scoreboard handlers may be async.
 _pause_handler: Callable[[], None] | None = None
 _cue_handler: Callable[[str], None] | None = None
-_page_handler: Callable[[], None] | None = None
-_map_handler: Callable[[], None] | None = None
+_page_handler: Callable[[], object] | None = None
+_map_handler: Callable[[], object] | None = None
 _keep_up_handler: Callable[[], None] | None = None
 _speaker_handler: Callable[[str | None, str], None] | None = None
-_quit_handler: Callable[[], bool] | None = None
-_scoreboard_handler: Callable[[], None] | None = None
+_quit_handler: Callable[[], object] | None = None
+_scoreboard_handler: Callable[[], object] | None = None
 
 #: What the Pygame window's pause menu shows, and how it stops the clocks while
 #: it is open. The game registers both while it is being played.
@@ -114,16 +125,23 @@ class TimedOut(Exception):
     """Raised when the player did not answer in time."""
 
 
-def say(text: str = "") -> None:
+async def _done(result: object) -> object:
+    """Finish what a plain or async function returned: await it if it is awaitable."""
+    if inspect.isawaitable(result):
+        return await result
+    return result
+
+
+async def say(text: str = "") -> None:
     """Show ``text`` to the player, wrapped to :data:`WIDTH` columns.
 
     Blank lines and leading indentation are preserved.
     """
     for line in _wrap(text):
-        _write(line)
+        await _done(_write(line))
 
 
-def new_page() -> None:
+async def new_page() -> None:
     """Start what is printed next on a page of its own.
 
     A terminal just keeps scrolling, so this does nothing there. A window that shows one
@@ -131,25 +149,25 @@ def new_page() -> None:
     like picking something up, from running into the text around it.
     """
     if _page_handler is not None:
-        _page_handler()
+        await _done(_page_handler())
 
 
-def set_page_handler(handler: Callable[[], None] | None) -> None:
+def set_page_handler(handler: Callable[[], object] | None) -> None:
     """Set the function that starts a new page, or None for a plain terminal."""
     global _page_handler
     _page_handler = handler
 
 
-def set_map_handler(handler: Callable[[], None] | None) -> None:
+def set_map_handler(handler: Callable[[], object] | None) -> None:
     """Set the function that shows the drawn floor map, or None for a plain terminal."""
     global _map_handler
     _map_handler = handler
 
 
-def show_map() -> None:
+async def show_map() -> None:
     """Show the drawn floor map, where the window has one. A terminal has none: nothing happens."""
     if _map_handler is not None:
-        _map_handler()
+        await _done(_map_handler())
 
 
 def set_keep_up_handler(handler: Callable[[], None] | None) -> None:
@@ -197,7 +215,7 @@ def speaking(who: str | None, mood: str = "speaking") -> Iterator[None]:
             _speaker_handler(None, "")
 
 
-def narrate(text: Text) -> None:
+async def narrate(text: Text) -> None:
     """Type ``text`` out to the player a character at a time.
 
     Use this for the story - room descriptions, and what a boss says - so it
@@ -223,15 +241,15 @@ def narrate(text: Text) -> None:
         for part in parts:
             if isinstance(part, int | float):
                 if not (skipped or _instant or _flowing):
-                    _sleep(part)
+                    await _done(_sleep(part))
                 previous_was_text = False
                 continue
             if previous_was_text and not (skipped or _instant or _flowing):
-                _sleep(PART_DELAY)
+                await _done(_sleep(PART_DELAY))
             for line in _wrap(part):
                 if skipped or _instant:
-                    _write(line)
-                elif _type_line(line):
+                    await _done(_write(line))
+                elif await _type_line(line):
                     # The player pressed a key: they have read this before.
                     # The rest of this text lands at once, pauses and all.
                     skipped = True
@@ -248,15 +266,21 @@ def _wrap(text: str) -> list[str]:
     ]
 
 
-def _type_line(line: str) -> bool:
+async def _type_line(line: str) -> bool:
     """Write one line, a character at a time when a real terminal is watching.
 
     Returns:
         True if the player pressed a key to skip the rest of the story.
     """
+    if _typist is not None:  # a window: it types the line out, and skips it, itself
+        for character in line:
+            await _done(_typist(character))
+            await _done(_sleep(CHAR_DELAY * _pace))
+        await _done(_typist("\n"))
+        return False
     if not _at_a_real_terminal():
         # The tests, or output piped into a file: nobody is there to watch.
-        _write(line)
+        await _done(_write(line))
         return False
     for index, character in enumerate(line):
         if _pressed_a_key():
@@ -265,7 +289,7 @@ def _type_line(line: str) -> bool:
             return True
         sys.stdout.write(character)
         sys.stdout.flush()
-        _sleep(CHAR_DELAY * _pace)
+        await _done(_sleep(CHAR_DELAY * _pace))
     sys.stdout.write("\n")
     return False
 
@@ -378,6 +402,15 @@ def set_flowing(flowing: bool) -> None:
     _flowing = flowing
 
 
+def set_typist(typist: Callable[[str], object] | None) -> None:
+    """Hand the story to a window one character at a time (plain or async), or None for a terminal.
+
+    The window draws each character as it comes; :func:`narrate` waits between them as usual.
+    """
+    global _typist
+    _typist = typist
+
+
 def text_speed() -> str:
     """Return the name of the typing speed in use: "Slow", "Normal", "Fast" or "Instant"."""
     return SPEEDS[_speed_index][0]
@@ -410,7 +443,7 @@ def set_instant(instant: bool) -> None:
         _use_speed(_DEFAULT_SPEED)  # back to typing it out, at the starting speed
 
 
-def ask(prompt: str = "> ", timeout: float | None = None) -> str:
+async def ask(prompt: str = "> ", timeout: float | None = None) -> str:
     """Ask the player for a line of input, and handle the words that work anywhere.
 
     ``pause``, ``quit`` and ``scoreboard`` work at every prompt, even in the
@@ -430,12 +463,12 @@ def ask(prompt: str = "> ", timeout: float | None = None) -> str:
         QuitRequested: If the player typed ``quit`` and confirmed it.
     """
     while True:
-        answer = _answer_or_none(prompt, timeout)
+        answer = await _answer_or_none(prompt, timeout)
         if answer is not None:
             return answer
 
 
-def ask_secret(prompt: str) -> str:
+async def ask_secret(prompt: str) -> str:
     """Ask for a password without showing it: a real terminal shows nothing, the window stars.
 
     Unlike :func:`ask`, spaces are kept and ``pause`` or ``quit`` are just a password.
@@ -445,7 +478,7 @@ def ask_secret(prompt: str) -> str:
         return getpass.getpass(prompt)
     _secret = True
     try:
-        return _read(prompt)
+        return await _done(_read(prompt))
     finally:
         _secret = False
 
@@ -455,36 +488,36 @@ def asking_secret() -> bool:
     return _secret
 
 
-def _answer_or_none(prompt: str, timeout: float | None) -> str | None:
+async def _answer_or_none(prompt: str, timeout: float | None) -> str | None:
     """Read one answer, or return None if it was one of the words that work anywhere.
 
     None means "that was dealt with - ask the same thing again". :func:`choose`
     uses it to show its list again, so the player is not left looking at a
     scoreboard with nothing to pick from.
     """
-    answer = _read_line(prompt, timeout).strip()
+    answer = (await _read_line(prompt, timeout)).strip()
     word = answer.lower()
 
     if word == "pause" and _pause_handler is not None:
         _pause_handler()
         raise PauseRequested
     if word == "quit" and _quit_handler is not None:
-        if _quit_handler():
+        if await _done(_quit_handler()):
             raise QuitRequested
         return None
     if word in ("leaderboard", "scoreboard") and _scoreboard_handler is not None:
-        _scoreboard_handler()
+        await _done(_scoreboard_handler())
         return None
     return answer
 
 
-def _read_line(prompt: str, timeout: float | None) -> str:
+async def _read_line(prompt: str, timeout: float | None) -> str:
     """Read one line, giving up after ``timeout`` seconds where that is possible."""
     # Only a real keyboard can be watched while waiting. A test has its own
     # way of getting input, so it is simply waited for.
     if timeout is not None and _read is input and _at_a_real_terminal():
         return _read_from_keyboard(prompt, timeout)
-    return _read(prompt)
+    return await _done(_read(prompt))
 
 
 def _read_from_keyboard(prompt: str, timeout: float) -> str:  # pragma: no cover
@@ -549,7 +582,7 @@ def now() -> float:
     return _clock() - _held
 
 
-def pause(seconds: float) -> None:
+async def pause(seconds: float) -> None:
     """Wait ``seconds`` before continuing. Uses the same clock as narrate.
 
     Not in a window that paces the story itself (see :func:`set_flowing`): it already holds
@@ -557,7 +590,7 @@ def pause(seconds: float) -> None:
     """
     if _flowing:
         return
-    _sleep(seconds)
+    await _done(_sleep(seconds))
 
 
 def set_cue_handler(handler: Callable[[str], None] | None) -> None:
@@ -582,13 +615,13 @@ def set_pause_handler(handler: Callable[[], None] | None) -> None:
     _pause_handler = handler
 
 
-def set_quit_handler(handler: Callable[[], bool] | None) -> None:
+def set_quit_handler(handler: Callable[[], object] | None) -> None:
     """Set the function that asks whether a typed ``quit`` is meant."""
     global _quit_handler
     _quit_handler = handler
 
 
-def set_scoreboard_handler(handler: Callable[[], None] | None) -> None:
+def set_scoreboard_handler(handler: Callable[[], object] | None) -> None:
     """Set the function called when the player types ``scoreboard``."""
     global _scoreboard_handler
     _scoreboard_handler = handler
@@ -644,7 +677,7 @@ def has_pause_menu() -> bool:
     return _pause_menu
 
 
-def choose(
+async def choose(
     prompt: str,
     options: Sequence[str],
     back: str | None = None,
@@ -669,32 +702,35 @@ def choose(
     """
     deadline = None if timeout is None else now() + timeout
     while True:
-        say()
-        say(prompt)
+        await say()
+        await say(prompt)
         for number, option in enumerate(options, start=1):
-            say(f"  {number}) {option}")
+            await say(f"  {number}) {option}")
         if back is not None:
-            say(f"  0) {back}")
+            await say(f"  0) {back}")
 
-        typed = _answer_or_none("> ", None if deadline is None else max(0.0, deadline - now()))
+        typed = await _answer_or_none(
+            "> ", None if deadline is None else max(0.0, deadline - now())
+        )
         if typed is None:
             continue
         if back is not None and typed == "0":
             return None
         if typed.isdigit() and 1 <= int(typed) <= len(options):
             return int(typed) - 1
-        say("Type the number of the thing you want.")
+        await say("Type the number of the thing you want.")
 
 
 def use_io(
-    write: Callable[[str], None],
-    read: Callable[[str], str],
-    sleep: Callable[[float], None] = time.sleep,
+    write: Callable[[str], object],
+    read: Callable[[str], object],
+    sleep: Callable[[float], object] = asyncio.sleep,
     clock: Callable[[], float] = time.monotonic,
 ) -> None:
-    """Replace the input, output, waiting and timing functions. Tests only."""
-    global _write, _read, _sleep, _clock, _held, _flowing, _pace
+    """Replace the input, output, waiting and timing functions; each may be plain or async."""
+    global _write, _read, _sleep, _clock, _held, _flowing, _pace, _typist
     _write, _read, _sleep, _clock = write, read, sleep, clock
+    _typist = None
     _held = 0.0
     _use_speed(_DEFAULT_SPEED)
     _flowing = False

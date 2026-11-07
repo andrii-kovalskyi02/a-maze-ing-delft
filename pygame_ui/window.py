@@ -2,23 +2,22 @@
 
 Each frame the loop reads the keys (handle_events), files whatever the game has printed into
 screen lines (pump_output), presses Enter for a timed question that has run out (check_clock),
-moves the music on, and draws. Two threads share this object: the window's own (the main loop)
-and the GAME THREAD (see game_bridge), which only ever waits in the ``wait_*`` methods.
+moves the music on, and draws. The game runs as an asyncio task beside the loop (see
+game_bridge); it only ever waits in the ``wait_*`` methods, and the loop draws meanwhile.
 """
 
 from __future__ import annotations
 
-import ctypes
+import asyncio
 import math
 import os
-import queue
 import re
 import sys
-import threading
 import time
 
 import pygame
 
+import browser
 import ui
 from music import Music
 from pygame_ui import assets, game_bridge
@@ -41,7 +40,7 @@ FPS = 60
 
 # the background music: the intro loop on the first screen (while the name is typed), the
 # exploring loop once the game has started, and the boss loop near a boss
-MUSIC_FILES = {"intro": "music_intro.wav", "explore": "music_explore.wav", "boss": "music_boss.wav"}
+MUSIC_FILES = {"intro": "music_intro.ogg", "explore": "music_explore.ogg", "boss": "music_boss.ogg"}
 
 # every size on screen is measured against this screen height and scaled to the real one, so the
 # window has the same proportions on every resolution. 900 is what Pygame reports on the machine
@@ -56,6 +55,7 @@ INTRO_MAX_WIDTH = 0.94  # the first screen's text may fill this much of the wind
 NAME_NOTICE_SECONDS = 2.5  # how long "Please enter a valid name." stays up
 PICK_DELAY_SECONDS = 0.2  # a confirmed choice shows its click this long, then answers
 AUTO_ADVANCE_SECONDS = 1.0  # how long a finished line of story stays before the next one starts
+POLL_SECONDS = 0.01  # how often a waiting game looks again whether it may go on
 QUIT_GRACE_PERIOD = 5.0  # after quitting, wait at most this long for the game to save
 
 DIVIDER = "-" * 64  # put after every answered question, to separate it from what comes next
@@ -71,10 +71,13 @@ class TerminalWindow:
         if sys.platform == "win32":
             # with Windows display scaling (125%, 150%, ...) pygame would otherwise be told a
             # shrunken screen size and only fill part of it
+            import ctypes
+
             ctypes.windll.user32.SetProcessDPIAware()
         pygame.init()
-        if os.environ.get("AMAZE_WINDOWED") == "1":
-            # a normal 1280x720 window instead of fullscreen - handy next to an editor, or demos
+        if os.environ.get("AMAZE_WINDOWED") == "1" or browser.IN_BROWSER:
+            # a normal 1280x720 window instead of fullscreen - handy next to an editor, or demos.
+            # In a browser this is the canvas, which the page scales to fit
             self.screen = pygame.display.set_mode((1280, 720))
         else:
             # (0, 0) asks for the screen's own size
@@ -124,12 +127,12 @@ class TerminalWindow:
         self._pending_pick: float | None = None  # when a confirmed choice is to be answered
         self._name_notice_until = 0.0  # until when "Please enter a valid name." shows
 
-        # talking to the GAME THREAD (see game_bridge)
-        self.out_queue: queue.Queue = queue.Queue()  # game -> window: what it printed
-        self.in_queue: queue.Queue = queue.Queue()  # window -> game: the answers
-        self.skip_event = threading.Event()  # set by Space: ends the typing delay at once
-        self.advance_event = threading.Event()  # set by a press: a held line carries on
-        self.pause_gate = threading.Event()  # cleared while the game is to stand still
+        # talking to the game (see game_bridge)
+        self.out_queue: asyncio.Queue = asyncio.Queue()  # game -> window: what it printed
+        self.in_queue: asyncio.Queue = asyncio.Queue()  # window -> game: the answers
+        self.skip_event = asyncio.Event()  # set by Space: ends the typing delay at once
+        self.advance_event = asyncio.Event()  # set by a press: a held line carries on
+        self.pause_gate = asyncio.Event()  # cleared while the game is to stand still
         self.pause_gate.set()
         self.skipping = False  # Space was pressed: no delays at all until the next question
         self.narrating = False  # story text is being told (the "SPACE to skip" tag shows)
@@ -144,7 +147,7 @@ class TerminalWindow:
         self.exit_silently = False  # the window closes once the game has saved, no goodbye
         self._quit_requested_at = 0.0
 
-    # --- on the GAME THREAD: holding the game while the player reads ---------------------
+    # --- called by the game: holding it while the player reads --------------------------
 
     def wait_start(self) -> None:
         """The game has started waiting for an answer."""
@@ -157,7 +160,7 @@ class TerminalWindow:
         """The game has its answer."""
         self.waiting_for_input = False
 
-    def wait_for_line_advance(self) -> None:
+    async def wait_for_line_advance(self) -> None:
         """Hold the game for a second right where a typed line just finished.
 
         So the player can read it, then it carries on by itself - or at once if Space has been
@@ -171,14 +174,15 @@ class TerminalWindow:
             self.advance_event.clear()
             self.waiting_to_advance = True
             deadline = time.monotonic() + AUTO_ADVANCE_SECONDS
-            while not self.advance_event.wait(0.02) and not self.quitting:
+            while not self.advance_event.is_set() and not self.quitting:
+                await asyncio.sleep(POLL_SECONDS)
                 if self.paused:
                     deadline = time.monotonic() + AUTO_ADVANCE_SECONDS  # held while paused
                 elif time.monotonic() >= deadline:
                     break
         self.waiting_to_advance = False
 
-    def wait_for_story_press(self) -> None:
+    async def wait_for_story_press(self) -> None:
         """Hold the game, with the whole story still in the box, until Space or Enter.
 
         Not on the first screen, and not once Space has skipped the story: the player has said
@@ -188,16 +192,16 @@ class TerminalWindow:
             return
         self.advance_event.clear()
         self.waiting_for_press = True
-        while not self.advance_event.wait(0.02) and not self.quitting:
-            pass
+        while not self.advance_event.is_set() and not self.quitting:
+            await asyncio.sleep(POLL_SECONDS)
         self.waiting_for_press = False
 
-    def wait_while_paused(self) -> float:
+    async def wait_while_paused(self) -> float:
         """Hold the game while the pause menu or a room change is on; return how long it waited."""
         if self.pause_gate.is_set():
             return 0.0
         started = time.monotonic()
-        self.pause_gate.wait()
+        await self.pause_gate.wait()
         return time.monotonic() - started
 
     # --- turning what the game printed into lines on screen ------------------------------
@@ -205,8 +209,8 @@ class TerminalWindow:
     def pump_output(self) -> None:
         """Read what the game has printed since the last frame, and file it into self.lines.
 
-        Which lines need a press was already settled on the game thread (see
-        game_bridge.StreamToQueue); this only turns characters into (text, colour) rows.
+        Which lines need a press was already settled by the game (see game_bridge.GameOutput);
+        this only turns characters into (text, colour) rows.
         """
         try:
             while True:
@@ -223,7 +227,7 @@ class TerminalWindow:
                 else:
                     for character in chunk:
                         self._add_character(character, typed=len(chunk) == 1)
-        except queue.Empty:
+        except asyncio.QueueEmpty:
             pass
 
         if self._prompt_pending:
@@ -446,12 +450,12 @@ class TerminalWindow:
         self.lines.append((DIVIDER, "gray"))
         self.current_line = ""
         self.typed = ""
-        # stop listening now, not when the game thread gets round to it - so a second Enter
-        # (or the clock) in the next frame can't answer twice
+        # stop listening now, not when the game gets round to it - so a second Enter (or the
+        # clock) in the next frame can't answer twice
         self.waiting_for_input = False
         self.deadline = None
         self.menu_selected = None
-        self.in_queue.put(answer)
+        self.in_queue.put_nowait(answer)
         self._new_page()  # the box starts fresh for whatever comes next
 
     # --- pausing, the map, room changes and leaving ---------------------------------------
@@ -464,7 +468,7 @@ class TerminalWindow:
         self.pause_menu.open(blurred(self.screen, self.scale), view)
         self._paused_at = time.monotonic()
         self.paused = True
-        self.pause_gate.clear()  # the game thread stops at its next word or pause
+        self.pause_gate.clear()  # the game stops at its next word or pause
 
     def close_pause_menu(self) -> None:
         """Let the game carry on, with every clock set back by the time it stood still."""
@@ -526,11 +530,11 @@ class TerminalWindow:
             return
         if ui._pause_handler is not None:  # only there once a game is being played
             self.typed = ""
-            self.in_queue.put("pause" if save else QUIT_NOW)
+            self.in_queue.put_nowait("pause" if save else QUIT_NOW)
         else:
-            self.in_queue.put(EOF)
-        # the game thread may be held on a line right now - let it go, so it reaches the
-        # answer above and shuts down cleanly
+            self.in_queue.put_nowait(EOF)
+        # the game may be held on a line right now - let it go, so it reaches the answer above
+        # and shuts down cleanly
         self.advance_event.set()
         self.skip_event.set()
 
@@ -724,9 +728,16 @@ class TerminalWindow:
     # --- the main loop ----------------------------------------------------------------------
 
     def run(self) -> None:
-        """The main loop: read input, pull in new text, draw - 60 times a second."""
-        game_bridge.start_game(self)
-        clock = pygame.time.Clock()
+        """Play the game in this window until it closes."""
+        asyncio.run(self.main_loop())
+
+    async def main_loop(self) -> None:
+        """The main loop: read input, pull in new text, draw - 60 times a second.
+
+        Between two frames it waits with ``await``, which is when the game gets to run.
+        """
+        game = game_bridge.start_game(self)
+        next_frame = time.monotonic()
         while True:
             self.handle_events()
             self.check_clock()
@@ -738,7 +749,9 @@ class TerminalWindow:
                 self.game_over or time.monotonic() - self._quit_requested_at > QUIT_GRACE_PERIOD
             ):
                 break
-            clock.tick(FPS)
+            next_frame = max(next_frame + 1 / FPS, time.monotonic())
+            await asyncio.sleep(next_frame - time.monotonic())
+        game.cancel()  # still saving after the grace period: give up on it
         if not self.exit_silently:
             # one more pass so the game's very last message doesn't get cut off
             self.pump_output()

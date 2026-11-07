@@ -12,7 +12,7 @@ Looking around leads to interacting with what is in the room: its objects, items
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -46,11 +46,11 @@ class MenuItem:
     """
 
     label: str
-    action: Callable[[Game], None]
+    action: Callable[[Game], Awaitable[None]]
     ends_interaction: bool = False
 
 
-def do_look_around(game: Game) -> None:
+async def do_look_around(game: Game) -> None:
     """Describe the room, if it has anything to describe, then offer what is in it.
 
     Only the first time in a room: after that this is "Interact", which skips the telling.
@@ -58,13 +58,13 @@ def do_look_around(game: Game) -> None:
     if game.room.look_around is not None and not game.looked_around:
         told = models.resolve(game.room.look_around, game.has_taken)
         if told:
-            ui.say()
-            ui.narrate(told)
+            await ui.say()
+            await ui.narrate(told)
     game.looked_around = True
-    _offer_interactions(game)
+    await _offer_interactions(game)
 
 
-def do_go(game: Game) -> None:
+async def do_go(game: Game) -> None:
     """Offer the doors out of this room, and walk through the chosen one."""
     doors = world.exits_of(game.room)
     if not doors:
@@ -73,104 +73,106 @@ def do_go(game: Game) -> None:
     if len(doors) == 1:
         destination = doors[0]
     else:
-        chosen = ui.choose("Which door?", [_door_label(game, d) for d in doors], back="Stay here")
+        chosen = await ui.choose(
+            "Which door?", [_door_label(game, d) for d in doors], back="Stay here"
+        )
         if chosen is None:
             return
         destination = doors[chosen]
 
     if game.items_here():
-        narrator.remark(game, "left_behind")
+        await narrator.remark(game, "left_behind")
 
     if destination.approach_reward is not None and destination.key not in game.approached:
         game.approached.add(destination.key)
         item = game.carrying.add(destination.approach_reward)
         # The story first, then the plain fact: the player reads what they
         # found before being told it is in their pocket.
-        ui.new_page()  # picking something up is a moment of its own
+        await ui.new_page()  # picking something up is a moment of its own
         if destination.approach_reward_text is not None:
-            ui.say()
-            ui.narrate(destination.approach_reward_text)
-        ui.say()
-        ui.narrate(f"You are now carrying the {item.name}.")
-        ui.new_page()
+            await ui.say()
+            await ui.narrate(destination.approach_reward_text)
+        await ui.say()
+        await ui.narrate(f"You are now carrying the {item.name}.")
+        await ui.new_page()
 
-    if destination.is_exit and not _code_opens_the_exit(game, destination):
+    if destination.is_exit and not await _code_opens_the_exit(game, destination):
         return
 
     if not world.can_enter(destination, game.carrying, game.unlocked):
-        ui.say()
-        ui.say(destination.locked_text)
+        await ui.say()
+        await ui.say(destination.locked_text)
         # The backpack only notices the player rattling the same handle, not
         # an honest first attempt at a door they have never tried (#103).
         tries = game.refused.get(destination.key, 0) + 1
         game.refused[destination.key] = tries
         if tries > 1:
-            narrator.remark(game, "locked_again")
+            await narrator.remark(game, "locked_again")
         return
 
     if destination.requires is not None and destination.key not in game.unlocked:
         # the player sees what got them in, and that a used-up item has gone
         item = get_item(destination.requires)
-        ui.say()
-        ui.narrate(item.use_text.format(item=item.name, door=destination.name))
+        await ui.say()
+        await ui.narrate(item.use_text.format(item=item.name, door=destination.name))
         if item.single_use:
             game.carrying.consume(destination.requires)
-            ui.narrate(f"The {item.name} is used up. It is no longer in your backpack.")
+            await ui.narrate(f"The {item.name} is used up. It is no longer in your backpack.")
         ui.keep_up()  # how they got in stays on screen until they go on
         game.unlocked.add(destination.key)
 
-    game.move_to(destination.key)
+    await game.move_to(destination.key)
     if destination.is_exit:
-        game.finish()
+        await game.finish()
 
 
-def _code_opens_the_exit(game: Game, door: Room) -> bool:
+async def _code_opens_the_exit(game: Game, door: Room) -> bool:
     """Key the digits the player has into the exit door (enabler #116).
 
     The player never types the code: they key in what they are carrying, which
     is why finding the digits is the game and typing them is not.
     """
     if digits.opens_the_door(game):
-        ui.say()
-        ui.narrate(f"You key in {digits.assemble(game)}. The lock gives.")
+        await ui.say()
+        await ui.narrate(f"You key in {digits.assemble(game)}. The lock gives.")
         return True
 
-    ui.say()
-    ui.say(door.locked_text)
-    ui.say(digits.summary(game))
+    await ui.say()
+    await ui.say(door.locked_text)
+    await ui.say(digits.summary(game))
     return False
 
 
-def do_backpack(game: Game) -> None:
+async def do_backpack(game: Game) -> None:
     """List what the player carries, and let them look at any of it.
 
     The backpack is not listed among its own contents.
     """
     carried = [item for item in game.carrying if item.key != narrator.BACKPACK]
     if not carried:
-        ui.new_page()
+        await ui.new_page()
         with ui.speaking(narrator.BACKPACK, "upset"):
-            ui.narrate('"There is nothing in here but me. Go and find something."')
-        ui.new_page()
+            await ui.narrate('"There is nothing in here but me. Go and find something."')
+        await ui.new_page()
         return
     if digits.carried(game):
-        ui.say()
-        ui.say(digits.summary(game))
-    chosen = ui.choose(
+        await ui.say()
+        await ui.say(digits.summary(game))
+    chosen = await ui.choose(
         "You are carrying:", [item.name for item in carried], back="Close the backpack"
     )
     if chosen is not None:
         # the backpack itself tells you what the thing is, as a short dialogue of its own
-        ui.new_page()
+        await ui.new_page()
         with ui.speaking(narrator.BACKPACK, "speaking"):
-            ui.narrate(carried[chosen].description)
-        ui.new_page()
+            await ui.narrate(carried[chosen].description)
+        await ui.new_page()
 
 
-def do_map(game: Game) -> None:
+async def do_map(game: Game) -> None:
     """Show the plan of the 2nd floor."""
-    ui.say()
-    ui.say(floor_map.render(game))
+    await ui.say()
+    await ui.say(floor_map.render(game))
 
 
 def options_menu(game: Game) -> tuple[MenuItem, ...]:
@@ -188,27 +190,27 @@ def options_menu(game: Game) -> tuple[MenuItem, ...]:
     )
 
 
-def _save_and_continue(game: Game) -> None:
+async def _save_and_continue(game: Game) -> None:
     """Save the current game and leave it for later."""
     game.pause()
-    ui.say()
-    ui.say("Game saved. See you next time!")
+    await ui.say()
+    await ui.say("Game saved. See you next time!")
 
 
-def do_options(game: Game) -> None:
+async def do_options(game: Game) -> None:
     """Offer the things that are not part of the story."""
     menu = options_menu(game)
-    chosen = ui.choose("Options:", [item.label for item in menu], back="Back to the game")
+    chosen = await ui.choose("Options:", [item.label for item in menu], back="Back to the game")
     if chosen is not None:
-        menu[chosen].action(game)
+        await menu[chosen].action(game)
 
 
-def _not_built_yet(what: str, issue: int) -> Callable[[Game], None]:
+def _not_built_yet(what: str, issue: int) -> Callable[[Game], Awaitable[None]]:
     """Return an action that says ``what`` is still somebody's open issue."""
 
-    def action(game: Game) -> None:
-        ui.say()
-        ui.say(f"{what} is not built yet (issue #{issue}).")
+    async def action(game: Game) -> None:
+        await ui.say()
+        await ui.say(f"{what} is not built yet (issue #{issue}).")
 
     return action
 
@@ -218,22 +220,22 @@ def _text_speed_label() -> str:
     return "Type the story out again" if ui.is_instant() else "Show the story instantly"
 
 
-def do_text_speed(game: Game) -> None:
+async def do_text_speed(game: Game) -> None:
     """Turn the typing animation off, or back on (issue #151).
 
     A player on their second or third run has read all of this already. One
     choice here spares them pressing Enter through every room.
     """
     ui.set_instant(not ui.is_instant())
-    ui.say()
-    ui.say(
+    await ui.say()
+    await ui.say(
         "The story will appear instantly from now on."
         if ui.is_instant()
         else "The story will be typed out again."
     )
 
 
-def do_status(game: Game) -> None:
+async def do_status(game: Game) -> None:
     """Show what the player has earned so far (Project Guide 3.1).
 
     Read-only: it looks at ``game`` but never changes it, so it costs nothing
@@ -244,23 +246,23 @@ def do_status(game: Game) -> None:
     played = progress.format_duration(game.time_played())
     digits_had, digits_total = len(digits.carried(game)), len(digits.all_digits())
 
-    ui.say()
-    ui.say(f"{game.name} - {played} played - {percent}% of the floor explored.")
-    ui.say(f"Hearts: {game.hearts}   Digits: {digits_had}/{digits_total}")
+    await ui.say()
+    await ui.say(f"{game.name} - {played} played - {percent}% of the floor explored.")
+    await ui.say(f"Hearts: {game.hearts}   Digits: {digits_had}/{digits_total}")
 
 
-def do_quit(game: Game) -> None:
+async def do_quit(game: Game) -> None:
     """Stop playing after confirming with the player."""
-    if confirm_quit():
-        game.quit()
+    if await confirm_quit():
+        await game.quit()
 
 
-def confirm_quit() -> bool:
+async def confirm_quit() -> bool:
     """Ask the player whether they really want to quit, and return their answer.
 
     Used by Options -> Quit and by typing ``quit`` at any prompt (US2).
     """
-    chosen = ui.choose(
+    chosen = await ui.choose(
         "Are you sure you want to quit? Any progress from this run will be lost.",
         ["Quit the game", "Keep playing"],
     )
@@ -298,21 +300,21 @@ def build_menu(game: Game) -> tuple[MenuItem, ...]:
     return tuple(items)
 
 
-def _offer_interactions(game: Game) -> None:
+async def _offer_interactions(game: Game) -> None:
     """Offer everything in this room worth touching, until the player is done."""
     while game.running and not game.hearts.is_empty:
         actions = _interactions(game)
         if not actions:
             return
 
-        ui.pause(0.4)
-        chosen = ui.choose(
+        await ui.pause(0.4)
+        chosen = await ui.choose(
             "What do you do?", [action.label for action in actions], back="Nothing, for now"
         )
         if chosen is None:
             return
         picked = actions[chosen]
-        picked.action(game)
+        await picked.action(game)
         if picked.ends_interaction or not game.running or game.hearts.is_empty:
             return
 
@@ -339,54 +341,54 @@ def _interactions(game: Game) -> tuple[MenuItem, ...]:
     return tuple(actions)
 
 
-def _inspect(name: str) -> Callable[[Game], None]:
+def _inspect(name: str) -> Callable[[Game], Awaitable[None]]:
     """Return an action that reads out the object called ``name``."""
 
-    def action(game: Game) -> None:
+    async def action(game: Game) -> None:
         for thing in game.room.inspectables:
             if thing.name == name:
-                ui.say()
-                ui.narrate(thing.text)
+                await ui.say()
+                await ui.narrate(thing.text)
                 ui.keep_up()  # something the player chose to look at stays until they go on
                 if thing.shows_map:
-                    ui.show_map()
+                    await ui.show_map()
                 return
 
     return action
 
 
-def _take(key: str) -> Callable[[Game], None]:
+def _take(key: str) -> Callable[[Game], Awaitable[None]]:
     """Return an action that picks up the item called ``key``."""
 
-    def action(game: Game) -> None:
-        ui.new_page()  # picking something up is a moment of its own
-        ui.narrate(f"You take the {get_item(key).name}.")
-        game.take(key)  # the backpack may have something to say about it
-        ui.new_page()
+    async def action(game: Game) -> None:
+        await ui.new_page()  # picking something up is a moment of its own
+        await ui.narrate(f"You take the {get_item(key).name}.")
+        await game.take(key)  # the backpack may have something to say about it
+        await ui.new_page()
 
     return action
 
 
-def _fight(room: Room) -> Callable[[Game], None]:
+def _fight(room: Room) -> Callable[[Game], Awaitable[None]]:
     """Return an action that starts ``room``'s boss encounter."""
 
-    def action(game: Game) -> None:
-        _run_fight(game, room, None)
+    async def action(game: Game) -> None:
+        await _run_fight(game, room, None)
 
     return action
 
 
-def back_into_the_fight(game: Game) -> None:
+async def back_into_the_fight(game: Game) -> None:
     """Carry on the fight a game was saved in the middle of, at the question it was on."""
-    _run_fight(game, game.room, game.in_question)
+    await _run_fight(game, game.room, game.in_question)
 
 
-def _run_fight(game: Game, room: Room, from_question: int | None) -> None:
+async def _run_fight(game: Game, room: Room, from_question: int | None) -> None:
     """Run ``room``'s boss encounter, and remember it as resolved if it is."""
     if room.boss is None:
         game.in_question = None  # nobody here to fight any more (an old save, a changed room)
         return
-    won = encounters.run(game, room.boss, from_question)
+    won = await encounters.run(game, room.boss, from_question)
     if won or room.boss.single_attempt:
         game.defeated.add(room.key)
 

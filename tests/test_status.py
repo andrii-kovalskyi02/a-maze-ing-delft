@@ -10,6 +10,7 @@ heart.
 
 from __future__ import annotations
 
+import asyncio
 import time
 
 import commands
@@ -23,7 +24,7 @@ from inventory import ITEM_CATALOGUE
 def start() -> Game:
     """Return a game that has been walked into, ready for a turn."""
     game = Game()
-    game.enter()
+    asyncio.run(game.enter())
     return game
 
 
@@ -60,7 +61,7 @@ def test_status_shows_name_time_and_percentage(console, monkeypatch) -> None:
     game.visited.update(plain_rooms)
     expected_percent = round(2 / len(world.all_rooms()) * 100)
 
-    do_status(game)
+    asyncio.run(do_status(game))
 
     assert "krug" in console.output
     assert "02:05 played" in console.output
@@ -73,7 +74,7 @@ def test_status_counts_time_from_earlier_sessions(console, monkeypatch) -> None:
     game.started_at = 0.0
     monkeypatch.setattr(time, "monotonic", lambda: 65.0)  # 1:05 this session
 
-    do_status(game)
+    asyncio.run(do_status(game))
 
     assert "11:05 played" in console.output
 
@@ -84,14 +85,14 @@ def test_a_boss_room_only_counts_once_the_boss_is_resolved(console) -> None:
 
     peeked = Game()
     peeked.visited.add(boss_room)  # stood at the door, never fought
-    do_status(peeked)
+    asyncio.run(do_status(peeked))
     percent_after_peeking = _percent_in(console.output)
 
     console.lines.clear()
     resolved = Game()
     resolved.visited.add(boss_room)
     resolved.defeated.add(boss_room)  # fought it - won, or lost to a single_attempt boss
-    do_status(resolved)
+    asyncio.run(do_status(resolved))
     percent_after_resolving = _percent_in(console.output)
 
     assert percent_after_resolving > percent_after_peeking
@@ -111,7 +112,7 @@ def test_percentage_counts_skeleton_rooms_too(console) -> None:
     game = Game()
     game.visited.update(["classroom_2035"])
 
-    do_status(game)
+    asyncio.run(do_status(game))
 
     # A skeleton room like the lobby still counts in the denominator, so
     # visiting one room out of everything registered is well under 100%.
@@ -124,7 +125,7 @@ def test_status_shows_hearts_and_digits_collected(console) -> None:
     digit_keys = [key for key in ITEM_CATALOGUE if key.startswith("digit_")]
     game.carrying.add(digit_keys[0])
 
-    do_status(game)
+    asyncio.run(do_status(game))
 
     assert f"hearts: {game.hearts}" in console.output
     assert f"digits: 1/{len(digit_keys)}" in console.output
@@ -133,7 +134,7 @@ def test_status_shows_hearts_and_digits_collected(console) -> None:
 def test_status_is_reachable_from_options_on_any_turn(console) -> None:
     game = start()
     console.script(option(game, "Options"), option_from(game, "Status"), "0")
-    game.turn()
+    asyncio.run(game.turn())
     assert "explored" in console.output
 
 
@@ -151,7 +152,7 @@ def test_status_does_not_cost_a_turn_or_a_heart(console) -> None:
     room_before = game.current
 
     console.script(option(game, "Options"), option_from(game, "Status"), "0")
-    game.turn()
+    asyncio.run(game.turn())
 
     assert game.hearts == hearts_before
     assert game.current == room_before
@@ -171,7 +172,7 @@ def test_percentage_is_zero_when_no_rooms_are_visited(console) -> None:
     """US4.2: no visited rooms means 0% completion."""
     game = Game()
 
-    do_status(game)
+    asyncio.run(do_status(game))
 
     assert "0% of the floor explored" in console.output
 
@@ -185,6 +186,6 @@ def test_percentage_is_100_when_all_rooms_are_completed(console) -> None:
         if room.boss is not None:
             game.defeated.add(room.key)
 
-    do_status(game)
+    asyncio.run(do_status(game))
 
     assert "100% of the floor explored" in console.output

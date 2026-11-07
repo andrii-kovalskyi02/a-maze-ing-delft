@@ -6,7 +6,7 @@ happens. Every type here is a frozen dataclass, so a room cannot be changed once
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING
@@ -280,7 +280,7 @@ class Room:
         inspectables: Details the player can ``inspect`` here.
         items: The keys of items lying in this room, ready to be picked up.
         boss: The challenge guarding this room, if any.
-        on_first_enter: An optional function run once, the first time the
+        on_first_enter: An optional ``async`` function run once, the first time the
             player enters.  Use it only when plain data is not enough.
         approach_reward: The key of an item handed over the first time the
             player walks up to this room's door, whether or not it opens.
@@ -305,7 +305,7 @@ class Room:
     inspectables: tuple[Inspectable, ...] = ()
     items: tuple[str, ...] = ()
     boss: Boss | None = None
-    on_first_enter: Callable[[Game], None] | None = None
+    on_first_enter: Callable[[Game], Awaitable[None]] | None = None
     approach_reward: str | None = None
     approach_reward_text: Text | None = None
     is_exit: bool = False

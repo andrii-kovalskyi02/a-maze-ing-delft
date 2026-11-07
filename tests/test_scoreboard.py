@@ -6,6 +6,7 @@ These tests are about when the board is shown, and what finishing puts on it.
 
 from __future__ import annotations
 
+import asyncio
 import time
 
 import persistence
@@ -15,7 +16,7 @@ from leaderboard import scoreboard
 
 
 def test_an_empty_scoreboard_says_so(console) -> None:
-    scoreboard.show()
+    asyncio.run(scoreboard.show())
     assert "nobody is on the leaderboard yet" in console.output
 
 
@@ -25,7 +26,7 @@ def test_walking_out_of_the_building_puts_the_run_on_the_scoreboard(console, mon
     game.started_at = 0.0
     monkeypatch.setattr(time, "monotonic", lambda: 65.0)  # and 1:05 in this one
 
-    game.finish()
+    asyncio.run(game.finish())
 
     assert persistence.top_scores() == [("Krug", 0, 125.0)]
     assert "1. krug - 0% - 02:05" in console.output
@@ -35,6 +36,6 @@ def test_a_finished_game_can_no_longer_be_resumed(console) -> None:
     game = Game(player_name="Krug")
     persistence.save_game(game)
 
-    game.finish()
+    asyncio.run(game.finish())
 
     assert persistence.load_game("Krug") is None

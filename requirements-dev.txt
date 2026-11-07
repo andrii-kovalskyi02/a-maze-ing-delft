@@ -4,3 +4,4 @@
 #   pip install -r requirements-dev.txt
 pytest>=8.0
 ruff>=0.6
+pygbag==0.9.3  # builds the web version (python web/build.py)

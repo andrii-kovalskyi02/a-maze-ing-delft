@@ -7,11 +7,9 @@ file, or no audio device, the game just stays quiet.
 from __future__ import annotations
 
 import array
-import io
 import math
 import os
 import time
-import wave
 
 import pygame
 
@@ -20,11 +18,11 @@ from pygame_ui import assets
 
 # one-off sounds for moments in the game, played where ui.cue(name) is called: the file, and how
 # loud it is (0 to 1). "combat" is heard as a boss's questions begin
-CUE_SOUNDS = {"combat": ("combat_start.wav", 0.32), "victory": ("boss_defeated.wav", 0.32)}
+CUE_SOUNDS = {"combat": ("combat_start.ogg", 0.32), "victory": ("boss_defeated.ogg", 0.32)}
 
 # the small tick heard when the highlight moves from one choice to the next, in any menu, and the
 # volumes the player can pick for it in the pause menu (it starts on Low)
-MOVE_SOUND_FILE = "ui_move.wav"
+MOVE_SOUND_FILE = "ui_move.ogg"
 MOVE_SOUND_LEVELS = (("Off", 0.0), ("Low", 0.2), ("Normal", 0.3))
 MOVE_SOUND_START = 1
 
@@ -32,10 +30,10 @@ MOVE_SOUND_START = 1
 # letter: it plays on its own channel, never over itself, and never closer together than GAP
 # seconds. The backpack has its own sound; bosses share a tougher one, and the narrator a very
 # soft one. Both are matched in loudness to the backpack's, whatever their files
-TYPE_SOUND_FILE = "type_blip.wav"
-TYPE_SOUND_BOSS_FILE = "type_blip_boss.wav"
+TYPE_SOUND_FILE = "type_blip.ogg"
+TYPE_SOUND_BOSS_FILE = "type_blip_boss.ogg"
 TYPE_SOUND_BOSS_ATTACK = 0.016
-TYPE_SOUND_NARRATOR_FILE = "type_blip_narrator.wav"
+TYPE_SOUND_NARRATOR_FILE = "type_blip_narrator.ogg"
 TYPE_SOUND_NARRATOR_SOFTNESS = 0.5  # this much of the backpack's loudness
 TYPE_SOUND_GAP = 0.108  # seconds between blips at the normal pace
 TYPE_SOUND_ATTACK = 0.04  # seconds each blip takes to swell up to full volume: longer is softer
@@ -62,58 +60,61 @@ def load_cue_sounds() -> dict[str, pygame.mixer.Sound | None]:
     return {name: load_sound(file, volume) for name, (file, volume) in CUE_SOUNDS.items()}
 
 
-def wave_loudness(path: str, attack_seconds: float = TYPE_SOUND_ATTACK) -> float:
-    """The average loudness (RMS, 0 to 1) of a .wav file as it is played (with its soft start).
+def _decoded(path: str) -> tuple[array.array, int, int] | None:
+    """The samples of a sound file as the mixer plays them, its rate and its channel count.
+
+    Read through the mixer, so any file it can play (.ogg, .ogg) works. None if the file can't be
+    read, there is no sound on this computer, or the mixer does not use 16-bit samples.
+    """
+    try:
+        if not pygame.mixer.get_init():
+            pygame.mixer.init()
+        rate, size, channels = pygame.mixer.get_init()
+        raw = pygame.mixer.Sound(path).get_raw()
+    except (pygame.error, FileNotFoundError, TypeError):
+        return None
+    if abs(size) != 16:
+        return None
+    samples = array.array("h")
+    samples.frombytes(raw[: len(raw) // 2 * 2])
+    return samples, rate, channels
+
+
+def loudness(path: str, attack_seconds: float = TYPE_SOUND_ATTACK) -> float:
+    """The average loudness (RMS, 0 to 1) of a sound file as it is played (with its soft start).
 
     0 if the file can't be read.
     """
-    try:
-        with wave.open(path) as handle:
-            width = handle.getsampwidth()
-            rate = handle.getframerate()
-            raw = handle.readframes(handle.getnframes())
-    except (OSError, wave.Error, EOFError):
+    decoded = _decoded(path)
+    if decoded is None or not decoded[0]:
         return 0.0
-    if width == 1:
-        values = [(byte - 128) / 128 for byte in raw]
-    elif width == 2:
-        samples = array.array("h")
-        samples.frombytes(raw[: len(raw) // 2 * 2])
-        values = [sample / 32768 for sample in samples]
-    else:
-        return 0.0
+    samples, rate, channels = decoded
     attack = max(1, int(rate * attack_seconds))
-    values = [v * min(1.0, i / attack) ** 2 for i, v in enumerate(values)]
-    return math.sqrt(sum(v * v for v in values) / len(values)) if values else 0.0
+    total = 0.0
+    for index, sample in enumerate(samples):
+        value = sample / 32768 * min(1.0, index // channels / attack) ** 2
+        total += value * value
+    return math.sqrt(total / len(samples))
 
 
 def shape_sound(
     path: str, seconds: float | None, attack_seconds: float = TYPE_SOUND_ATTACK
 ) -> pygame.mixer.Sound | None:
-    """A .wav sound with a soft start, cut to ``seconds`` if given.
+    """A sound with a soft start, cut to ``seconds`` if given.
 
     A sound that is cut short is also faded out over its last part, so it does not click.
     """
-    try:
-        with wave.open(path) as handle:
-            params = handle.getparams()
-            raw = handle.readframes(handle.getnframes())
-    except (OSError, wave.Error, EOFError):
+    decoded = _decoded(path)
+    if decoded is None:
         return None
-    width, channels = params.sampwidth, params.nchannels
-    if width not in (1, 2):
-        return None
-    frames = params.nframes
+    samples, rate, channels = decoded
+    frames = len(samples) // channels
     fade = 0
-    if seconds is not None and int(params.framerate * seconds) < frames:
-        frames = int(params.framerate * seconds)
+    if seconds is not None and int(rate * seconds) < frames:
+        frames = int(rate * seconds)
         fade = max(1, int(frames * 0.35))
-    attack = min(frames, max(1, int(params.framerate * attack_seconds)))
-    if width == 1:
-        samples = [byte - 128 for byte in raw[: frames * channels]]
-    else:
-        samples = array.array("h")
-        samples.frombytes(raw[: frames * channels * 2])
+        samples = samples[: frames * channels]
+    attack = min(frames, max(1, int(rate * attack_seconds)))
     for frame in range(frames):
         gain = 1.0
         if frame < attack:
@@ -124,16 +125,8 @@ def shape_sound(
             continue
         for channel in range(channels):
             samples[frame * channels + channel] = int(samples[frame * channels + channel] * gain)
-    data = bytes(sample + 128 for sample in samples) if width == 1 else samples.tobytes()
-    buffer = io.BytesIO()
-    with wave.open(buffer, "wb") as out:
-        out.setnchannels(channels)
-        out.setsampwidth(width)
-        out.setframerate(params.framerate)
-        out.writeframes(data)
-    buffer.seek(0)
     try:
-        return pygame.mixer.Sound(file=buffer)
+        return pygame.mixer.Sound(buffer=samples.tobytes())
     except pygame.error:
         return None
 
@@ -155,8 +148,8 @@ def load_type_sound(
         return None
     volume = TYPE_SOUND_VOLUME
     if like is not None:
-        own = wave_loudness(path, attack)
-        wanted = wave_loudness(assets.path(like))
+        own = loudness(path, attack)
+        wanted = loudness(assets.path(like))
         if own > 0 and wanted > 0:
             volume = min(1.0, TYPE_SOUND_VOLUME * softness * wanted / own)
     try:

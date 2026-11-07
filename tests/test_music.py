@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 
 import pytest
@@ -203,7 +204,7 @@ def test_the_combat_cue_comes_after_the_intro_and_before_the_questions(console) 
     try:
         console.script("1", "1", "1", "1", "1", "1", "1", "1")  # answers, right or wrong
         with contextlib.suppress(health.OutOfHearts, EOFError):  # wrong ones are asked again
-            encounters.run(game, boss)
+            asyncio.run(encounters.run(game, boss))
     finally:
         ui.set_cue_handler(None)
     combat = [entry for entry in order if entry.startswith("cue:combat")]
@@ -231,7 +232,7 @@ def test_boss_music_starts_with_the_encounter_and_stops_when_it_ends(console) ->
     try:
         console.script("1", "1", "1", "1", "1", "1", "1", "1")
         with contextlib.suppress(health.OutOfHearts, EOFError):  # wrong ones are asked again
-            encounters.run(game, boss)
+            asyncio.run(encounters.run(game, boss))
     finally:
         ui.set_cue_handler(None)
     names = [entry.split("@")[0] for entry in heard]
@@ -253,7 +254,9 @@ def test_boss_music_stops_even_if_the_encounter_is_cut_short(console) -> None:
     ui.set_cue_handler(heard.append)
     try:
         with contextlib.suppress(EOFError):
-            encounters.run(game, boss)  # no answers at all: the game stops waiting for one
+            asyncio.run(
+                encounters.run(game, boss)
+            )  # no answers at all: the game stops waiting for one
     finally:
         ui.set_cue_handler(None)
     assert heard[0] == "boss_music_on" and heard[-1] == "boss_music_off"
@@ -356,7 +359,7 @@ def test_winning_plays_the_victory_jingle_just_before_the_win_text(console) -> N
     ui.set_cue_handler(lambda name: heard.append(f"{name}@{len(console.lines)}"))
     try:
         console.script("yes")
-        assert encounters.run(game, _one_question_boss("yes"))
+        assert asyncio.run(encounters.run(game, _one_question_boss("yes")))
     finally:
         ui.set_cue_handler(None)
     names = [entry.split("@")[0] for entry in heard]
@@ -377,7 +380,7 @@ def test_losing_does_not_play_the_victory_jingle(console) -> None:
     try:
         console.script("no")
         with pytest.raises(health.OutOfHearts):  # the one heart left goes on the wrong answer
-            encounters.run(game, _one_question_boss("yes"))
+            asyncio.run(encounters.run(game, _one_question_boss("yes")))
     finally:
         ui.set_cue_handler(None)
     assert "victory" not in heard

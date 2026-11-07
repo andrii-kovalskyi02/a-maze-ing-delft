@@ -2,30 +2,32 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import ui
 from models import plain
 
 
 def test_a_single_string_is_shown_without_pausing(console) -> None:
-    ui.narrate("Hello there.")
+    asyncio.run(ui.narrate("Hello there."))
     assert console.lines == ["Hello there."]
     assert console.pauses == []
 
 
 def test_parts_are_separated_by_the_default_pause(console) -> None:
-    ui.narrate(("First.", "Second."))
+    asyncio.run(ui.narrate(("First.", "Second.")))
     assert console.lines == ["First.", "Second."]
     assert console.pauses == [ui.PART_DELAY]
 
 
 def test_a_number_is_a_pause_of_that_many_seconds(console) -> None:
-    ui.narrate(("The ghost looks up.", 1.5, "'Let's begin.'"))
+    asyncio.run(ui.narrate(("The ghost looks up.", 1.5, "'Let's begin.'")))
     assert console.lines == ["The ghost looks up.", "'Let's begin.'"]
     assert console.pauses == [1.5]
 
 
 def test_long_parts_are_still_wrapped(console) -> None:
-    ui.narrate(("word " * 40,))
+    asyncio.run(ui.narrate(("word " * 40,)))
     screen_lines = console.output.split("\n")
     assert len(screen_lines) > 1
     assert all(len(line) <= ui.WIDTH for line in screen_lines)
@@ -41,7 +43,7 @@ def test_a_flowing_window_adds_no_pause_between_lines(console) -> None:
     ui.set_flowing(True)
     try:
         console.pauses.clear()
-        ui.narrate(("One.", 1.5, "Two.", "Three."))
+        asyncio.run(ui.narrate(("One.", 1.5, "Two.", "Three.")))
     finally:
         ui.set_flowing(False)
     assert 1.5 not in console.pauses
@@ -50,7 +52,7 @@ def test_a_flowing_window_adds_no_pause_between_lines(console) -> None:
 
 def test_without_a_flowing_window_the_pauses_stay(console) -> None:
     console.pauses.clear()
-    ui.narrate(("One.", 1.5, "Two.", "Three."))
+    asyncio.run(ui.narrate(("One.", 1.5, "Two.", "Three.")))
     assert 1.5 in console.pauses
     assert ui.PART_DELAY in console.pauses
 
@@ -59,7 +61,7 @@ def test_a_flowing_window_does_not_wait_before_a_menu(console) -> None:
     ui.set_flowing(True)
     try:
         console.pauses.clear()
-        ui.pause(0.4)
+        asyncio.run(ui.pause(0.4))
     finally:
         ui.set_flowing(False)
     assert console.pauses == []
@@ -67,7 +69,7 @@ def test_a_flowing_window_does_not_wait_before_a_menu(console) -> None:
 
 def test_a_terminal_still_waits_before_a_menu(console) -> None:
     console.pauses.clear()
-    ui.pause(0.4)
+    asyncio.run(ui.pause(0.4))
     assert console.pauses == [0.4]
 
 
@@ -132,11 +134,11 @@ def test_the_backpack_always_talks_at_the_same_pace_whatever_its_mood(console) -
 
 
 def test_the_drawn_map_is_shown_only_where_there_is_one(console) -> None:
-    ui.show_map()  # a plain terminal has no map to show: nothing happens
+    asyncio.run(ui.show_map())  # a plain terminal has no map to show: nothing happens
     shown = []
     ui.set_map_handler(lambda: shown.append(True))
     try:
-        ui.show_map()
+        asyncio.run(ui.show_map())
     finally:
         ui.set_map_handler(None)
     assert shown == [True]

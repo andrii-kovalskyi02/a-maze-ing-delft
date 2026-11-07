@@ -40,7 +40,7 @@ TOO_SLOW = "Too slow."
 TRY_AGAIN = "Not quite. Try that one again."
 
 
-def run(game: Game, boss: Boss, from_question: int | None = None) -> bool:
+async def run(game: Game, boss: Boss, from_question: int | None = None) -> bool:
     """Play out ``boss``'s challenge.
 
     A wrong answer does not end the fight: it costs a heart and the same question is asked
@@ -60,22 +60,22 @@ def run(game: Game, boss: Boss, from_question: int | None = None) -> bool:
     """
     ui.cue("boss_music_on")  # the boss music starts as you get closer
     try:
-        return _play(game, boss, from_question)
+        return await _play(game, boss, from_question)
     finally:
         game.in_question = None  # however it ended, no question is being asked any more
         ui.cue("boss_music_off")  # and stops when the encounter is over, however it ended
 
 
-def _play(game: Game, boss: Boss, from_question: int | None) -> bool:
+async def _play(game: Game, boss: Boss, from_question: int | None) -> bool:
     """The encounter itself, from the boss's intro to its win or lose text."""
-    ui.say()
+    await ui.say()
     if from_question is None:
-        _tell(boss, boss.intro, "speaking")
+        await _tell(boss, boss.intro, "speaking")
     else:
-        ui.narrate(f"You are back in front of {boss.name}, right where you left off.")
+        await ui.narrate(f"You are back in front of {boss.name}, right where you left off.")
     ui.cue("combat")  # the questions are about to begin
-    ui.say()
-    ui.say(f"Hearts: {game.hearts}")
+    await ui.say()
+    await ui.say(f"Hearts: {game.hearts}")
 
     for number, question in enumerate(boss.questions):
         if from_question is not None and number < from_question:
@@ -83,31 +83,31 @@ def _play(game: Game, boss: Boss, from_question: int | None) -> bool:
         game.in_question = number
         # A wrong answer costs a heart and the same question comes back, until it is answered
         # right or the last heart goes (health.OutOfHearts ends the fight there and then).
-        while not _ask_question(number + 1, len(boss.questions), question):
+        while not await _ask_question(number + 1, len(boss.questions), question):
             if boss.single_attempt:
                 # the story's own loss (US1c): there is no second go at this one
-                ui.say()
-                _tell(boss, boss.lose_text, "smiling")
-                _hand_over_the_losing_items(game, boss)
+                await ui.say()
+                await _tell(boss, boss.lose_text, "smiling")
+                await _hand_over_the_losing_items(game, boss)
                 return False
-            _hurt(game, boss)
-            ui.say()
-            ui.say(TRY_AGAIN)
+            await _hurt(game, boss)
+            await ui.say()
+            await ui.say(TRY_AGAIN)
 
-    _heal(game, boss)
+    await _heal(game, boss)
     ui.cue("victory")  # every question answered: a happy little jingle
-    ui.say()
-    _tell(boss, boss.win_text, "upset")
+    await ui.say()
+    await _tell(boss, boss.win_text, "upset")
     if boss.reward is not None:
         item = game.carrying.add(boss.reward)
-        ui.new_page()  # picking something up is a moment of its own
-        ui.narrate(f"You are now carrying the {item.name}.")
-        ui.new_page()
-    narrator.remark(game, "boss_won", who=boss.name)
+        await ui.new_page()  # picking something up is a moment of its own
+        await ui.narrate(f"You are now carrying the {item.name}.")
+        await ui.new_page()
+    await narrator.remark(game, "boss_won", who=boss.name)
     return True
 
 
-def _tell(boss: Boss, text: Text, mood: str) -> None:
+async def _tell(boss: Boss, text: Text, mood: str) -> None:
     """Tell a boss's text: its own words in its voice (with its face), the rest as narration.
 
     Only the parts marked with ``says(...)`` are the boss speaking. Everything else is typed
@@ -128,9 +128,9 @@ def _tell(boss: Boss, text: Text, mood: str) -> None:
     for spoken, parts in runs:
         if spoken and boss.speaker is not None:
             with ui.speaking(boss.speaker, _mood(boss, mood)):
-                ui.narrate(tuple(parts))
+                await ui.narrate(tuple(parts))
         else:
-            ui.narrate(tuple(parts))
+            await ui.narrate(tuple(parts))
 
 
 def _mood(boss: Boss, mood: str) -> str:
@@ -138,7 +138,7 @@ def _mood(boss: Boss, mood: str) -> str:
     return mood if boss.speaker == narrator.BACKPACK else "speaking"
 
 
-def _ask_question(number: int, total: int, question: Question) -> bool:
+async def _ask_question(number: int, total: int, question: Question) -> bool:
     """Ask one question and return whether the player got it right in time."""
     header = f"Question {number} of {total}: {question.prompt}"
     seconds = question.seconds
@@ -148,22 +148,22 @@ def _ask_question(number: int, total: int, question: Question) -> bool:
     started = ui.now()
     try:
         if question.choices:
-            chosen = ui.choose(header, question.choices, timeout=seconds)
+            chosen = await ui.choose(header, question.choices, timeout=seconds)
             given = question.choices[chosen]
         else:
-            ui.say()
-            ui.say(header)
-            ui.say("Answer in your own words.")
-            given = ui.ask(timeout=seconds)
+            await ui.say()
+            await ui.say(header)
+            await ui.say("Answer in your own words.")
+            given = await ui.ask(timeout=seconds)
     except ui.TimedOut:
         # The clock ran out while the player was still thinking or typing.
-        ui.say()
-        ui.say(TOO_SLOW)
+        await ui.say()
+        await ui.say(TOO_SLOW)
         return False
 
     if _ran_out_of_time(seconds, ui.now() - started):
-        ui.say()
-        ui.say(TOO_SLOW)
+        await ui.say()
+        await ui.say(TOO_SLOW)
         return False
     return question.is_correct(given)
 
@@ -179,31 +179,31 @@ def _ran_out_of_time(seconds: float | None, taken: float) -> bool:
     return seconds is not None and taken > seconds
 
 
-def _hurt(game: Game, boss: Boss) -> None:
+async def _hurt(game: Game, boss: Boss) -> None:
     """Take a heart off the player for getting it wrong, if this fight costs any."""
     if boss.single_attempt:
         # A fight the story means the player to lose. Losing it is not a
         # mistake, so it does not cost a heart - see US1c.
         return
     game.hearts = game.hearts.lose(_stake(boss))
-    ui.say()
-    ui.say(f"Hearts: {game.hearts}")
+    await ui.say()
+    await ui.say(f"Hearts: {game.hearts}")
     if game.hearts.is_empty:
         # The battle is lost: the boss has its say, then the run goes back to the last save -
         # see health.OutOfHearts (#217).
-        ui.say()
-        _tell(boss, boss.lose_text, "smiling")
+        await ui.say()
+        await _tell(boss, boss.lose_text, "smiling")
         raise health.OutOfHearts
-    narrator.remark(game, "hurt", who=boss.name)
+    await narrator.remark(game, "hurt", who=boss.name)
 
 
-def _heal(game: Game, boss: Boss) -> None:
+async def _heal(game: Game, boss: Boss) -> None:
     """Give the player back what beating this was worth, up to three hearts."""
     before = game.hearts
     game.hearts = game.hearts.gain(_stake(boss))
     if game.hearts != before:
-        ui.say()
-        ui.say(f"Hearts: {game.hearts}")
+        await ui.say()
+        await ui.say(f"Hearts: {game.hearts}")
 
 
 def _stake(boss: Boss) -> int:
@@ -211,26 +211,26 @@ def _stake(boss: Boss) -> int:
     return health.SIDE_QUEST if boss.side_quest else health.BOSS
 
 
-def _hand_over_the_losing_items(game: Game, boss: Boss) -> None:
+async def _hand_over_the_losing_items(game: Game, boss: Boss) -> None:
     """Give the player whatever losing to this boss saddles them with (US1c)."""
     if boss.lose_reward is None:
-        narrator.remark(game, "boss_lost", who=boss.name)
+        await narrator.remark(game, "boss_lost", who=boss.name)
         return
 
     item = game.carrying.add(boss.lose_reward)
-    ui.new_page()  # picking something up is a moment of its own
-    ui.narrate(f"You are now carrying the {item.name}.")
-    ui.new_page()
+    await ui.new_page()  # picking something up is a moment of its own
+    await ui.narrate(f"You are now carrying the {item.name}.")
+    await ui.new_page()
     if boss.lose_reward_text is not None:
-        ui.say()
-        _tell(boss, boss.lose_reward_text, "smiling")
+        await ui.say()
+        await _tell(boss, boss.lose_reward_text, "smiling")
         if boss.lose_reward_2 is not None:
             second_item = game.carrying.add(boss.lose_reward_2)
-            ui.new_page()
-            ui.narrate(f"You are now carrying the {second_item.name}.")
-            ui.new_page()
+            await ui.new_page()
+            await ui.narrate(f"You are now carrying the {second_item.name}.")
+            await ui.new_page()
     if not _handed_over_the_backpack(boss):
-        narrator.remark(game, "boss_lost", who=boss.name)
+        await narrator.remark(game, "boss_lost", who=boss.name)
 
 
 def _handed_over_the_backpack(boss: Boss) -> bool:

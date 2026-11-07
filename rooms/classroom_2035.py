@@ -19,17 +19,17 @@ if TYPE_CHECKING:  # pragma: no cover - import only needed for type checking
     from game import Game
 
 
-def wake_up(game: Game) -> None:
+async def wake_up(game: Game) -> None:
     """Run the wake-up sequence, once, the first time the player arrives.
 
     It explains why the player is asleep in an empty, silent building, and tells them how the
     game is played.
     """
-    ui.say()
-    ui.narrate("Your cheek is stuck to the desk. The whole building is far too quiet.")
-    ui.narrate("Everyone else is gone. Their chairs are pushed back at odd angles.")
-    ui.narrate("Something about this place makes your skin crawl.")
-    ui.narrate("You want to get out.")
+    await ui.say()
+    await ui.narrate("Your cheek is stuck to the desk. The whole building is far too quiet.")
+    await ui.narrate("Everyone else is gone. Their chairs are pushed back at odd angles.")
+    await ui.narrate("Something about this place makes your skin crawl.")
+    await ui.narrate("You want to get out.")
 
 
 ROOM = Room(

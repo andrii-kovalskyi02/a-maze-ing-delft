@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import narrator
 import ui
 import world
@@ -19,7 +21,7 @@ def test_speaking_says_who_starts_and_stops(console) -> None:
     seen = watch()
     try:
         with ui.speaking("backpack", "upset"):
-            ui.narrate("Hello.")
+            asyncio.run(ui.narrate("Hello."))
     finally:
         ui.set_speaker_handler(None)
     assert seen == [("backpack", "upset"), (None, "")]
@@ -30,7 +32,7 @@ def test_nobody_is_announced_when_there_is_no_speaker(console) -> None:
     seen = watch()
     try:
         with ui.speaking(None):
-            ui.narrate("The wind blows.")
+            asyncio.run(ui.narrate("The wind blows."))
     finally:
         ui.set_speaker_handler(None)
     assert seen == []
@@ -52,7 +54,7 @@ def test_the_speaker_is_cleared_even_if_the_text_fails(console) -> None:
 def test_a_terminal_without_a_window_ignores_it(console) -> None:
     ui.set_speaker_handler(None)
     with ui.speaking("backpack", "smiling"):
-        ui.narrate("Fine.")
+        asyncio.run(ui.narrate("Fine."))
     assert "fine." in console.output
 
 
@@ -62,9 +64,11 @@ def test_the_backpack_remarks_carry_their_mood(console) -> None:
     game.carrying.add("backpack")
     seen = watch()
     try:
-        narrator.remark(game, "locked_again")  # speaks every time, and is smug about it
+        asyncio.run(
+            narrator.remark(game, "locked_again")
+        )  # speaks every time, and is smug about it
         for _ in range(3):  # "took" speaks on every third, and complains
-            narrator.remark(game, "took", what="key")
+            asyncio.run(narrator.remark(game, "took", what="key"))
     finally:
         ui.set_speaker_handler(None)
     assert seen == [
@@ -95,7 +99,7 @@ def test_looking_at_something_in_the_backpack_is_the_backpack_speaking(console) 
     seen = watch()
     try:
         console.script("1")  # the blue card: the backpack is not in its own list
-        do_backpack(game)
+        asyncio.run(do_backpack(game))
     finally:
         ui.set_speaker_handler(None)
     assert ("backpack", "speaking") in seen
@@ -110,7 +114,7 @@ def test_the_backpack_greets_a_player_who_comes_back_to_a_save(console) -> None:
     game.resumed = True
     seen = watch()
     try:
-        game.enter()
+        asyncio.run(game.enter())
     finally:
         ui.set_speaker_handler(None)
     out = console.output
@@ -126,16 +130,16 @@ def test_the_greeting_only_comes_once(console) -> None:
     game = Game(current="classroom_2031")
     game.carrying.add("backpack")
     game.resumed = True
-    game.enter()
+    asyncio.run(game.enter())
     console.lines.clear()
-    game.enter()
+    asyncio.run(game.enter())
     assert "right where you left off" not in console.output
 
 
 def test_without_the_backpack_the_room_describes_itself_as_usual(console) -> None:
     game = Game(current="corridor_blue")
     game.resumed = True
-    game.enter()
+    asyncio.run(game.enter())
     assert "right where you left off" not in console.output
     assert "far too many doors" in console.output
 
@@ -152,7 +156,7 @@ def test_resuming_a_saved_game_from_the_start_screen_greets_you(console) -> None
 
     # Kru, first in the "Who is playing?" list, then nobody is at the keyboard
     console.script("1", "secret")
-    main.main()
+    asyncio.run(main.main())
     out = console.output
     assert "welcome back, kru!" in out
     assert "right where you left off... in classroom 2.031." in out
@@ -165,7 +169,7 @@ def test_the_backpack_is_not_listed_in_itself(console) -> None:
     game.carrying.add("backpack")
     game.carrying.add("blue_card")
     console.script("0")
-    do_backpack(game)
+    asyncio.run(do_backpack(game))
     out = console.output
     assert "blue key card" in out
     assert "1) the evil backpack" not in out
@@ -179,7 +183,7 @@ def test_an_empty_backpack_says_so_instead_of_listing_itself(console) -> None:
     game.carrying.add("backpack")
     seen = watch()
     try:
-        do_backpack(game)  # no answer is needed: there is nothing to choose
+        asyncio.run(do_backpack(game))  # no answer is needed: there is nothing to choose
     finally:
         ui.set_speaker_handler(None)
     assert "there is nothing in here but me" in console.output
@@ -205,7 +209,7 @@ def test_only_what_a_boss_says_gets_its_voice_not_the_narration(console) -> None
     )
     seen = watch()
     try:
-        encounters._tell(boss, boss.intro, "speaking")
+        asyncio.run(encounters._tell(boss, boss.intro, "speaking"))
     finally:
         ui.set_speaker_handler(None)
     # the speaker is announced once, for the spoken part only, and cleared straight after
@@ -225,7 +229,7 @@ def test_a_boss_with_no_marked_lines_is_all_narration(console) -> None:
     )
     seen = watch()
     try:
-        encounters._tell(boss, boss.intro, "speaking")
+        asyncio.run(encounters._tell(boss, boss.intro, "speaking"))
     finally:
         ui.set_speaker_handler(None)
     assert seen == []
@@ -235,5 +239,5 @@ def test_says_reads_as_plain_text_for_the_tests_and_the_console(console) -> None
     from models import plain, says
 
     assert plain(("a", says("b", 0.3, "c"), "d")) == "a b c d"
-    ui.narrate(("one", says("two")))
+    asyncio.run(ui.narrate(("one", says("two"))))
     assert "one" in console.output and "two" in console.output
