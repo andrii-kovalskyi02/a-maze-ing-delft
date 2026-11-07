@@ -106,8 +106,9 @@ works in industry.
   technical decisions.
 - **A real backlog.** Every room, feature and piece of technical work was a GitHub issue: user
   stories (`US1a`, `US1b`, ...), tasks under them, and enablers for shared engine work. We planned
-  them on a GitHub project board with one
-  milestone per sprint. That came to more than 170 backlog items over the project.
+  them on a [GitHub project board](https://github.com/users/andrii-kovalskyi02/projects/1) with one
+  milestone per sprint. That came to more than 170 backlog items over the project. The board is
+  public: you can browse the user stories, sprints and labels there yourself.
 - **Pull requests and CI.** All work reached `main` through pull requests from feature branches.
   GitHub Actions ran linting (ruff), formatting checks and the full pytest suite on Python 3.12
   and 3.14 for every pull request.
