@@ -41,6 +41,9 @@ FPS = 60
 # the background music: the intro loop on the first screen (while the name is typed), the
 # exploring loop once the game has started, and the boss loop near a boss
 MUSIC_FILES = {"intro": "music_intro.ogg", "explore": "music_explore.ogg", "boss": "music_boss.ogg"}
+# samples of sound the mixer keeps ready in a browser (about 0.05 seconds): enough to get past a
+# slow frame, short enough that the typing blips still land on their letters
+AUDIO_BUFFER_BROWSER = 2048
 
 # every size on screen is measured against this screen height and scaled to the real one, so the
 # window has the same proportions on every resolution. 900 is what Pygame reports on the machine
@@ -74,6 +77,10 @@ class TerminalWindow:
             import ctypes
 
             ctypes.windll.user32.SetProcessDPIAware()
+        if browser.IN_BROWSER:
+            # a browser plays sound on the same thread that draws, so pygame's small default
+            # buffer runs dry on any slow frame and the music crackles: give it room to spare
+            pygame.mixer.pre_init(44100, -16, 2, AUDIO_BUFFER_BROWSER)
         pygame.init()
         if browser.IN_BROWSER:
             # the canvas, as big as the browser window in its real pixels
