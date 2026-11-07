@@ -75,9 +75,11 @@ class TerminalWindow:
 
             ctypes.windll.user32.SetProcessDPIAware()
         pygame.init()
-        if os.environ.get("AMAZE_WINDOWED") == "1" or browser.IN_BROWSER:
-            # a normal 1280x720 window instead of fullscreen - handy next to an editor, or demos.
-            # In a browser this is the canvas, which the page scales to fit
+        if browser.IN_BROWSER:
+            # the canvas, as big as the browser window in its real pixels
+            self.screen = pygame.display.set_mode(browser.screen_size())
+        elif os.environ.get("AMAZE_WINDOWED") == "1":
+            # a normal 1280x720 window instead of fullscreen - handy next to an editor, or demos
             self.screen = pygame.display.set_mode((1280, 720))
         else:
             # (0, 0) asks for the screen's own size

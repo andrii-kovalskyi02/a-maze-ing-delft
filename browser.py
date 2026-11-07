@@ -70,6 +70,24 @@ async def fetch(method: str, url: str, headers: dict[str, str], body: bytes | No
     return content
 
 
+#: The sharpest the game is drawn in a browser: at most this many pixels high. Higher screens
+#: are drawn at this size and scaled up, so drawing a frame stays quick enough
+MAX_HEIGHT = 1440
+
+
+def screen_size() -> tuple[int, int]:
+    """The browser window's size in real screen pixels, so the game fills it and stays sharp.
+
+    A "retina" screen has two or more real pixels per CSS pixel (``devicePixelRatio``); drawing
+    at the CSS size would leave the page to stretch the picture, which blurs it.
+    """
+    window = _window()
+    ratio = float(window.devicePixelRatio or 1)
+    width, height = float(window.innerWidth) * ratio, float(window.innerHeight) * ratio
+    shrink = min(1.0, MAX_HEIGHT / height)
+    return max(1, round(width * shrink)), max(1, round(height * shrink))
+
+
 def keep_file(path: str) -> None:
     """Copy the file at ``path`` into localStorage, so it is still there next visit."""
     if not IN_BROWSER or not os.path.exists(path):

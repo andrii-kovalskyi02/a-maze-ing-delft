@@ -16,6 +16,9 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 SOURCE = REPO / "build" / "web-src"
+SITE = SOURCE / "build" / "web"  # what pygbag makes, and what gets uploaded
+TEMPLATE = REPO / "web" / "after_hours.tmpl"  # the page around the game, and its loading screen
+PAGE_FONT = REPO / "assets" / "AmazeHand-Regular.ttf"  # the loading screen's font
 # what the browser needs: the game's code and its assets, not the tests or the tools
 FOLDERS = ("assets", "leaderboard", "pygame_ui", "rooms")
 
@@ -41,8 +44,18 @@ def copy_game() -> None:
 def main() -> None:
     """Copy the game and run pygbag on it."""
     copy_game()
+    SITE.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(PAGE_FONT, SITE / PAGE_FONT.name)
     serve = "--serve" in sys.argv
-    command = [sys.executable, "-m", "pygbag", "--title", "After Hours"]
+    command = [
+        sys.executable,
+        "-m",
+        "pygbag",
+        "--title",
+        "After Hours",
+        "--template",
+        str(TEMPLATE),
+    ]
     command += [] if serve else ["--build"]
     subprocess.run([*command, str(SOURCE)], check=True)
 
