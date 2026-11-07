@@ -5,8 +5,8 @@ Read this once before your first pull request. It is short on purpose.
 ## Setting up (once)
 
 ```bash
-git clone https://github.com/andrii-kovalskyi02/a-maze-ing-delft.git
-cd a-maze-ing-delft
+git clone https://github.com/andrii-kovalskyi02/after-hours.git
+cd after-hours
 python3 -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt

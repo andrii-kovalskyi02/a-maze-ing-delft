@@ -6,7 +6,7 @@
 A story-driven adventure game set on the 2nd floor of THUAS Delft, built in Python by a team of
 six students for the Applied Computer Science Q1 project.
 
-**[Play it in your browser](https://andrii-kovalskyi02.github.io/a-maze-ing-delft/)**
+**[Play it in your browser](https://andrii-kovalskyi02.github.io/after-hours/)**
 
 ## The game
 
@@ -33,8 +33,8 @@ Evil Backpack attaches itself to you, becomes your inventory, and comments on ev
 You need **Python 3.12 or newer**. The terminal version uses only the standard library.
 
 ```bash
-git clone https://github.com/andrii-kovalskyi02/a-maze-ing-delft.git
-cd a-maze-ing-delft
+git clone https://github.com/andrii-kovalskyi02/after-hours.git
+cd after-hours
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
@@ -106,7 +106,7 @@ works in industry.
   technical decisions.
 - **A real backlog.** Every room, feature and piece of technical work was a GitHub issue: user
   stories (`US1a`, `US1b`, ...), tasks under them, and enablers for shared engine work. We planned
-  them on a [project board](https://github.com/users/andrii-kovalskyi02/projects/1) with one
+  them on a GitHub project board with one
   milestone per sprint. That came to more than 170 backlog items over the project.
 - **Pull requests and CI.** All work reached `main` through pull requests from feature branches.
   GitHub Actions ran linting (ruff), formatting checks and the full pytest suite on Python 3.12
