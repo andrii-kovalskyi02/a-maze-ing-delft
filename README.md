@@ -1,7 +1,7 @@
 # After Hours
 
 > 🏆 **1st place, Best Project** out of 16 project groups that built the same game.
-> Every group's students, our professors and other university staff voted.
+> Every group, our professors, and other university staff voted.
 
 A story-driven adventure game set on the 2nd floor of THUAS Delft, built in Python by a team of
 six students for the Applied Computer Science Q1 project.
