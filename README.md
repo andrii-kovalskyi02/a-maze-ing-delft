@@ -6,6 +6,8 @@
 A story-driven adventure game set on the 2nd floor of THUAS Delft, built in Python by a team of
 six students for the Applied Computer Science Q1 project.
 
+**[Play it in your browser](https://andrii-kovalskyi02.github.io/a-maze-ing-delft/)**
+
 ## The game
 
 You wake up with your cheek stuck to a desk in classroom 2.035. It is late, the building is far too
